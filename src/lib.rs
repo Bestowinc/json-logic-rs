@@ -20,6 +20,51 @@ fn to_string(value: &Value) -> String {
     }
 }
 
+
+fn to_primitive_number(value: &Value) -> Option<f64> {
+    match value {
+        Value::Object(_) => None,
+        Value::Array(val) => { if val.len() == 0 { Some(0.0) } else { None } },
+        Value::Bool(val) => { if *val { Some(1.0) } else { Some(0.0) } },
+        Value::Null => Some(0.0),
+        Value::Number(val) => val.as_f64(),
+        Value::String(_) => None,  // already a primitive
+    }
+}
+
+
+fn str_to_number<S: AsRef<str>>(string: S) -> Option<f64> {
+    let s = string.as_ref();
+    if s == "" { Some(0.0) } else { f64::from_str(s).ok() }
+}
+
+enum Primitive {
+    String(String),
+    Number(f64),
+}
+
+
+enum PrimitiveHint {
+    String,
+    Number,
+    Default,
+}
+
+
+fn to_primitive(value: &Value, hint: PrimitiveHint) -> Primitive {
+    match hint {
+        PrimitiveHint::String => {
+            Primitive::String(to_string(value))
+        },
+        _ => {
+            to_primitive_number(value)
+            .map(Primitive::Number)
+            .unwrap_or(Primitive::String(to_string(value)))
+        }
+    }
+}
+
+
 /// Compare values in the JavaScript `==` style
 ///
 /// Implements the Abstract Equality Comparison algorithm (`==` in JS)
@@ -139,10 +184,7 @@ pub fn abstract_eq(first: &Value, second: &Value) -> bool {
         //    the comparison x == ToNumber(y).
         (Value::Number(x), Value::String(y)) => {
             // the empty string is 0
-            let y_res = match y.as_str() {
-                "" => Ok(0.0),
-                _ => f64::from_str(&y),
-            };
+            let y_res = str_to_number(y);
             y_res
                 .map(|y_number| {
                     x.as_f64()
@@ -154,10 +196,7 @@ pub fn abstract_eq(first: &Value, second: &Value) -> bool {
         // 5. If Type(x) is String and Type(y) is Number, return the result
         //    of the comparison ToNumber(x) == y.
         (Value::String(x), Value::Number(y)) => {
-            let x_res = match x.as_str() {
-                "" => Ok(0.0),
-                _ => f64::from_str(&x),
-            };
+            let x_res = str_to_number(x);
             x_res
                 .map(|x_number| {
                     y.as_f64()
@@ -234,6 +273,70 @@ pub fn strict_eq(first: &Value, second: &Value) -> bool {
             .unwrap_or(false),
         (Value::String(x), Value::String(y)) => x == y,
         _ => false,
+    }
+}
+
+/// Perform JS-style abstract less-than
+///
+///
+/// ```rust
+/// use serde_json::json;
+/// use jsonlogic::abstract_lt;
+///
+/// assert_eq!(abstract_lt(&json!(0), &json!(1)), true);
+/// assert_eq!(abstract_lt(&json!(0), &json!("1")), true);
+/// assert_eq!(abstract_lt(&json!(0), &json!("a")), false);
+/// ```
+///
+/// ```rust
+/// use serde_json::json;
+/// use jsonlogic::abstract_lt;
+///
+/// assert_eq!(abstract_lt(&json!("foo"), &json!("foos")), true);
+/// assert_eq!(abstract_lt(&json!(""), &json!("a")), true);
+/// assert_eq!(abstract_lt(&json!(""), &json!([1])), true);
+/// assert_eq!(abstract_lt(&json!(""), &json!("1")), true);
+/// ```
+///
+/// ```rust
+/// use serde_json::json;
+/// use jsonlogic::abstract_lt;
+///
+/// assert_eq!(abstract_lt(&json!(false), &json!(true)), true);
+/// assert_eq!(abstract_lt(&json!(false), &json!(1)), true);
+/// assert_eq!(abstract_lt(&json!(false), &json!("1")), true);
+/// assert_eq!(abstract_lt(&json!(false), &json!([1])), true);
+/// ```
+///
+/// ```rust
+/// use serde_json::json;
+/// use jsonlogic::abstract_lt;
+///
+/// assert_eq!(abstract_lt(&json!(null), &json!(1)), true);
+/// assert_eq!(abstract_lt(&json!(null), &json!(true)), true);
+/// assert_eq!(abstract_lt(&json!(null), &json!("1")), true);
+/// assert_eq!(abstract_lt(&json!(null), &json!("")), false);
+/// assert_eq!(abstract_lt(&json!(null), &json!("a")), false);
+/// ```
+///
+/// ```rust
+/// use serde_json::json;
+/// use jsonlogic::abstract_lt;
+///
+/// assert_eq!(abstract_lt(&json!([]), &json!([1])), true);
+/// assert_eq!(abstract_lt(&json!([]), &json!([])), false);
+/// assert_eq!(abstract_lt(&json!([]), &json!([1,2])), false);
+/// ```
+pub fn abstract_lt(first: &Value, second: &Value) -> bool {
+    match (to_primitive(first, PrimitiveHint::Number), to_primitive(second, PrimitiveHint::Number)) {
+        (Primitive::String(f), Primitive::String(s)) => { f < s },
+        (Primitive::Number(f), Primitive::Number(s)) => { f < s },
+        (Primitive::String(f), Primitive::Number(s)) => {
+            if let Some(f) = str_to_number(f) { f < s } else { false }
+        },
+        (Primitive::Number(f), Primitive::String(s)) => {
+            if let Some(s) = str_to_number(s) { f < s } else { false }
+        }
     }
 }
 
