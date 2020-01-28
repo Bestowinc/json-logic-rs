@@ -24,22 +24,36 @@ fn to_string(value: &Value) -> String {
     }
 }
 
-
 fn to_primitive_number(value: &Value) -> Option<f64> {
     match value {
         Value::Object(_) => None,
-        Value::Array(val) => { if val.len() == 0 { Some(0.0) } else { None } },
-        Value::Bool(val) => { if *val { Some(1.0) } else { Some(0.0) } },
+        Value::Array(val) => {
+            if val.len() == 0 {
+                Some(0.0)
+            } else {
+                None
+            }
+        }
+        Value::Bool(val) => {
+            if *val {
+                Some(1.0)
+            } else {
+                Some(0.0)
+            }
+        }
         Value::Null => Some(0.0),
         Value::Number(val) => val.as_f64(),
-        Value::String(_) => None,  // already a primitive
+        Value::String(_) => None, // already a primitive
     }
 }
 
-
 fn str_to_number<S: AsRef<str>>(string: S) -> Option<f64> {
     let s = string.as_ref();
-    if s == "" { Some(0.0) } else { f64::from_str(s).ok() }
+    if s == "" {
+        Some(0.0)
+    } else {
+        f64::from_str(s).ok()
+    }
 }
 
 enum Primitive {
@@ -47,27 +61,20 @@ enum Primitive {
     Number(f64),
 }
 
-
 enum PrimitiveHint {
     String,
     Number,
     Default,
 }
 
-
 fn to_primitive(value: &Value, hint: PrimitiveHint) -> Primitive {
     match hint {
-        PrimitiveHint::String => {
-            Primitive::String(to_string(value))
-        },
-        _ => {
-            to_primitive_number(value)
+        PrimitiveHint::String => Primitive::String(to_string(value)),
+        _ => to_primitive_number(value)
             .map(Primitive::Number)
-            .unwrap_or(Primitive::String(to_string(value)))
-        }
+            .unwrap_or(Primitive::String(to_string(value))),
     }
 }
-
 
 /// Compare values in the JavaScript `==` style
 ///
@@ -147,6 +154,7 @@ fn to_primitive(value: &Value, hint: PrimitiveHint) -> Primitive {
 /// );
 /// ```
 pub fn abstract_eq(first: &Value, second: &Value) -> bool {
+    // Follows the ECMA specification 2019:7.2.14 (Abstract Equality Comparison)
     match (first, second) {
         // 1. If Type(x) is the same as Type(y), then
         //   a. If Type(x) is Undefined, return true.
@@ -266,7 +274,7 @@ pub fn abstract_eq(first: &Value, second: &Value) -> bool {
 
 pub fn strict_eq(first: &Value, second: &Value) -> bool {
     if std::ptr::eq(first, second) {
-        return true
+        return true;
     };
     match (first, second) {
         (Value::Null, Value::Null) => true,
@@ -334,18 +342,28 @@ pub fn strict_eq(first: &Value, second: &Value) -> bool {
 /// assert_eq!(abstract_lt(&json!([]), &json!([1,2])), false);
 /// ```
 pub fn abstract_lt(first: &Value, second: &Value) -> bool {
-    match (to_primitive(first, PrimitiveHint::Number), to_primitive(second, PrimitiveHint::Number)) {
-        (Primitive::String(f), Primitive::String(s)) => { f < s },
-        (Primitive::Number(f), Primitive::Number(s)) => { f < s },
+    match (
+        to_primitive(first, PrimitiveHint::Number),
+        to_primitive(second, PrimitiveHint::Number),
+    ) {
+        (Primitive::String(f), Primitive::String(s)) => f < s,
+        (Primitive::Number(f), Primitive::Number(s)) => f < s,
         (Primitive::String(f), Primitive::Number(s)) => {
-            if let Some(f) = str_to_number(f) { f < s } else { false }
-        },
+            if let Some(f) = str_to_number(f) {
+                f < s
+            } else {
+                false
+            }
+        }
         (Primitive::Number(f), Primitive::String(s)) => {
-            if let Some(s) = str_to_number(s) { f < s } else { false }
+            if let Some(s) = str_to_number(s) {
+                f < s
+            } else {
+                false
+            }
         }
     }
 }
-
 
 /// JS-style abstract gt
 ///
@@ -401,25 +419,33 @@ pub fn abstract_lt(first: &Value, second: &Value) -> bool {
 /// assert_eq!(abstract_gt(&json!([]), &json!([1,2])), false);
 /// ```
 pub fn abstract_gt(first: &Value, second: &Value) -> bool {
-    match (to_primitive(first, PrimitiveHint::Number), to_primitive(second, PrimitiveHint::Number)) {
-        (Primitive::String(f), Primitive::String(s)) => { f > s },
-        (Primitive::Number(f), Primitive::Number(s)) => { f > s },
+    match (
+        to_primitive(first, PrimitiveHint::Number),
+        to_primitive(second, PrimitiveHint::Number),
+    ) {
+        (Primitive::String(f), Primitive::String(s)) => f > s,
+        (Primitive::Number(f), Primitive::Number(s)) => f > s,
         (Primitive::String(f), Primitive::Number(s)) => {
-            if let Some(f) = str_to_number(f) { f > s } else { false }
-        },
+            if let Some(f) = str_to_number(f) {
+                f > s
+            } else {
+                false
+            }
+        }
         (Primitive::Number(f), Primitive::String(s)) => {
-            if let Some(s) = str_to_number(s) { f > s } else { false }
+            if let Some(s) = str_to_number(s) {
+                f > s
+            } else {
+                false
+            }
         }
     }
 }
-
-
 
 /// Abstract inequality
 pub fn abstract_ne(first: &Value, second: &Value) -> bool {
     !abstract_eq(first, second)
 }
-
 
 #[cfg(test)]
 mod test_abstract_inequality {
@@ -459,12 +485,64 @@ mod test_abstract_inequality {
     }
 }
 
-
 #[cfg(test)]
 mod tests {
 
     use super::*;
     use serde_json::json;
+
+    fn equal_values() -> Vec<(Value, Value)> {
+        vec![
+            (json!(null), json!(null)),
+            (json!(1), json!(1)),
+            (json!(1), json!(1.0)),
+            (json!(1.0), json!(1)),
+            (json!(0), json!(-0)),
+            (json!(-0), json!(0)),
+            (json!("foo"), json!("foo")),
+            (json!(""), json!("")),
+            (json!(true), json!(true)),
+            (json!(false), json!(false)),
+            (json!(1), json!("1")),
+            (json!(1), json!("1.0")),
+            (json!(1.0), json!("1.0")),
+            (json!(1.0), json!("1")),
+            (json!(0), json!("")),
+            (json!(0), json!("0")),
+            (json!(0), json!("-0")),
+            (json!(0), json!("+0")),
+            (json!(-1), json!("-1")),
+            (json!(-1.0), json!("-1")),
+            (json!(true), json!(1)),
+            (json!(true), json!("1")),
+            (json!(true), json!("1.0")),
+            (json!(true), json!([1])),
+            (json!(true), json!(["1"])),
+            (json!(false), json!(0)),
+            (json!(false), json!([])),
+            (json!(false), json!([0])),
+            (json!(false), json!("")),
+            (json!(false), json!("0")),
+            (json!("[object Object]"), json!({})),
+            (json!("[object Object]"), json!({"a": "a"})),
+            (json!(""), json!([])),
+            (json!(""), json!([null])),
+            (json!(","), json!([null, null])),
+            (json!("1,2"), json!([1, 2])),
+            (json!("a,b"), json!(["a", "b"])),
+            (json!(0), json!([])),
+            (json!(false), json!([])),
+            (json!(true), json!([1])),
+            (json!([]), json!("")),
+            (json!([null]), json!("")),
+            (json!([null, null]), json!(",")),
+            (json!([1, 2]), json!("1,2")),
+            (json!(["a", "b"]), json!("a,b")),
+            (json!([]), json!(0)),
+            (json!([]), json!(false)),
+            (json!([1]), json!(true)),
+        ]
+    }
 
     #[test]
     fn test_to_string_obj() {
@@ -500,6 +578,22 @@ mod tests {
         assert_eq!(&to_string(&json!(1.0)), "1");
         assert_eq!(&to_string(&json!(1)), "1");
     }
+
+    #[test]
+    fn test_abstract_eq() {
+        equal_values().iter().for_each(|(first, second)| {
+            println!("{:?}-{:?}", &first, &second);
+            assert!(abstract_eq(&first, &second), true);
+        })
+    }
+
+    #[test]
+    fn test_abstract_ne() {
+        equal_values().iter().for_each(|(first, second)| {
+            println!("{:?}-{:?}", &first, &second);
+            assert_eq!(abstract_ne(&first, &second), false);
+        })
+    }
 }
 
 #[cfg(test)]
@@ -509,30 +603,9 @@ mod test_abstract_eq {
     use serde_json::json;
 
     #[test]
-    fn test_nulls_eq() {
-        assert!(abstract_eq(&json!(null), &json!(null)));
-    }
-
-    #[test]
-    fn test_numbers_eq() {
-        assert!(abstract_eq(&json!(1), &json!(1)));
-        assert!(abstract_eq(&json!(1), &json!(1.0)));
-        assert!(abstract_eq(&json!(1.0), &json!(1)));
-        assert!(abstract_eq(&json!(1.0), &json!(1.0)));
-        assert!(abstract_eq(&json!(0), &json!(-0)));
-        assert!(abstract_eq(&json!(-0), &json!(0)));
-    }
-
-    #[test]
     fn test_numbers_integers_ne() {
         assert!(!abstract_eq(&json!(0), &json!(1)));
         assert!(!abstract_eq(&json!(1.000001), &json!(1)));
-    }
-
-    #[test]
-    fn test_strings_eq() {
-        assert!(abstract_eq(&json!("foo"), &json!("foo")));
-        assert!(abstract_eq(&json!(""), &json!("")));
     }
 
     #[test]
@@ -542,30 +615,9 @@ mod test_abstract_eq {
     }
 
     #[test]
-    fn test_bools_eq() {
-        assert!(abstract_eq(&json!(true), &json!(true)));
-        assert!(abstract_eq(&json!(false), &json!(false)));
-    }
-
-    #[test]
     fn test_bools_ne() {
         assert!(!abstract_eq(&json!(true), &json!(false)));
         assert!(!abstract_eq(&json!(false), &json!(true)));
-    }
-
-    #[test]
-    /// Now we get into the fun JS
-    fn test_number_string_eq() {
-        assert!(abstract_eq(&json!(1), &json!("1")));
-        assert!(abstract_eq(&json!(1), &json!("1.0")));
-        assert!(abstract_eq(&json!(1.0), &json!("1.0")));
-        assert!(abstract_eq(&json!(1.0), &json!("1")));
-        assert!(abstract_eq(&json!(0), &json!("")));
-        assert!(abstract_eq(&json!(0), &json!("0")));
-        assert!(abstract_eq(&json!(0), &json!("-0")));
-        assert!(abstract_eq(&json!(0), &json!("+0")));
-        assert!(abstract_eq(&json!(-1), &json!("-1")));
-        assert!(abstract_eq(&json!(-1.0), &json!("-1")));
     }
 
     #[test]
@@ -577,39 +629,11 @@ mod test_abstract_eq {
     }
 
     #[test]
-    fn test_string_number_eq() {
-        assert!(abstract_eq(&json!("1"), &json!(1)));
-        assert!(abstract_eq(&json!("1.0"), &json!(1)));
-        assert!(abstract_eq(&json!("1.0"), &json!(1.0)));
-        assert!(abstract_eq(&json!("1"), &json!(1.0)));
-        assert!(abstract_eq(&json!(""), &json!(0)));
-        assert!(abstract_eq(&json!("0"), &json!(0)));
-        assert!(abstract_eq(&json!("-0"), &json!(0)));
-        assert!(abstract_eq(&json!("+0"), &json!(0)));
-        assert!(abstract_eq(&json!("-1"), &json!(-1)));
-        assert!(abstract_eq(&json!("-1"), &json!(-1.0)));
-    }
-
-    #[test]
     fn test_string_number_ne() {
         assert!(!abstract_eq(&json!("1"), &json!(0)));
         assert!(!abstract_eq(&json!(""), &json!(1)));
         assert!(!abstract_eq(&json!("1.001"), &json!(1)));
         assert!(!abstract_eq(&json!("2"), &json!(1.0)));
-    }
-
-    #[test]
-    fn test_bool_other_eq() {
-        assert!(abstract_eq(&json!(true), &json!(1)));
-        assert!(abstract_eq(&json!(true), &json!("1")));
-        assert!(abstract_eq(&json!(true), &json!("1.0")));
-        assert!(abstract_eq(&json!(true), &json!([1])));
-        assert!(abstract_eq(&json!(true), &json!(["1"])));
-        assert!(abstract_eq(&json!(false), &json!(0)));
-        assert!(abstract_eq(&json!(false), &json!([])));
-        assert!(abstract_eq(&json!(false), &json!([0])));
-        assert!(abstract_eq(&json!(false), &json!("")));
-        assert!(abstract_eq(&json!(false), &json!("0")));
     }
 
     #[test]
@@ -620,12 +644,6 @@ mod test_abstract_eq {
         assert!(!abstract_eq(&json!(false), &json!({})));
         assert!(!abstract_eq(&json!(false), &json!(null)));
         assert!(!abstract_eq(&json!(false), &json!([0, 1])));
-    }
-
-    #[test]
-    fn test_other_object_eq() {
-        assert!(abstract_eq(&json!("[object Object]"), &json!({})));
-        assert!(abstract_eq(&json!("[object Object]"), &json!({"a": "a"})));
     }
 
     #[test]
@@ -641,12 +659,6 @@ mod test_abstract_eq {
     }
 
     #[test]
-    fn test_object_other_eq() {
-        assert!(abstract_eq(&json!({}), &json!("[object Object]")));
-        assert!(abstract_eq(&json!({"a": "a"}), &json!("[object Object]")));
-    }
-
-    #[test]
     fn test_object_other_ne() {
         assert!(!abstract_eq(&json!({}), &json!("")));
         assert!(!abstract_eq(&json!({}), &json!(0)));
@@ -659,34 +671,10 @@ mod test_abstract_eq {
     }
 
     #[test]
-    fn test_other_array_eq() {
-        assert!(abstract_eq(&json!(""), &json!([])));
-        assert!(abstract_eq(&json!(""), &json!([null])));
-        assert!(abstract_eq(&json!(","), &json!([null, null])));
-        assert!(abstract_eq(&json!("1,2"), &json!([1, 2])));
-        assert!(abstract_eq(&json!("a,b"), &json!(["a", "b"])));
-        assert!(abstract_eq(&json!(0), &json!([])));
-        assert!(abstract_eq(&json!(false), &json!([])));
-        assert!(abstract_eq(&json!(true), &json!([1])));
-    }
-
-    #[test]
     fn test_other_array_ne() {
         assert!(!abstract_eq(&json!(null), &json!([])));
         assert!(!abstract_eq(&json!([]), &json!([])));
         assert!(!abstract_eq(&json!({}), &json!([])));
-    }
-
-    #[test]
-    fn test_array_other_eq() {
-        assert!(abstract_eq(&json!([]), &json!("")));
-        assert!(abstract_eq(&json!([null]), &json!("")));
-        assert!(abstract_eq(&json!([null, null]), &json!(",")));
-        assert!(abstract_eq(&json!([1, 2]), &json!("1,2")));
-        assert!(abstract_eq(&json!(["a", "b"]), &json!("a,b")));
-        assert!(abstract_eq(&json!([]), &json!(0)));
-        assert!(abstract_eq(&json!([]), &json!(false)));
-        assert!(abstract_eq(&json!([1]), &json!(true)));
     }
 
     #[test]
