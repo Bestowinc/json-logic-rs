@@ -283,6 +283,8 @@ pub fn strict_eq(first: &Value, second: &Value) -> bool {
 /// use serde_json::json;
 /// use jsonlogic::abstract_lt;
 ///
+/// assert_eq!(abstract_lt(&json!(-1), &json!(0)), true);
+/// assert_eq!(abstract_lt(&json!("-1"), &json!(0)), true);
 /// assert_eq!(abstract_lt(&json!(0), &json!(1)), true);
 /// assert_eq!(abstract_lt(&json!(0), &json!("1")), true);
 /// assert_eq!(abstract_lt(&json!(0), &json!("a")), false);
@@ -336,6 +338,73 @@ pub fn abstract_lt(first: &Value, second: &Value) -> bool {
         },
         (Primitive::Number(f), Primitive::String(s)) => {
             if let Some(s) = str_to_number(s) { f < s } else { false }
+        }
+    }
+}
+
+
+/// JS-style abstract gt
+///
+/// ```rust
+/// use serde_json::json;
+/// use jsonlogic::abstract_gt;
+///
+/// assert_eq!(abstract_gt(&json!(-1), &json!(0)), false);
+/// assert_eq!(abstract_gt(&json!("-1"), &json!(0)), false);
+/// assert_eq!(abstract_gt(&json!(0), &json!(1)), false);
+/// assert_eq!(abstract_gt(&json!(0), &json!("1")), false);
+/// // Neither gt nor lt, this one
+/// assert_eq!(abstract_gt(&json!(0), &json!("a")), false);
+/// ```
+///
+/// ```rust
+/// use serde_json::json;
+/// use jsonlogic::abstract_gt;
+///
+/// assert_eq!(abstract_gt(&json!("foo"), &json!("foos")), false);
+/// assert_eq!(abstract_gt(&json!(""), &json!("a")), false);
+/// assert_eq!(abstract_gt(&json!(""), &json!([1])), false);
+/// assert_eq!(abstract_gt(&json!(""), &json!("1")), false);
+/// ```
+///
+/// ```rust
+/// use serde_json::json;
+/// use jsonlogic::abstract_gt;
+///
+/// assert_eq!(abstract_gt(&json!(false), &json!(true)), false);
+/// assert_eq!(abstract_gt(&json!(false), &json!(1)), false);
+/// assert_eq!(abstract_gt(&json!(false), &json!("1")), false);
+/// assert_eq!(abstract_gt(&json!(false), &json!([1])), false);
+/// ```
+///
+/// ```rust
+/// use serde_json::json;
+/// use jsonlogic::abstract_gt;
+///
+/// assert_eq!(abstract_gt(&json!(null), &json!(1)), false);
+/// assert_eq!(abstract_gt(&json!(null), &json!(true)), false);
+/// assert_eq!(abstract_gt(&json!(null), &json!("1")), false);
+/// assert_eq!(abstract_gt(&json!(null), &json!("")), false);
+/// assert_eq!(abstract_gt(&json!(null), &json!("a")), false);
+/// ```
+///
+/// ```rust
+/// use serde_json::json;
+/// use jsonlogic::abstract_gt;
+///
+/// assert_eq!(abstract_gt(&json!([]), &json!([1])), false);
+/// assert_eq!(abstract_gt(&json!([]), &json!([])), false);
+/// assert_eq!(abstract_gt(&json!([]), &json!([1,2])), false);
+/// ```
+pub fn abstract_gt(first: &Value, second: &Value) -> bool {
+    match (to_primitive(first, PrimitiveHint::Number), to_primitive(second, PrimitiveHint::Number)) {
+        (Primitive::String(f), Primitive::String(s)) => { f > s },
+        (Primitive::Number(f), Primitive::Number(s)) => { f > s },
+        (Primitive::String(f), Primitive::Number(s)) => {
+            if let Some(f) = str_to_number(f) { f > s } else { false }
+        },
+        (Primitive::Number(f), Primitive::String(s)) => {
+            if let Some(s) = str_to_number(s) { f > s } else { false }
         }
     }
 }
