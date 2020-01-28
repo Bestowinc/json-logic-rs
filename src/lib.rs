@@ -2,6 +2,10 @@ use serde_json::{Number, Value};
 use std::f64;
 use std::str::FromStr;
 
+// TODOS:
+// - there are too many tests in docstrings
+// - the docstrings are too sarcastic about JS equality
+
 fn to_string(value: &Value) -> String {
     match value {
         Value::Object(_) => String::from("[object Object]"),
@@ -408,6 +412,53 @@ pub fn abstract_gt(first: &Value, second: &Value) -> bool {
         }
     }
 }
+
+
+
+/// Abstract inequality
+pub fn abstract_ne(first: &Value, second: &Value) -> bool {
+    !abstract_eq(first, second)
+}
+
+
+#[cfg(test)]
+mod test_abstract_inequality {
+    use super::*;
+    use serde_json::json;
+
+    #[test]
+    fn test_objects_unequal() {
+        assert_eq!(abstract_ne(&json!([]), &json!([])), true);
+        assert_eq!(abstract_ne(&json!([1]), &json!([1])), true);
+        assert_eq!(abstract_ne(&json!([1, 2]), &json!([1, 2])), true);
+        assert_eq!(abstract_ne(&json!({}), &json!({})), true);
+        assert_eq!(abstract_ne(&json!({"a": 1}), &json!({"a": 1})), true);
+        assert_eq!(abstract_ne(&json!({}), &json!([])), true);
+    }
+
+    #[test]
+    fn test_inequality_same_type() {
+        assert_eq!(abstract_ne(&json!(0), &json!(1)), true);
+        assert_eq!(abstract_ne(&json!("a"), &json!("b")), true);
+        assert_eq!(abstract_ne(&json!(true), &json!(false)), true);
+        assert_eq!(abstract_ne(&json!(1.0), &json!(1.1)), true);
+    }
+
+    #[test]
+    fn test_cross_type_inequality() {
+        assert_eq!(abstract_ne(&json!(null), &json!(0)), true);
+        assert_eq!(abstract_ne(&json!(null), &json!("")), true);
+        assert_eq!(abstract_ne(&json!(null), &json!(false)), true);
+        assert_eq!(abstract_ne(&json!(null), &json!(true)), true);
+        assert_eq!(abstract_ne(&json!(""), &json!(0)), false);
+        assert_eq!(abstract_ne(&json!(""), &json!(false)), false);
+        assert_eq!(abstract_ne(&json!(""), &json!(0.0)), false);
+        assert_eq!(abstract_ne(&json!(0), &json!(false)), false);
+        assert_eq!(abstract_ne(&json!([]), &json!("")), false);
+        assert_eq!(abstract_ne(&json!({}), &json!("[object Object]")), false);
+    }
+}
+
 
 #[cfg(test)]
 mod tests {
