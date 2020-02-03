@@ -408,6 +408,49 @@ pub fn abstract_gte(first: &Value, second: &Value) -> bool {
     abstract_gt(first, second) || abstract_eq(first, second)
 }
 
+/// Return whether a value is "truthy" by the JSONLogic spec
+///
+/// The spec (http://jsonlogic.com/truthy) defines truthy values that
+/// diverge slightly from raw JavaScript. This ensures a matching
+/// interpretation.
+///
+/// In general, the spec specifies that values are truthy or falsey
+/// depending on their containing something, e.g. non-zero integers,
+/// non-zero length strings, and non-zero length arrays are truthy.
+/// This does not apply to objects, which are always truthy.
+///
+///
+/// ```rust
+/// use serde_json::json;
+/// use jsonlogic::truthy;
+///
+/// let trues = [
+///     json!(true), json!([1]), json!([1,2]), json!({}), json!({"a": 1}),
+///     json!(1), json!(-1), json!("foo")
+/// ];
+///
+/// let falses = [
+///     json!(false), json!([]), json!(""), json!(0), json!(null)
+/// ];
+///
+/// trues.iter().for_each(|v| assert!(truthy(&v)));
+/// falses.iter().for_each(|v| assert!(!truthy(&v)));
+/// ```
+pub fn truthy(val: &Value) -> bool {
+    match val {
+        Value::Null => false,
+        Value::Bool(v) => *v,
+        Value::Number(v) => {
+            v.as_f64().map(
+                |v_num| if v_num == 0.0 { false } else { true }
+            ).unwrap_or(false)
+        }
+        Value::String(v) => if v == "" { false } else { true },
+        Value::Array(v) => if v.len() == 0 { false } else { true },
+        Value::Object(_) => true,
+    }
+}
+
 
 // =====================================================================
 // Tests
