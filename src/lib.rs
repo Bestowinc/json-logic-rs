@@ -394,6 +394,11 @@ pub fn abstract_ne(first: &Value, second: &Value) -> bool {
     !abstract_eq(first, second)
 }
 
+/// Provide abstract <= comparisons
+pub fn abstract_lte(first: &Value, second: &Value) -> bool {
+    abstract_lt(first, second) || abstract_eq(first, second)
+}
+
 
 // =====================================================================
 // Tests
@@ -684,6 +689,30 @@ mod abstract_operations {
             assert_eq!(abstract_lt(&first, &second), false);
             assert_eq!(abstract_gt(&first, &second), false);
             assert_eq!(abstract_eq(&first, &second), false);
+        })
+    }
+
+    #[test]
+    fn test_lt_values_are_lte() {
+        lt_values().iter().for_each(|(first, second)| {
+            println!("{:?}-{:?}", &first, &second);
+            assert_eq!(abstract_lte(&first, &second), true);
+        })
+    }
+
+    #[test]
+    fn test_eq_values_are_lte() {
+        equal_values().iter().for_each(|(first, second)| {
+            println!("{:?}-{:?}", &first, &second);
+            assert_eq!(abstract_lte(&first, &second), true);
+        })
+    }
+
+    #[test]
+    fn test_gt_values_are_not_lte() {
+        gt_values().iter().for_each(|(first, second)| {
+            println!("{:?}-{:?}", &first, &second);
+            assert_eq!(abstract_lte(&first, &second), false);
         })
     }
 }
