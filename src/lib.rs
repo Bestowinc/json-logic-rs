@@ -24,16 +24,16 @@ fn to_string(value: &Value) -> String {
     }
 }
 
+/// Implement something like OrdinaryToPrimitive() with a Number hint.
+///
+/// If it's possible to return a numeric primitive, returns Some<f64>.
+/// Otherwise, return None.
 fn to_primitive_number(value: &Value) -> Option<f64> {
     match value {
+        // .valueOf() returns the object itself, which is not a primitive
         Value::Object(_) => None,
-        Value::Array(val) => {
-            if val.len() == 0 {
-                Some(0.0)
-            } else {
-                None
-            }
-        }
+        // .valueOf() returns the array itself
+        Value::Array(_) => None,
         Value::Bool(val) => {
             if *val {
                 Some(1.0)
@@ -272,6 +272,35 @@ pub fn abstract_eq(first: &Value, second: &Value) -> bool {
     }
 }
 
+/// Perform JS-style strict equality
+///
+/// Items are strictly equal if:
+/// - They are the same non-primitive object
+/// - They are a primitive object of the same type with the same value
+///
+/// ```rust
+/// use serde_json::json;
+/// use jsonlogic::strict_eq;
+///
+/// // References of the same type and value are strictly equal
+/// assert!(strict_eq(&json!(1), &json!(1)));
+/// assert!(strict_eq(&json!(false), &json!(false)));
+/// assert!(strict_eq(&json!("foo"), &json!("foo")));
+///
+/// // "Abstract" type conversion is not performed for strict equality
+/// assert!(!strict_eq(&json!(0), &json!(false)));
+/// assert!(!strict_eq(&json!(""), &json!(0)));
+///
+/// // Objects only compare equal if they are the same reference
+/// assert!(!strict_eq(&json!([]), &json!([])));
+/// assert!(!strict_eq(&json!({}), &json!({})));
+///
+/// let arr = json!([]);
+/// let obj = json!({});
+/// assert!(strict_eq(&arr, &arr));
+/// assert!(strict_eq(&obj, &obj));
+/// ```
+///
 pub fn strict_eq(first: &Value, second: &Value) -> bool {
     if std::ptr::eq(first, second) {
         return true;
@@ -300,46 +329,6 @@ pub fn strict_eq(first: &Value, second: &Value) -> bool {
 /// assert_eq!(abstract_lt(&json!(0), &json!(1)), true);
 /// assert_eq!(abstract_lt(&json!(0), &json!("1")), true);
 /// assert_eq!(abstract_lt(&json!(0), &json!("a")), false);
-/// ```
-///
-/// ```rust
-/// use serde_json::json;
-/// use jsonlogic::abstract_lt;
-///
-/// assert_eq!(abstract_lt(&json!("foo"), &json!("foos")), true);
-/// assert_eq!(abstract_lt(&json!(""), &json!("a")), true);
-/// assert_eq!(abstract_lt(&json!(""), &json!([1])), true);
-/// assert_eq!(abstract_lt(&json!(""), &json!("1")), true);
-/// ```
-///
-/// ```rust
-/// use serde_json::json;
-/// use jsonlogic::abstract_lt;
-///
-/// assert_eq!(abstract_lt(&json!(false), &json!(true)), true);
-/// assert_eq!(abstract_lt(&json!(false), &json!(1)), true);
-/// assert_eq!(abstract_lt(&json!(false), &json!("1")), true);
-/// assert_eq!(abstract_lt(&json!(false), &json!([1])), true);
-/// ```
-///
-/// ```rust
-/// use serde_json::json;
-/// use jsonlogic::abstract_lt;
-///
-/// assert_eq!(abstract_lt(&json!(null), &json!(1)), true);
-/// assert_eq!(abstract_lt(&json!(null), &json!(true)), true);
-/// assert_eq!(abstract_lt(&json!(null), &json!("1")), true);
-/// assert_eq!(abstract_lt(&json!(null), &json!("")), false);
-/// assert_eq!(abstract_lt(&json!(null), &json!("a")), false);
-/// ```
-///
-/// ```rust
-/// use serde_json::json;
-/// use jsonlogic::abstract_lt;
-///
-/// assert_eq!(abstract_lt(&json!([]), &json!([1])), true);
-/// assert_eq!(abstract_lt(&json!([]), &json!([])), false);
-/// assert_eq!(abstract_lt(&json!([]), &json!([1,2])), false);
 /// ```
 pub fn abstract_lt(first: &Value, second: &Value) -> bool {
     match (
@@ -371,52 +360,10 @@ pub fn abstract_lt(first: &Value, second: &Value) -> bool {
 /// use serde_json::json;
 /// use jsonlogic::abstract_gt;
 ///
-/// assert_eq!(abstract_gt(&json!(-1), &json!(0)), false);
-/// assert_eq!(abstract_gt(&json!("-1"), &json!(0)), false);
-/// assert_eq!(abstract_gt(&json!(0), &json!(1)), false);
-/// assert_eq!(abstract_gt(&json!(0), &json!("1")), false);
-/// // Neither gt nor lt, this one
-/// assert_eq!(abstract_gt(&json!(0), &json!("a")), false);
-/// ```
-///
-/// ```rust
-/// use serde_json::json;
-/// use jsonlogic::abstract_gt;
-///
-/// assert_eq!(abstract_gt(&json!("foo"), &json!("foos")), false);
-/// assert_eq!(abstract_gt(&json!(""), &json!("a")), false);
-/// assert_eq!(abstract_gt(&json!(""), &json!([1])), false);
-/// assert_eq!(abstract_gt(&json!(""), &json!("1")), false);
-/// ```
-///
-/// ```rust
-/// use serde_json::json;
-/// use jsonlogic::abstract_gt;
-///
-/// assert_eq!(abstract_gt(&json!(false), &json!(true)), false);
-/// assert_eq!(abstract_gt(&json!(false), &json!(1)), false);
-/// assert_eq!(abstract_gt(&json!(false), &json!("1")), false);
-/// assert_eq!(abstract_gt(&json!(false), &json!([1])), false);
-/// ```
-///
-/// ```rust
-/// use serde_json::json;
-/// use jsonlogic::abstract_gt;
-///
-/// assert_eq!(abstract_gt(&json!(null), &json!(1)), false);
-/// assert_eq!(abstract_gt(&json!(null), &json!(true)), false);
-/// assert_eq!(abstract_gt(&json!(null), &json!("1")), false);
-/// assert_eq!(abstract_gt(&json!(null), &json!("")), false);
-/// assert_eq!(abstract_gt(&json!(null), &json!("a")), false);
-/// ```
-///
-/// ```rust
-/// use serde_json::json;
-/// use jsonlogic::abstract_gt;
-///
-/// assert_eq!(abstract_gt(&json!([]), &json!([1])), false);
-/// assert_eq!(abstract_gt(&json!([]), &json!([])), false);
-/// assert_eq!(abstract_gt(&json!([]), &json!([1,2])), false);
+/// assert_eq!(abstract_gt(&json!(0), &json!(-1)), true);
+/// assert_eq!(abstract_gt(&json!(0), &json!("-1")), true);
+/// assert_eq!(abstract_gt(&json!(1), &json!(0)), true);
+/// assert_eq!(abstract_gt(&json!("1"), &json!(0)), true);
 /// ```
 pub fn abstract_gt(first: &Value, second: &Value) -> bool {
     match (
@@ -447,46 +394,14 @@ pub fn abstract_ne(first: &Value, second: &Value) -> bool {
     !abstract_eq(first, second)
 }
 
-#[cfg(test)]
-mod test_abstract_inequality {
-    use super::*;
-    use serde_json::json;
 
-    #[test]
-    fn test_objects_unequal() {
-        assert_eq!(abstract_ne(&json!([]), &json!([])), true);
-        assert_eq!(abstract_ne(&json!([1]), &json!([1])), true);
-        assert_eq!(abstract_ne(&json!([1, 2]), &json!([1, 2])), true);
-        assert_eq!(abstract_ne(&json!({}), &json!({})), true);
-        assert_eq!(abstract_ne(&json!({"a": 1}), &json!({"a": 1})), true);
-        assert_eq!(abstract_ne(&json!({}), &json!([])), true);
-    }
+// =====================================================================
+// Tests
+// =====================================================================
 
-    #[test]
-    fn test_inequality_same_type() {
-        assert_eq!(abstract_ne(&json!(0), &json!(1)), true);
-        assert_eq!(abstract_ne(&json!("a"), &json!("b")), true);
-        assert_eq!(abstract_ne(&json!(true), &json!(false)), true);
-        assert_eq!(abstract_ne(&json!(1.0), &json!(1.1)), true);
-    }
-
-    #[test]
-    fn test_cross_type_inequality() {
-        assert_eq!(abstract_ne(&json!(null), &json!(0)), true);
-        assert_eq!(abstract_ne(&json!(null), &json!("")), true);
-        assert_eq!(abstract_ne(&json!(null), &json!(false)), true);
-        assert_eq!(abstract_ne(&json!(null), &json!(true)), true);
-        assert_eq!(abstract_ne(&json!(""), &json!(0)), false);
-        assert_eq!(abstract_ne(&json!(""), &json!(false)), false);
-        assert_eq!(abstract_ne(&json!(""), &json!(0.0)), false);
-        assert_eq!(abstract_ne(&json!(0), &json!(false)), false);
-        assert_eq!(abstract_ne(&json!([]), &json!("")), false);
-        assert_eq!(abstract_ne(&json!({}), &json!("[object Object]")), false);
-    }
-}
 
 #[cfg(test)]
-mod tests {
+mod abstract_operations {
 
     use super::*;
     use serde_json::json;
@@ -539,8 +454,87 @@ mod tests {
             (json!([1, 2]), json!("1,2")),
             (json!(["a", "b"]), json!("a,b")),
             (json!([]), json!(0)),
+            (json!([0]), json!(0)),
             (json!([]), json!(false)),
+            (json!([0]), json!(false)),
             (json!([1]), json!(true)),
+        ]
+    }
+
+    fn lt_values() -> Vec<(Value, Value)> {
+        vec![
+            (json!(-1), json!(0)),
+            (json!("-1"), json!(0)),
+            (json!(0), json!(1)),
+            (json!(0), json!("1")),
+            (json!("foo"), json!("foos")),
+            (json!(""), json!("a")),
+            (json!(""), json!([1])),
+            (json!(""), json!("1")),
+            (json!(false), json!(true)),
+            (json!(false), json!(1)),
+            (json!(false), json!("1")),
+            (json!(false), json!([1])),
+            (json!(null), json!(1)),
+            (json!(null), json!(true)),
+            (json!(null), json!("1")),
+            (json!([]), json!([1])),
+            (json!([]), json!([1, 2])),
+        ]
+    }
+
+    fn gt_values() -> Vec<(Value, Value)> {
+        vec![
+            (json!(0), json!(-1)),
+            (json!(0), json!("-1")),
+            (json!(1), json!(0)),
+            (json!("1"), json!(0)),
+            (json!("foos"), json!("foo")),
+            (json!("a"), json!("")),
+            (json!([1]), json!("")),
+            (json!("1"), json!("")),
+            (json!("1"), json!("0")),
+            (json!(true), json!(false)),
+            (json!(1), json!(false)),
+            (json!("1"), json!(false)),
+            (json!([1]), json!(false)),
+            (json!(1), json!(null)),
+            (json!(true), json!(null)),
+            (json!("1"), json!(null)),
+            (json!([1]), json!([])),
+            (json!([1, 2]), json!([])),
+        ]
+    }
+
+    fn ne_values() -> Vec<(Value, Value)> {
+        vec![
+            (json!([]), json!([])),
+            (json!([1]), json!([1])),
+            (json!([1, 1]), json!([1, 1])),
+            (json!({}), json!({})),
+            (json!({"a": 1}), json!({"a": 1})),
+            (json!([]), json!({})),
+            (json!(0), json!(1)),
+            (json!("a"), json!("b")),
+            (json!(true), json!(false)),
+            (json!(1.0), json!(1.1)),
+            (json!(null), json!(0)),
+            (json!(null), json!("")),
+            (json!(null), json!(false)),
+            (json!(null), json!(true)),
+        ]
+    }
+
+    /// Values that do not compare true for anything other than ne.
+    fn not_gt_not_lt_not_eq() -> Vec<(Value, Value)> {
+        vec![
+            (json!(null), json!("")),
+            (json!(null), json!("a")),
+            (json!(0), json!("a")),
+            (json!([]), json!([])),
+            (json!([1]), json!([1])),
+            (json!([1, 2]), json!([1, 2])),
+            (json!({}), json!({})),
         ]
     }
 
@@ -589,104 +583,113 @@ mod tests {
 
     #[test]
     fn test_abstract_ne() {
+        ne_values().iter().for_each(|(first, second)| {
+            println!("{:?}-{:?}", &first, &second);
+            assert_eq!(abstract_ne(&first, &second), true);
+        })
+    }
+
+    #[test]
+    fn test_abstract_lt() {
+        lt_values().iter().for_each(|(first, second)| {
+            println!("{:?}-{:?}", &first, &second);
+            assert_eq!(abstract_lt(&first, &second), true);
+        })
+    }
+
+    #[test]
+    fn test_abstract_gt() {
+        gt_values().iter().for_each(|(first, second)| {
+            println!("{:?}-{:?}", &first, &second);
+            assert_eq!(abstract_gt(&first, &second), true);
+        })
+    }
+
+    #[test]
+    fn test_eq_values_are_not_lt() {
+        equal_values().iter().for_each(|(first, second)| {
+            println!("{:?}-{:?}", &first, &second);
+            assert_eq!(abstract_lt(&first, &second), false);
+        })
+    }
+
+    #[test]
+    fn test_eq_values_are_not_gt() {
+        equal_values().iter().for_each(|(first, second)| {
+            println!("{:?}-{:?}", &first, &second);
+            assert_eq!(abstract_gt(&first, &second), false);
+        })
+    }
+
+    #[test]
+    fn test_eq_values_are_not_ne() {
         equal_values().iter().for_each(|(first, second)| {
             println!("{:?}-{:?}", &first, &second);
             assert_eq!(abstract_ne(&first, &second), false);
         })
     }
-}
-
-#[cfg(test)]
-mod test_abstract_eq {
-
-    use super::*;
-    use serde_json::json;
 
     #[test]
-    fn test_numbers_integers_ne() {
-        assert!(!abstract_eq(&json!(0), &json!(1)));
-        assert!(!abstract_eq(&json!(1.000001), &json!(1)));
+    fn test_lt_values_are_not_eq() {
+        lt_values().iter().for_each(|(first, second)| {
+            println!("{:?}-{:?}", &first, &second);
+            assert_eq!(abstract_eq(&first, &second), false);
+        })
     }
 
     #[test]
-    fn test_strings_ne() {
-        assert!(!abstract_eq(&json!("foos"), &json!("foo")));
-        assert!(!abstract_eq(&json!(""), &json!("0")));
+    fn test_lt_values_are_not_gt() {
+        lt_values().iter().for_each(|(first, second)| {
+            println!("{:?}-{:?}", &first, &second);
+            assert_eq!(abstract_gt(&first, &second), false);
+        })
     }
 
     #[test]
-    fn test_bools_ne() {
-        assert!(!abstract_eq(&json!(true), &json!(false)));
-        assert!(!abstract_eq(&json!(false), &json!(true)));
+    fn test_lt_values_are_ne() {
+        lt_values().iter().for_each(|(first, second)| {
+            println!("{:?}-{:?}", &first, &second);
+            assert_eq!(abstract_ne(&first, &second), true);
+        })
     }
 
     #[test]
-    fn test_number_string_ne() {
-        assert!(!abstract_eq(&json!(0), &json!("1")));
-        assert!(!abstract_eq(&json!(1), &json!("")));
-        assert!(!abstract_eq(&json!(1), &json!("1.001")));
-        assert!(!abstract_eq(&json!(1.0), &json!("2")));
+    fn test_gt_values_are_not_eq() {
+        gt_values().iter().for_each(|(first, second)| {
+            println!("{:?}-{:?}", &first, &second);
+            assert_eq!(abstract_eq(&first, &second), false);
+        })
     }
 
     #[test]
-    fn test_string_number_ne() {
-        assert!(!abstract_eq(&json!("1"), &json!(0)));
-        assert!(!abstract_eq(&json!(""), &json!(1)));
-        assert!(!abstract_eq(&json!("1.001"), &json!(1)));
-        assert!(!abstract_eq(&json!("2"), &json!(1.0)));
+    fn test_gt_values_are_not_lt() {
+        gt_values().iter().for_each(|(first, second)| {
+            println!("{:?}-{:?}", &first, &second);
+            assert_eq!(abstract_lt(&first, &second), false);
+        })
     }
 
     #[test]
-    fn test_bool_other_ne() {
-        assert!(!abstract_eq(&json!(true), &json!([1, 2])));
-        assert!(!abstract_eq(&json!(true), &json!([0])));
-        assert!(!abstract_eq(&json!(true), &json!(null)));
-        assert!(!abstract_eq(&json!(false), &json!({})));
-        assert!(!abstract_eq(&json!(false), &json!(null)));
-        assert!(!abstract_eq(&json!(false), &json!([0, 1])));
+    fn test_gt_values_are_ne() {
+        gt_values().iter().for_each(|(first, second)| {
+            println!("{:?}-{:?}", &first, &second);
+            assert_eq!(abstract_ne(&first, &second), true);
+        })
     }
 
     #[test]
-    fn test_other_object_ne() {
-        assert!(!abstract_eq(&json!(""), &json!({})));
-        assert!(!abstract_eq(&json!(0), &json!({})));
-        assert!(!abstract_eq(&json!(1), &json!({})));
-        assert!(!abstract_eq(&json!([]), &json!({})));
-        assert!(!abstract_eq(&json!([1]), &json!({})));
-        assert!(!abstract_eq(&json!([0]), &json!({})));
-        assert!(!abstract_eq(&json!(null), &json!({})));
-        assert!(!abstract_eq(&json!({}), &json!({})));
-    }
-
-    #[test]
-    fn test_object_other_ne() {
-        assert!(!abstract_eq(&json!({}), &json!("")));
-        assert!(!abstract_eq(&json!({}), &json!(0)));
-        assert!(!abstract_eq(&json!({}), &json!(1)));
-        assert!(!abstract_eq(&json!({}), &json!([])));
-        assert!(!abstract_eq(&json!({}), &json!([1])));
-        assert!(!abstract_eq(&json!({}), &json!([0])));
-        assert!(!abstract_eq(&json!({}), &json!(null)));
-        assert!(!abstract_eq(&json!({}), &json!({})));
-    }
-
-    #[test]
-    fn test_other_array_ne() {
-        assert!(!abstract_eq(&json!(null), &json!([])));
-        assert!(!abstract_eq(&json!([]), &json!([])));
-        assert!(!abstract_eq(&json!({}), &json!([])));
-    }
-
-    #[test]
-    fn test_array_other_ne() {
-        assert!(!abstract_eq(&json!([]), &json!(null)));
-        assert!(!abstract_eq(&json!([]), &json!([])));
-        assert!(!abstract_eq(&json!([]), &json!({})));
+    fn test_incomparable() {
+        not_gt_not_lt_not_eq().iter().for_each(|(first, second)| {
+            println!("{:?}-{:?}", &first, &second);
+            assert_eq!(abstract_lt(&first, &second), false);
+            assert_eq!(abstract_gt(&first, &second), false);
+            assert_eq!(abstract_eq(&first, &second), false);
+        })
     }
 }
 
 #[cfg(test)]
-mod test_strict_eq {
+mod test_strict {
 
     use super::*;
     use serde_json::json;
