@@ -317,6 +317,10 @@ pub fn strict_eq(first: &Value, second: &Value) -> bool {
     }
 }
 
+pub fn strict_ne(first: &Value, second: &Value) -> bool {
+    ! strict_eq(first, second)
+}
+
 /// Perform JS-style abstract less-than
 ///
 ///
@@ -756,15 +760,45 @@ mod test_strict {
     use super::*;
     use serde_json::json;
 
+    fn eq_values() -> Vec<(Value, Value)> {
+        vec![
+            (json!(""), json!("")),
+            (json!("foo"), json!("foo")),
+            (json!(1), json!(1)),
+            (json!(1), json!(1.0)),
+            (json!(null), json!(null)),
+            (json!(true), json!(true)),
+            (json!(false), json!(false)),
+        ]
+    }
+
+    fn ne_values() -> Vec<(Value, Value)> {
+        vec![
+            (json!({}), json!({})),
+            (json!({"a": "a"}), json!({"a": "a"})),
+            (json!([]), json!([])),
+            (json!("foo"), json!("noop")),
+            (json!(1), json!(2)),
+            (json!(0), json!([])),
+            (json!(0), json!([0])),
+            (json!(false), json!(null)),
+            (json!(true), json!(false)),
+            (json!(false), json!(true)),
+            (json!(false), json!([])),
+            (json!(false), json!("")),
+        ]
+    }
+
     #[test]
     fn test_strict_eq() {
-        assert!(strict_eq(&json!(""), &json!("")));
-        assert!(strict_eq(&json!("foo"), &json!("foo")));
-        assert!(strict_eq(&json!(1), &json!(1)));
-        assert!(strict_eq(&json!(1), &json!(1.0)));
-        assert!(strict_eq(&json!(null), &json!(null)));
-        assert!(strict_eq(&json!(true), &json!(true)));
-        assert!(strict_eq(&json!(false), &json!(false)));
+        eq_values().iter().for_each(|(first, second)| {
+            println!("{:?}-{:?}", &first, &second);
+            assert!(strict_eq(&first, &second));
+        });
+        ne_values().iter().for_each(|(first, second)| {
+            println!("{:?}-{:?}", &first, &second);
+            assert!(!strict_eq(&first, &second));
+        });
     }
 
     #[test]
@@ -775,17 +809,19 @@ mod test_strict {
 
     #[test]
     fn test_strict_ne() {
-        assert!(!strict_eq(&json!({}), &json!({})));
-        assert!(!strict_eq(&json!({"a": "a"}), &json!({"a": "a"})));
-        assert!(!strict_eq(&json!([]), &json!([])));
-        assert!(!strict_eq(&json!("foo"), &json!("noop")));
-        assert!(!strict_eq(&json!(1), &json!(2)));
-        assert!(!strict_eq(&json!(0), &json!([])));
-        assert!(!strict_eq(&json!(0), &json!([0])));
-        assert!(!strict_eq(&json!(false), &json!(null)));
-        assert!(!strict_eq(&json!(true), &json!(false)));
-        assert!(!strict_eq(&json!(false), &json!(true)));
-        assert!(!strict_eq(&json!(false), &json!([])));
-        assert!(!strict_eq(&json!(false), &json!("")));
+        ne_values().iter().for_each(|(first, second)| {
+            println!("{:?}-{:?}", &first, &second);
+            assert!(strict_ne(&first, &second));
+        });
+        eq_values().iter().for_each(|(first, second)| {
+            println!("{:?}-{:?}", &first, &second);
+            assert!(!strict_ne(&first, &second));
+        });
+    }
+
+    #[test]
+    fn test_strict_ne_same_obj() {
+        let obj = json!({});
+        assert!(!strict_ne(&obj, &obj))
     }
 }
