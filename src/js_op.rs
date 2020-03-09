@@ -529,7 +529,10 @@ mod abstract_operations {
             (json!("foo"), json!("foos")),
             (json!(""), json!("a")),
             (json!(""), json!([1])),
+            (json!(""), json!([1, 2])),
             (json!(""), json!("1")),
+            (json!(""), json!({})),
+            (json!(""), json!({"a": 1})),
             (json!(false), json!(true)),
             (json!(false), json!(1)),
             (json!(false), json!("1")),
@@ -539,6 +542,10 @@ mod abstract_operations {
             (json!(null), json!("1")),
             (json!([]), json!([1])),
             (json!([]), json!([1, 2])),
+            (json!(0), json!([1])),
+            (json!("0"), json!({})),
+            (json!("0"), json!({"a": 1})),
+            (json!("0"), json!([1, 2])),
         ]
     }
 
@@ -576,6 +583,7 @@ mod abstract_operations {
             (json!(0), json!(1)),
             (json!("a"), json!("b")),
             (json!(true), json!(false)),
+            (json!(true), json!([0])),
             (json!(1.0), json!(1.1)),
             (json!(null), json!(0)),
             (json!(null), json!("")),
@@ -590,10 +598,15 @@ mod abstract_operations {
             (json!(null), json!("")),
             (json!(null), json!("a")),
             (json!(0), json!("a")),
+            (json!(0), json!([1, 2])),
             (json!([]), json!([])),
             (json!([1]), json!([1])),
             (json!([1, 2]), json!([1, 2])),
             (json!({}), json!({})),
+            (json!(false), json!({})),
+            (json!(true), json!({})),
+            (json!(false), json!([1, 2])),
+            (json!(true), json!([1, 2])),
         ]
     }
 
