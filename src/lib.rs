@@ -14,6 +14,29 @@ pub use js_op::{
 };
 
 
+
+// enum Operations {
+
+// }
+
+fn get_operator<Op, T>(operator: Op) -> impl Fn(Vec<T>) -> Value
+    where Op: AsRef<str>, T: AsRef<Value>
+{
+    let op = operator.as_ref();
+    match op {
+        "==" => |vals: Vec<T>| { Value::Bool(true) },
+        _ => panic!("bad operator")
+    }
+}
+
+
+/// Run JSONLogic for the given rule and data.
+///
+// pub fn jsonlogic<R: AsRef<Value>, D: AsRef<Value::Object>>(rule: R, data: D) -> Value {
+
+// }
+
+
 /// Return whether a value is "truthy" by the JSONLogic spec
 ///
 /// The spec (http://jsonlogic.com/truthy) defines truthy values that
