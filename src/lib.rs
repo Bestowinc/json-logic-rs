@@ -5,114 +5,116 @@ use thiserror;
 pub mod js_op;
 
 pub use js_op::{
-    abstract_eq,
-    abstract_gt,
-    abstract_gte,
-    abstract_lt,
-    abstract_lte,
-    abstract_ne,
-    strict_eq,
+    abstract_eq, abstract_gt, abstract_gte, abstract_lt, abstract_lte, abstract_ne, strict_eq,
     strict_ne,
 };
-
-
 
 // enum Operations {
 
 // }
 
-
 // fn if_(values: Vec<Value>, data: Map<String, Value>) -> Value {
 
 // }
 
-
 #[derive(thiserror::Error, Debug, PartialEq)]
 pub enum Error {
     #[error("Wrong argument count. Expected {expected:?}, got {actual:?}")]
-    WrongArgumentCount {
-        expected: usize,
-        actual: usize,
-    }
-}
-
-
-fn is_logic(value: &Value) -> Result<&String, ()> {
-    match value {
-        Value::Object(obj) => {
-            match obj.len() {
-                1 => {
-                    obj.iter().next().map(
-                        |item| item.0
-                    )
-                    .ok_or(())
-                    .and_then(
-                        |key| {
-                            if vec!["=="].contains(&key.as_str()) { Ok(key) } else { Err(()) }
-                        }
-                    )
-                }
-                _ => Err(())
-            }
-        },
-        _ => Err(())
-    }
+    WrongArgumentCount { expected: usize, actual: usize },
 }
 
 
 fn op_abstract_eq(values: &Vec<Value>, data: &Map<String, Value>) -> Result<Value, Error> {
     match values.len() {
-        2 => {
-            Ok(Value::Bool(abstract_eq(&values[0], &values[1])))
-        }
-        _ => Err(Error::WrongArgumentCount{expected: 2, actual: values.len()})
+        2 => Ok(Value::Bool(abstract_eq(&values[0], &values[1]))),
+        _ => Err(Error::WrongArgumentCount {
+            expected: 2,
+            actual: values.len(),
+        }),
     }
 }
 
 
-fn get_operator<Op>(operator: Op)
-    -> impl Fn(&Vec<Value>, &Map<String, Value>) -> Result<Value, Error>
-    where Op: AsRef<str>
+fn get_operator<Op>(
+    operator: Op,
+) -> impl Fn(&Vec<Value>, &Map<String, Value>) -> Result<Value, Error>
+where
+    Op: AsRef<str>,
 {
     let op = operator.as_ref();
     match op {
         "==" => op_abstract_eq,
-        _ => panic!("bad operator")
+        _ => panic!("bad operator"),
     }
 }
 
+// struct Rule {
+//     operator: &'a String,
+//     arguments: &'a Vec<Value>,
+// }
+// impl Rule {
+struct Rule<'a> {
+    operator: &'a String,
+    arguments: &'a Vec<Value>,
+}
+impl<'a> Rule<'a> {
+    fn from_value(rule: &'a Value) -> Result<Self, ()> {
+        // match rule {
+        //     Value::Object(obj) => {
+        //         match obj.len() {
+        //             1 => {
+        //                 obj.into_iter().next().map(|item| item).ok_or(()).and_then(
+        //                     |item| match item.1 {
+        //                         Value::Array(args) => Ok(Rule {
+        //                             operator: item.0.clone(),
+        //                             arguments: args.clone(),
+        //                         }),
+        //                         _ => Err(()),
+        //                     },
+        //                 )
+        //             }
+        //             _ => Err(()),
+        //         }
+        //     }
+        //     _ => Err(()),
+        // }
+        match rule {
+            Value::Object(obj) => {
+                match obj.len() {
+                    1 => {
+                        obj.into_iter().next().map(|item| item).ok_or(()).and_then(
+                            |item| match item.1 {
+                                Value::Array(args) => Ok(Rule {
+                                    operator: item.0,
+                                    arguments: args,
+                                }),
+                                _ => Err(()),
+                            },
+                        )
+                    }
+                    _ => Err(()),
+                }
+            }
+            _ => Err(()),
+        }
+    }
+}
 
 /// Run JSONLogic for the given rule and data.
 ///
-pub fn jsonlogic(rule: Value, data: Value) -> Result<Value, Error>
-{
-
-    match rule {
-        Value::Object(ref obj) => {
-            if let Ok(op) = is_logic(&rule) {
-                match obj.get(op) {
-                    Some(val) => match val {
-                        Value::Array(args) => {
-                            get_operator(op)(args, &Map::new())
-                        }
-                        _ => panic!("ahh")
-                    }
-                    None => panic!("ahh")
-                }
-                // get_operator(op)()
-            } else {
-                Ok(rule)
-            }
+pub fn jsonlogic(rule: Value, data: Value) -> Result<Value, Error> {
+    match Rule::from_value(&rule) {
+        Ok(rule) => {
+            get_operator(rule.operator)(&rule.arguments, &Map::new())
         }
         _ => Ok(rule)
     }
 }
 
-
 #[cfg(test)]
 mod tests {
-    use serde_json::json;
     use super::*;
+    use serde_json::json;
 
     fn jsonlogic_cases() -> Vec<(Value, Value, Result<Value, Error>)> {
         vec![
@@ -129,7 +131,11 @@ mod tests {
             // original jsonlogic implementation, which errors for objects of
             // length one, due to attempting to parse their key as an operation
             (json!({"a": 1}), json!({}), Ok(json!({"a": 1}))),
-            (json!({"a": 1, "b": 2}), json!({}), Ok(json!({"a": 1, "b": 2}))),
+            (
+                json!({"a": 1, "b": 2}),
+                json!({}),
+                Ok(json!({"a": 1, "b": 2})),
+            ),
             // Operators - "=="
             (json!({"==": [1, 1]}), json!({}), Ok(json!(true))),
             (json!({"==": [1, 2]}), json!({}), Ok(json!(false))),
@@ -141,22 +147,19 @@ mod tests {
 
     #[test]
     fn test_jsonlogic() {
-        jsonlogic_cases().into_iter().for_each(
-            |(rule, data, exp)| {
-                println!("Running rule: {:?} with data: {:?}", rule, data);
-                let result = jsonlogic(rule, data);
-                println!("- Result: {:?}", result);
-                println!("- Expected: {:?}", exp);
-                if exp.is_ok() {
-                    assert_eq!(result.unwrap(), exp.unwrap());
-                } else {
-                    assert_eq!(result.unwrap_err(), exp.unwrap_err());
-                }
+        jsonlogic_cases().into_iter().for_each(|(rule, data, exp)| {
+            println!("Running rule: {:?} with data: {:?}", rule, data);
+            let result = jsonlogic(rule, data);
+            println!("- Result: {:?}", result);
+            println!("- Expected: {:?}", exp);
+            if exp.is_ok() {
+                assert_eq!(result.unwrap(), exp.unwrap());
+            } else {
+                assert_eq!(result.unwrap_err(), exp.unwrap_err());
             }
-        )
+        })
     }
 }
-
 
 /// Return whether a value is "truthy" by the JSONLogic spec
 ///
@@ -190,13 +193,24 @@ pub fn truthy(val: &Value) -> bool {
     match val {
         Value::Null => false,
         Value::Bool(v) => *v,
-        Value::Number(v) => {
-            v.as_f64().map(
-                |v_num| if v_num == 0.0 { false } else { true }
-            ).unwrap_or(false)
+        Value::Number(v) => v
+            .as_f64()
+            .map(|v_num| if v_num == 0.0 { false } else { true })
+            .unwrap_or(false),
+        Value::String(v) => {
+            if v == "" {
+                false
+            } else {
+                true
+            }
         }
-        Value::String(v) => if v == "" { false } else { true },
-        Value::Array(v) => if v.len() == 0 { false } else { true },
+        Value::Array(v) => {
+            if v.len() == 0 {
+                false
+            } else {
+                true
+            }
+        }
         Value::Object(_) => true,
     }
 }
