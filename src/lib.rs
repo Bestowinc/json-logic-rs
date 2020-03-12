@@ -21,15 +21,20 @@ pub enum Error {
     WrongArgumentCount { expected: usize, actual: usize },
 }
 
-type OperatorFn = fn(&Vec<Item>, &Map<String, Value>) -> Result<Item, Error>;
+type OperatorFn<'a> = fn(&Vec<Item>, &Map<String, Value>) -> Result<Item<'a>, Error>;
 
 /// Operator for JS-style abstract equality
-fn op_abstract_eq(items: &Vec<Item>, data: &Map<String, Value>) -> Result<Item, Error> {
-    match &items[..] {
-        [Item::Raw(first), Item::Raw(second)] => {
-            let raw_value = Value::Bool(abstract_eq(&first, &second));
-            Ok(Item::Raw(raw_value))
-        }
+fn op_abstract_eq<'a>(items: &Vec<Item>, data: &Map<String, Value>) -> Result<Item<'a>, Error> {
+
+    let to_res = |first: &Value, second: &Value| -> Result<Item<'a>, Error> {
+        Ok(Item::Evaluated(Value::Bool(abstract_eq(&first, &second))))
+    };
+
+    match items[..] {
+        [Item::Raw(first), Item::Raw(second)] => to_res(first, second),
+        [Item::Evaluated(ref first), Item::Raw(second)] => to_res(first, second),
+        [Item::Raw(first), Item::Evaluated(ref second)] => to_res(first, second),
+        [Item::Evaluated(ref first), Item::Evaluated(ref second)] => to_res(first, second),
         _ => Err(Error::WrongArgumentCount {
             expected: 2,
             actual: items.len(),
@@ -41,25 +46,51 @@ static OPERATOR_MAP: phf::Map<&'static str, OperatorFn> = phf_map! {
     "==" => op_abstract_eq
 };
 
-enum Item {
-    Rule(Rule),
-    Raw(Value),
+/// An atomic unit of the JSONLogic expression.
+/// An item is one of:
+///   - A rule: a parsed, valid, JSONLogic rule, which can be evaluated
+///   - A raw value: a reference to a pre-existing JSON value
+///   - An evaluated value: an owned, non-rule, JSON value generated as a
+///     result of rule evaluation
+enum Item<'a> {
+    Rule(Rule<'a>),
+    // Keeping references to pre-existing JSON values significantly reduces
+    // the amount of cloning we need to do. For anything that isn't a rule
+    // or generated via rule evaluation, we can just pass references around
+    // for the entire lifetime of rule evaluation.
+    Raw(&'a Value),
+    Evaluated(Value),
 }
 
-struct Rule {
-    operator: &'static OperatorFn,
-    arguments: Vec<Item>,
+struct Rule<'a> {
+    operator: &'a OperatorFn<'a>,
+    arguments: Vec<Item<'a>>,
+}
+impl<'a> Rule<'a> {
+    /// Evaluate the rule after recursively evaluating any nested rules
+    fn evaluate(&self, data: &Map<String, Value>) -> Result<Item, Error> {
+        let arguments = self
+            .arguments
+            .iter()
+            .map(|item| match item {
+                Item::Rule(rule) => rule.evaluate(data),
+                Item::Raw(val) => Ok(Item::Raw(*val)),
+                Item::Evaluated(val) => Ok(Item::Raw(val)),
+            })
+            .collect::<Result<Vec<Item>, Error>>()?;
+        (self.operator)(&arguments, data)
+    }
 }
 
-fn parse_args(arguments: Vec<Value>) -> Result<Vec<Item>, Error> {
+fn parse_args<'a>(arguments: &'a Vec<Value>) -> Result<Vec<Item<'a>>, Error> {
     arguments
-        .into_iter()
+        .iter()
         .map(parse_value)
         .collect::<Result<Vec<Item>, Error>>()
 }
 
 /// Recursively parse a value into a series of Items.
-fn parse_value(value: Value) -> Result<Item, Error> {
+fn parse_value<'a>(value: &'a Value) -> Result<Item<'a>, Error> {
     match value {
         Value::Object(obj) => {
             match obj.len() {
@@ -77,7 +108,7 @@ fn parse_value(value: Value) -> Result<Item, Error> {
                             // But only if the value is an array
                             Value::Array(arguments) => Ok(Item::Rule(Rule {
                                 operator,
-                                arguments: parse_args(arguments.to_vec())?,
+                                arguments: parse_args(arguments)?,
                             })),
                             _ => Err(Error::InvalidRule {
                                 key: key.into(),
@@ -86,34 +117,40 @@ fn parse_value(value: Value) -> Result<Item, Error> {
                         }
                     } else {
                         // If the item's single key is not an operator, it's not a rule
-                        Ok(Item::Raw(Value::Object(obj)))
+                        // Ok(Item::Raw(&alue::Object(obj)))
+                        Ok(Item::Raw(&value))
                     }
                 }
                 // If the object has < or > 1 key, it's not a rule
-                _ => Ok(Item::Raw(Value::Object(obj))),
-                // _ => Ok(Item::Raw(value)),
+                // _ => Ok(Item::Raw(Value::Object(obj))),
+                _ => Ok(Item::Raw(&value)),
             }
         }
         // If the item is not an object, it's not a rule
-        _ => Ok(Item::Raw(value)),
+        _ => Ok(Item::Raw(&value)),
     }
 }
 
 /// Run JSONLogic for the given rule and data.
 ///
-pub fn jsonlogic(value: Value, data: Value) -> Result<Value, Error> {
-    let parsed = parse_value(value)?;
+pub fn jsonlogic<'a>(value: &'a Value, data: Value) -> Result<Value, Error> {
+    let parsed = parse_value(&value)?;
     match parsed {
-        Item::Rule(rule) => {
-            let operator = rule.operator;
-            match operator(&rule.arguments, &Map::new())? {
-                Item::Raw(item) => Ok(item),
-                _ => Err(Error::UnexpectedError(
-                    "Got a rule as a final result.".into(),
-                )),
+        Item::Rule(rule) => match data {
+            Value::Object(data) => {
+                let res = rule.evaluate(&data)?;
+                match res {
+                    Item::Raw(res) => Ok(res.clone()),
+                    Item::Evaluated(res) => Ok(res),
+                    Item::Rule(_) => Err(Error::UnexpectedError("Evaluated to rule".into())),
+                }
             }
-        }
-        Item::Raw(val) => Ok(val),
+            _ => return Err(Error::UnexpectedError("Bad data".into())),
+        },
+        Item::Raw(val) => Ok(val.clone()),
+        Item::Evaluated(_) => Err(Error::UnexpectedError(
+            "Parser should not evaluate items".into(),
+        )),
     }
 }
 
@@ -148,6 +185,8 @@ mod tests {
             (json!({"==": [1, "1"]}), json!({}), Ok(json!(true))),
             (json!({"==": [1, [1]]}), json!({}), Ok(json!(true))),
             (json!({"==": [1, true]}), json!({}), Ok(json!(true))),
+            // Recursive evaluation
+            (json!({"==": [true, {"==": [1, 1]}]}), json!({}), Ok(json!(true))),
         ]
     }
 
@@ -155,7 +194,7 @@ mod tests {
     fn test_jsonlogic() {
         jsonlogic_cases().into_iter().for_each(|(rule, data, exp)| {
             println!("Running rule: {:?} with data: {:?}", rule, data);
-            let result = jsonlogic(rule, data);
+            let result = jsonlogic(&rule, data);
             println!("- Result: {:?}", result);
             println!("- Expected: {:?}", exp);
             if exp.is_ok() {
