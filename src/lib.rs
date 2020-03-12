@@ -10,90 +10,88 @@ pub use js_op::{
     strict_ne,
 };
 
-// enum Operations {
-
-// }
-
-// fn if_(values: Vec<Value>, data: Map<String, Value>) -> Value {
-
-// }
-
+/// Public error enumeration
 #[derive(thiserror::Error, Debug, PartialEq)]
 pub enum Error {
     #[error("Invalid rule! operator: '{key:?}', reason: {reason:?}")]
     InvalidRule { key: String, reason: &'static str },
-    #[error("Encountered an unexpected error. Please raise an issue on GitHub.")]
-    UnexpectedError,
+    #[error("Encountered an unexpected error. Please raise an issue on GitHub and include the following error message: {0}")]
+    UnexpectedError(String),
     #[error("Wrong argument count. Expected {expected:?}, got {actual:?}")]
     WrongArgumentCount { expected: usize, actual: usize },
 }
 
+type OperatorFn = fn(&Vec<Item>, &Map<String, Value>) -> Result<Item, Error>;
 
-fn op_abstract_eq(values: &Vec<Value>, data: &Map<String, Value>) -> Result<Value, Error> {
-    match values.len() {
-        2 => Ok(Value::Bool(abstract_eq(&values[0], &values[1]))),
+/// Operator for JS-style abstract equality
+fn op_abstract_eq(items: &Vec<Item>, data: &Map<String, Value>) -> Result<Item, Error> {
+    match &items[..] {
+        [Item::Raw(first), Item::Raw(second)] => {
+            let raw_value = Value::Bool(abstract_eq(&first, &second));
+            Ok(Item::Raw(raw_value))
+        }
         _ => Err(Error::WrongArgumentCount {
             expected: 2,
-            actual: values.len(),
+            actual: items.len(),
         }),
     }
 }
-
-
-type OperatorFn = fn(&Vec<Value>, &Map<String, Value>) -> Result<Value, Error>;
-
 
 static OPERATOR_MAP: phf::Map<&'static str, OperatorFn> = phf_map! {
     "==" => op_abstract_eq
 };
 
-
-enum Item<'a> {
-    Rule(Rule<'a>),
-    Raw(&'a Value),
+enum Item {
+    Rule(Rule),
+    Raw(Value),
 }
 
-
-struct Rule<'a> {
+struct Rule {
     operator: &'static OperatorFn,
-    // arguments: &'a Vec<Value>,
-    arguments: &'a Vec<Value>,
+    arguments: Vec<Item>,
 }
 
-fn parse_value<'a> (value: &'a Value) -> Result<Item<'a>, Error> {
+fn parse_args(arguments: Vec<Value>) -> Result<Vec<Item>, Error> {
+    arguments
+        .into_iter()
+        .map(parse_value)
+        .collect::<Result<Vec<Item>, Error>>()
+}
+
+/// Recursively parse a value into a series of Items.
+fn parse_value(value: Value) -> Result<Item, Error> {
     match value {
         Value::Object(obj) => {
             match obj.len() {
                 1 => {
-                    obj.into_iter().next().ok_or(Error::UnexpectedError).and_then(
-                        |(key, val)| {
-                            // If the item's single key is an operator, it might
-                            // be a rule
-                            if let Some(operator) = OPERATOR_MAP.get(key.as_str()) {
-                                match val {
-                                    // But only if the value is an array
-                                    Value::Array(arguments) => Ok(
-                                        Item::Rule(
-                                            Rule { operator, arguments }
-                                        )
-                                    ),
-                                    _ => Err(
-                                        Error::InvalidRule {
-                                            key: key.into(),
-                                            reason: "Values for operator keys must be arrays"
-                                        }
-                                    )
-                                }
-                            } else {
-                                // If the item's single key is not an operator,
-                                // it's not a rule
-                                Ok(Item::Raw(value))
-                            }
+                    let key = obj.keys().next().ok_or(Error::UnexpectedError(format!(
+                        "could not get first key from len(1) object: {:?}",
+                        obj
+                    )))?;
+                    let val = obj.get(key).ok_or(Error::UnexpectedError(format!(
+                        "could not get value for key '{}' from len(1) object: {:?}",
+                        key, obj
+                    )))?;
+                    if let Some(operator) = OPERATOR_MAP.get(key.as_str()) {
+                        match val {
+                            // But only if the value is an array
+                            Value::Array(arguments) => Ok(Item::Rule(Rule {
+                                operator,
+                                arguments: parse_args(arguments.to_vec())?,
+                            })),
+                            _ => Err(Error::InvalidRule {
+                                key: key.into(),
+                                reason: "Values for operator keys must be arrays",
+                            }),
                         }
-                    )
+                    } else {
+                        // If the item's single key is not an operator, it's not a rule
+                        Ok(Item::Raw(Value::Object(obj)))
+                    }
                 }
                 // If the object has < or > 1 key, it's not a rule
-                _ => Ok(Item::Raw(value)),
+                _ => Ok(Item::Raw(Value::Object(obj))),
+                // _ => Ok(Item::Raw(value)),
             }
         }
         // If the item is not an object, it's not a rule
@@ -104,13 +102,18 @@ fn parse_value<'a> (value: &'a Value) -> Result<Item<'a>, Error> {
 /// Run JSONLogic for the given rule and data.
 ///
 pub fn jsonlogic(value: Value, data: Value) -> Result<Value, Error> {
-    let parsed = parse_value(&value)?;
+    let parsed = parse_value(value)?;
     match parsed {
         Item::Rule(rule) => {
             let operator = rule.operator;
-            operator(&rule.arguments, &Map::new())
+            match operator(&rule.arguments, &Map::new())? {
+                Item::Raw(item) => Ok(item),
+                _ => Err(Error::UnexpectedError(
+                    "Got a rule as a final result.".into(),
+                )),
+            }
         }
-        _ => Ok(value)
+        Item::Raw(val) => Ok(val),
     }
 }
 
