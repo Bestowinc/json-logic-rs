@@ -1,3 +1,4 @@
+use phf::phf_map;
 use serde_json::map::Map;
 use serde_json::Value;
 use thiserror;
@@ -19,6 +20,10 @@ pub use js_op::{
 
 #[derive(thiserror::Error, Debug, PartialEq)]
 pub enum Error {
+    #[error("Invalid rule! operator: '{key:?}', reason: {reason:?}")]
+    InvalidRule { key: String, reason: &'static str },
+    #[error("Encountered an unexpected error. Please raise an issue on GitHub.")]
+    UnexpectedError,
     #[error("Wrong argument count. Expected {expected:?}, got {actual:?}")]
     WrongArgumentCount { expected: usize, actual: usize },
 }
@@ -35,79 +40,77 @@ fn op_abstract_eq(values: &Vec<Value>, data: &Map<String, Value>) -> Result<Valu
 }
 
 
-fn get_operator<Op>(
-    operator: Op,
-) -> impl Fn(&Vec<Value>, &Map<String, Value>) -> Result<Value, Error>
-where
-    Op: AsRef<str>,
-{
-    let op = operator.as_ref();
-    match op {
-        "==" => op_abstract_eq,
-        _ => panic!("bad operator"),
-    }
+type OperatorFn = fn(&Vec<Value>, &Map<String, Value>) -> Result<Value, Error>;
+
+
+static OPERATOR_MAP: phf::Map<&'static str, OperatorFn> = phf_map! {
+    "==" => op_abstract_eq
+};
+
+
+enum Item<'a> {
+    Rule(Rule<'a>),
+    Raw(&'a Value),
 }
 
-// struct Rule {
-//     operator: &'a String,
-//     arguments: &'a Vec<Value>,
-// }
-// impl Rule {
+
 struct Rule<'a> {
-    operator: &'a String,
+    operator: &'static OperatorFn,
+    // arguments: &'a Vec<Value>,
     arguments: &'a Vec<Value>,
 }
-impl<'a> Rule<'a> {
-    fn from_value(rule: &'a Value) -> Result<Self, ()> {
-        // match rule {
-        //     Value::Object(obj) => {
-        //         match obj.len() {
-        //             1 => {
-        //                 obj.into_iter().next().map(|item| item).ok_or(()).and_then(
-        //                     |item| match item.1 {
-        //                         Value::Array(args) => Ok(Rule {
-        //                             operator: item.0.clone(),
-        //                             arguments: args.clone(),
-        //                         }),
-        //                         _ => Err(()),
-        //                     },
-        //                 )
-        //             }
-        //             _ => Err(()),
-        //         }
-        //     }
-        //     _ => Err(()),
-        // }
-        match rule {
-            Value::Object(obj) => {
-                match obj.len() {
-                    1 => {
-                        obj.into_iter().next().map(|item| item).ok_or(()).and_then(
-                            |item| match item.1 {
-                                Value::Array(args) => Ok(Rule {
-                                    operator: item.0,
-                                    arguments: args,
-                                }),
-                                _ => Err(()),
-                            },
-                        )
-                    }
-                    _ => Err(()),
+
+fn parse_value<'a> (value: &'a Value) -> Result<Item<'a>, Error> {
+    match value {
+        Value::Object(obj) => {
+            match obj.len() {
+                1 => {
+                    obj.into_iter().next().ok_or(Error::UnexpectedError).and_then(
+                        |(key, val)| {
+                            // If the item's single key is an operator, it might
+                            // be a rule
+                            if let Some(operator) = OPERATOR_MAP.get(key.as_str()) {
+                                match val {
+                                    // But only if the value is an array
+                                    Value::Array(arguments) => Ok(
+                                        Item::Rule(
+                                            Rule { operator, arguments }
+                                        )
+                                    ),
+                                    _ => Err(
+                                        Error::InvalidRule {
+                                            key: key.into(),
+                                            reason: "Values for operator keys must be arrays"
+                                        }
+                                    )
+                                }
+                            } else {
+                                // If the item's single key is not an operator,
+                                // it's not a rule
+                                Ok(Item::Raw(value))
+                            }
+                        }
+                    )
                 }
+                // If the object has < or > 1 key, it's not a rule
+                _ => Ok(Item::Raw(value)),
             }
-            _ => Err(()),
         }
+        // If the item is not an object, it's not a rule
+        _ => Ok(Item::Raw(value)),
     }
 }
 
 /// Run JSONLogic for the given rule and data.
 ///
-pub fn jsonlogic(rule: Value, data: Value) -> Result<Value, Error> {
-    match Rule::from_value(&rule) {
-        Ok(rule) => {
-            get_operator(rule.operator)(&rule.arguments, &Map::new())
+pub fn jsonlogic(value: Value, data: Value) -> Result<Value, Error> {
+    let parsed = parse_value(&value)?;
+    match parsed {
+        Item::Rule(rule) => {
+            let operator = rule.operator;
+            operator(&rule.arguments, &Map::new())
         }
-        _ => Ok(rule)
+        _ => Ok(value)
     }
 }
 
