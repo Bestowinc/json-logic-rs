@@ -51,7 +51,7 @@ static OPERATOR_MAP: phf::Map<&'static str, OperatorFn> = phf_map! {
 ///   - A rule: a parsed, valid, JSONLogic rule, which can be evaluated
 ///   - A raw value: a reference to a pre-existing JSON value
 ///   - An evaluated value: an owned, non-rule, JSON value generated as a
-///     result of rule evaluation
+///     result of rule evaluation or variable substitution
 enum Item<'a> {
     Rule(Rule<'a>),
     // Keeping references to pre-existing JSON values significantly reduces
@@ -187,6 +187,7 @@ mod tests {
             (json!({"==": [1, true]}), json!({}), Ok(json!(true))),
             // Recursive evaluation
             (json!({"==": [true, {"==": [1, 1]}]}), json!({}), Ok(json!(true))),
+            (json!({"==": [{"==": [{"==": [1, 1]}, true]}, {"==": [1, 1]}]}), json!({}), Ok(json!(true))),
         ]
     }
 
