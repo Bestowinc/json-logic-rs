@@ -1,6 +1,9 @@
 use phf::phf_map;
 use serde_json::map::Map;
 use serde_json::Value;
+use std::convert::TryFrom;
+// use std::eq
+use std::collections::HashMap;
 use thiserror;
 
 pub mod js_op;
@@ -15,17 +18,28 @@ pub use js_op::{
 pub enum Error {
     #[error("Invalid rule! operator: '{key:?}', reason: {reason:?}")]
     InvalidRule { key: String, reason: &'static str },
+    #[error("Invalid variable mapping! {0} is not an object.")]
+    InvalidVarMap(Value),
     #[error("Encountered an unexpected error. Please raise an issue on GitHub and include the following error message: {0}")]
     UnexpectedError(String),
     #[error("Wrong argument count. Expected {expected:?}, got {actual:?}")]
     WrongArgumentCount { expected: usize, actual: usize },
 }
 
-type OperatorFn<'a> = fn(&Vec<Item>, &Map<String, Value>) -> Result<Item<'a>, Error>;
+struct Operator {
+    symbol: &'static str,
+    operator: OperatorFn<'static>,
+}
+impl Operator {
+    fn execute<'a>(&self, items: &Vec<Item>) -> Result<Item<'a>, Error> {
+        (self.operator)(items)
+    }
+}
+
+type OperatorFn<'a> = fn(&Vec<Item>) -> Result<Item<'a>, Error>;
 
 /// Operator for JS-style abstract equality
-fn op_abstract_eq<'a>(items: &Vec<Item>, data: &Map<String, Value>) -> Result<Item<'a>, Error> {
-
+fn op_abstract_eq<'a>(items: &Vec<Item>) -> Result<Item<'a>, Error> {
     let to_res = |first: &Value, second: &Value| -> Result<Item<'a>, Error> {
         Ok(Item::Evaluated(Value::Bool(abstract_eq(&first, &second))))
     };
@@ -42,8 +56,8 @@ fn op_abstract_eq<'a>(items: &Vec<Item>, data: &Map<String, Value>) -> Result<It
     }
 }
 
-static OPERATOR_MAP: phf::Map<&'static str, OperatorFn> = phf_map! {
-    "==" => op_abstract_eq
+static OPERATOR_MAP: phf::Map<&'static str, Operator> = phf_map! {
+    "==" => Operator {symbol: "==", operator: op_abstract_eq}
 };
 
 /// An atomic unit of the JSONLogic expression.
@@ -60,15 +74,74 @@ enum Item<'a> {
     // for the entire lifetime of rule evaluation.
     Raw(&'a Value),
     Evaluated(Value),
+    // Variable(Variable<'a>),
+}
+
+impl TryFrom<Item<'_>> for Value {
+    type Error = Error;
+
+    fn try_from(item: Item) -> Result<Self, Self::Error> {
+        match item {
+            Item::Rule(rule) => Err(Error::UnexpectedError("foo".into())),
+            Item::Raw(val) => Ok(val.clone()),
+            Item::Evaluated(val) => Ok(val),
+            // Item::Variable(var) => Err(Error::UnexpectedError("foo".into())),
+        }
+    }
+}
+
+impl TryFrom<Rule<'_>> for Value {
+    type Error = Error;
+
+    fn try_from(rule: Rule) -> Result<Self, Self::Error> {
+        let mut rv = Map::with_capacity(1);
+        let values = rule.arguments.into_iter().map(
+                Value::try_from
+        ).collect::<Result<Vec<Self>, Self::Error>>()?;
+        rv.insert(
+            rule.operator.symbol.into(), Value::Array(values)
+        );
+        Ok(Value::Object(rv))
+    }
+}
+
+
+pub trait VarMap {
+    fn get(&self, key: String) -> Result<Option<&Value>, Error>;
+}
+
+impl VarMap for HashMap<String, Value> {
+    fn get(&self, key: String) -> Result<Option<&Value>, Error> {
+        Ok(HashMap::get(&self, &key))
+    }
+}
+
+impl VarMap for Map<String, Value> {
+    fn get(&self, key: String) -> Result<Option<&Value>, Error> {
+        Ok(Map::get(&self, &key))
+    }
+}
+
+impl VarMap for Value {
+    fn get(&self, key: String) -> Result<Option<&Value>, Error> {
+        match self {
+            Value::Object(map) => Ok(map.get(&key)),
+            _ => panic!("Ahhh!"),
+        }
+    }
+}
+
+struct Variable<'a> {
+    name: &'a String,
 }
 
 struct Rule<'a> {
-    operator: &'a OperatorFn<'a>,
+    operator: &'a Operator,
     arguments: Vec<Item<'a>>,
 }
-impl<'a> Rule<'a> {
+impl<'a>  Rule<'a> {
     /// Evaluate the rule after recursively evaluating any nested rules
-    fn evaluate(&self, data: &Map<String, Value>) -> Result<Item, Error> {
+    fn evaluate<D: VarMap>(&self, data: &'a D) -> Result<Item, Error> {
         let arguments = self
             .arguments
             .iter()
@@ -78,19 +151,20 @@ impl<'a> Rule<'a> {
                 Item::Evaluated(val) => Ok(Item::Raw(val)),
             })
             .collect::<Result<Vec<Item>, Error>>()?;
-        (self.operator)(&arguments, data)
+        // Operator::execute(self.operator, &arguments)
+        self.operator.execute(&arguments)
     }
 }
 
 fn parse_args<'a>(arguments: &'a Vec<Value>) -> Result<Vec<Item<'a>>, Error> {
     arguments
         .iter()
-        .map(parse_value)
+        .map(parse)
         .collect::<Result<Vec<Item>, Error>>()
 }
 
 /// Recursively parse a value into a series of Items.
-fn parse_value<'a>(value: &'a Value) -> Result<Item<'a>, Error> {
+fn parse<'a>(value: &'a Value) -> Result<Item<'a>, Error> {
     match value {
         Value::Object(obj) => {
             match obj.len() {
@@ -133,19 +207,12 @@ fn parse_value<'a>(value: &'a Value) -> Result<Item<'a>, Error> {
 
 /// Run JSONLogic for the given rule and data.
 ///
-pub fn jsonlogic<'a>(value: &'a Value, data: Value) -> Result<Value, Error> {
-    let parsed = parse_value(&value)?;
+pub fn jsonlogic<'a, D: VarMap>(value: &'a Value, data: D) -> Result<Value, Error> {
+    let parsed = parse(&value)?;
     match parsed {
-        Item::Rule(rule) => match data {
-            Value::Object(data) => {
-                let res = rule.evaluate(&data)?;
-                match res {
-                    Item::Raw(res) => Ok(res.clone()),
-                    Item::Evaluated(res) => Ok(res),
-                    Item::Rule(_) => Err(Error::UnexpectedError("Evaluated to rule".into())),
-                }
-            }
-            _ => return Err(Error::UnexpectedError("Bad data".into())),
+        Item::Rule(rule) => {
+            let res = rule.evaluate(&data)?;
+            Ok(Value::try_from(res)?)
         },
         Item::Raw(val) => Ok(val.clone()),
         Item::Evaluated(_) => Err(Error::UnexpectedError(
@@ -186,8 +253,16 @@ mod tests {
             (json!({"==": [1, [1]]}), json!({}), Ok(json!(true))),
             (json!({"==": [1, true]}), json!({}), Ok(json!(true))),
             // Recursive evaluation
-            (json!({"==": [true, {"==": [1, 1]}]}), json!({}), Ok(json!(true))),
-            (json!({"==": [{"==": [{"==": [1, 1]}, true]}, {"==": [1, 1]}]}), json!({}), Ok(json!(true))),
+            (
+                json!({"==": [true, {"==": [1, 1]}]}),
+                json!({}),
+                Ok(json!(true)),
+            ),
+            (
+                json!({"==": [{"==": [{"==": [1, 1]}, true]}, {"==": [1, 1]}]}),
+                json!({}),
+                Ok(json!(true)),
+            ),
         ]
     }
 
