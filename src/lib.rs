@@ -31,24 +31,24 @@ struct Operator {
     operator: OperatorFn<'static>,
 }
 impl Operator {
-    fn execute<'a>(&self, items: &Vec<Item>) -> Result<Item<'a>, Error> {
+    fn execute<'a>(&self, items: &Vec<EvaluatedValue>) -> Result<EvaluatedValue<'a>, Error> {
         (self.operator)(items)
     }
 }
 
-type OperatorFn<'a> = fn(&Vec<Item>) -> Result<Item<'a>, Error>;
+type OperatorFn<'a> = fn(&Vec<EvaluatedValue>) -> Result<EvaluatedValue<'a>, Error>;
 
 /// Operator for JS-style abstract equality
-fn op_abstract_eq<'a>(items: &Vec<Item>) -> Result<Item<'a>, Error> {
-    let to_res = |first: &Value, second: &Value| -> Result<Item<'a>, Error> {
-        Ok(Item::Evaluated(Value::Bool(abstract_eq(&first, &second))))
+fn op_abstract_eq<'a>(items: &Vec<EvaluatedValue>) -> Result<EvaluatedValue<'a>, Error> {
+    let to_res = |first: &Value, second: &Value| -> Result<EvaluatedValue<'a>, Error> {
+        Ok(EvaluatedValue::New(Value::Bool(abstract_eq(&first, &second))))
     };
 
     match items[..] {
-        [Item::Raw(first), Item::Raw(second)] => to_res(first, second),
-        [Item::Evaluated(ref first), Item::Raw(second)] => to_res(first, second),
-        [Item::Raw(first), Item::Evaluated(ref second)] => to_res(first, second),
-        [Item::Evaluated(ref first), Item::Evaluated(ref second)] => to_res(first, second),
+        [EvaluatedValue::Raw(first), EvaluatedValue::Raw(second)] => to_res(first, second),
+        [EvaluatedValue::New(ref first), EvaluatedValue::Raw(second)] => to_res(first, second),
+        [EvaluatedValue::Raw(first), EvaluatedValue::New(ref second)] => to_res(first, second),
+        [EvaluatedValue::New(ref first), EvaluatedValue::New(ref second)] => to_res(first, second),
         _ => Err(Error::WrongArgumentCount {
             expected: 2,
             actual: items.len(),
@@ -60,31 +60,48 @@ static OPERATOR_MAP: phf::Map<&'static str, Operator> = phf_map! {
     "==" => Operator {symbol: "==", operator: op_abstract_eq}
 };
 
-/// An atomic unit of the JSONLogic expression.
-/// An item is one of:
-///   - A rule: a parsed, valid, JSONLogic rule, which can be evaluated
-///   - A raw value: a reference to a pre-existing JSON value
-///   - An evaluated value: an owned, non-rule, JSON value generated as a
-///     result of rule evaluation or variable substitution
-enum Item<'a> {
+/// A Parsed JSON value
+///
+/// Parsed values are one of:
+///   - A rule: a valid JSONLogic rule which can be evaluated
+///   - A raw value: a non-rule, raw JSON value
+enum ParsedValue<'a> {
     Rule(Rule<'a>),
-    // Keeping references to pre-existing JSON values significantly reduces
-    // the amount of cloning we need to do. For anything that isn't a rule
-    // or generated via rule evaluation, we can just pass references around
-    // for the entire lifetime of rule evaluation.
     Raw(&'a Value),
-    Evaluated(Value),
-    // Variable(Variable<'a>),
 }
 
-impl TryFrom<Item<'_>> for Value {
+/// An Evaluated JSON value
+///
+/// An evaluated value is one of:
+///   - A new value: either a calculated Rule or a filled Variable
+///   - A raw value: a non-rule, raw JSON value
+enum EvaluatedValue<'a> {
+    New(Value),
+    Raw(&'a Value),
+}
+
+impl TryFrom<ParsedValue<'_>> for Value {
     type Error = Error;
 
-    fn try_from(item: Item) -> Result<Self, Self::Error> {
+    fn try_from(item: ParsedValue) -> Result<Self, Self::Error> {
         match item {
-            Item::Rule(rule) => Err(Error::UnexpectedError("foo".into())),
-            Item::Raw(val) => Ok(val.clone()),
-            Item::Evaluated(val) => Ok(val),
+            ParsedValue::Rule(rule) => Err(Error::UnexpectedError("foo".into())),
+            ParsedValue::Raw(val) => Ok(val.clone()),
+            // Item::Evaluated(val) => Ok(val),
+            // Item::Variable(var) => Err(Error::UnexpectedError("foo".into())),
+        }
+    }
+}
+
+
+impl TryFrom<EvaluatedValue<'_>> for Value {
+    type Error = Error;
+
+    fn try_from(item: EvaluatedValue) -> Result<Self, Self::Error> {
+        match item {
+            // ParsedValue::Rule(rule) => Err(Error::UnexpectedError("foo".into())),
+            EvaluatedValue::Raw(val) => Ok(val.clone()),
+            EvaluatedValue::New(val) => Ok(val),
             // Item::Variable(var) => Err(Error::UnexpectedError("foo".into())),
         }
     }
@@ -137,34 +154,34 @@ struct Variable<'a> {
 
 struct Rule<'a> {
     operator: &'a Operator,
-    arguments: Vec<Item<'a>>,
+    arguments: Vec<ParsedValue<'a>>,
 }
 impl<'a>  Rule<'a> {
     /// Evaluate the rule after recursively evaluating any nested rules
-    fn evaluate<D: VarMap>(&self, data: &'a D) -> Result<Item, Error> {
+    fn evaluate<D: VarMap>(&self, data: &'a D) -> Result<EvaluatedValue, Error> {
         let arguments = self
             .arguments
             .iter()
-            .map(|item| match item {
-                Item::Rule(rule) => rule.evaluate(data),
-                Item::Raw(val) => Ok(Item::Raw(*val)),
-                Item::Evaluated(val) => Ok(Item::Raw(val)),
+            .map(|value| match value {
+                ParsedValue::Rule(rule) => rule.evaluate(data),
+                ParsedValue::Raw(val) => Ok(EvaluatedValue::Raw(*val)),
+                // Item::Evaluated(val) => Ok(Item::Raw(val)),
             })
-            .collect::<Result<Vec<Item>, Error>>()?;
+            .collect::<Result<Vec<EvaluatedValue>, Error>>()?;
         // Operator::execute(self.operator, &arguments)
         self.operator.execute(&arguments)
     }
 }
 
-fn parse_args<'a>(arguments: &'a Vec<Value>) -> Result<Vec<Item<'a>>, Error> {
+fn parse_args<'a>(arguments: &'a Vec<Value>) -> Result<Vec<ParsedValue<'a>>, Error> {
     arguments
         .iter()
         .map(parse)
-        .collect::<Result<Vec<Item>, Error>>()
+        .collect::<Result<Vec<ParsedValue>, Error>>()
 }
 
 /// Recursively parse a value into a series of Items.
-fn parse<'a>(value: &'a Value) -> Result<Item<'a>, Error> {
+fn parse<'a>(value: &'a Value) -> Result<ParsedValue<'a>, Error> {
     match value {
         Value::Object(obj) => {
             match obj.len() {
@@ -180,7 +197,7 @@ fn parse<'a>(value: &'a Value) -> Result<Item<'a>, Error> {
                     if let Some(operator) = OPERATOR_MAP.get(key.as_str()) {
                         match val {
                             // But only if the value is an array
-                            Value::Array(arguments) => Ok(Item::Rule(Rule {
+                            Value::Array(arguments) => Ok(ParsedValue::Rule(Rule {
                                 operator,
                                 arguments: parse_args(arguments)?,
                             })),
@@ -192,16 +209,16 @@ fn parse<'a>(value: &'a Value) -> Result<Item<'a>, Error> {
                     } else {
                         // If the item's single key is not an operator, it's not a rule
                         // Ok(Item::Raw(&alue::Object(obj)))
-                        Ok(Item::Raw(&value))
+                        Ok(ParsedValue::Raw(&value))
                     }
                 }
                 // If the object has < or > 1 key, it's not a rule
                 // _ => Ok(Item::Raw(Value::Object(obj))),
-                _ => Ok(Item::Raw(&value)),
+                _ => Ok(ParsedValue::Raw(&value)),
             }
         }
         // If the item is not an object, it's not a rule
-        _ => Ok(Item::Raw(&value)),
+        _ => Ok(ParsedValue::Raw(&value)),
     }
 }
 
@@ -210,14 +227,14 @@ fn parse<'a>(value: &'a Value) -> Result<Item<'a>, Error> {
 pub fn jsonlogic<'a, D: VarMap>(value: &'a Value, data: D) -> Result<Value, Error> {
     let parsed = parse(&value)?;
     match parsed {
-        Item::Rule(rule) => {
+        ParsedValue::Rule(rule) => {
             let res = rule.evaluate(&data)?;
             Ok(Value::try_from(res)?)
         },
-        Item::Raw(val) => Ok(val.clone()),
-        Item::Evaluated(_) => Err(Error::UnexpectedError(
-            "Parser should not evaluate items".into(),
-        )),
+        ParsedValue::Raw(val) => Ok(val.clone()),
+        // Item::Evaluated(_) => Err(Error::UnexpectedError(
+        //     "Parser should not evaluate items".into(),
+        // )),
     }
 }
 
