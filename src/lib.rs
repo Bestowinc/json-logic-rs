@@ -1,7 +1,7 @@
 use phf::phf_map;
 use serde_json::map::Map;
 use serde_json::Value;
-use std::convert::TryFrom;
+use std::convert::{From, TryFrom};
 // use std::eq
 use std::collections::HashMap;
 use thiserror;
@@ -40,6 +40,7 @@ type OperatorFn<'a> = fn(&Vec<EvaluatedValue>) -> Result<EvaluatedValue<'a>, Err
 
 /// Operator for JS-style abstract equality
 fn op_abstract_eq<'a>(items: &Vec<EvaluatedValue>) -> Result<EvaluatedValue<'a>, Error> {
+
     let to_res = |first: &Value, second: &Value| -> Result<EvaluatedValue<'a>, Error> {
         Ok(EvaluatedValue::New(Value::Bool(abstract_eq(&first, &second))))
     };
@@ -85,24 +86,18 @@ impl TryFrom<ParsedValue<'_>> for Value {
 
     fn try_from(item: ParsedValue) -> Result<Self, Self::Error> {
         match item {
-            ParsedValue::Rule(rule) => Err(Error::UnexpectedError("foo".into())),
+            ParsedValue::Rule(_) => Err(Error::UnexpectedError("oh no".into())),
             ParsedValue::Raw(val) => Ok(val.clone()),
-            // Item::Evaluated(val) => Ok(val),
-            // Item::Variable(var) => Err(Error::UnexpectedError("foo".into())),
         }
     }
 }
 
 
-impl TryFrom<EvaluatedValue<'_>> for Value {
-    type Error = Error;
-
-    fn try_from(item: EvaluatedValue) -> Result<Self, Self::Error> {
+impl From<EvaluatedValue<'_>> for Value {
+    fn from(item: EvaluatedValue) -> Self {
         match item {
-            // ParsedValue::Rule(rule) => Err(Error::UnexpectedError("foo".into())),
-            EvaluatedValue::Raw(val) => Ok(val.clone()),
-            EvaluatedValue::New(val) => Ok(val),
-            // Item::Variable(var) => Err(Error::UnexpectedError("foo".into())),
+            EvaluatedValue::Raw(val) => val.clone(),
+            EvaluatedValue::New(val) => val,
         }
     }
 }
@@ -229,12 +224,9 @@ pub fn jsonlogic<'a, D: VarMap>(value: &'a Value, data: D) -> Result<Value, Erro
     match parsed {
         ParsedValue::Rule(rule) => {
             let res = rule.evaluate(&data)?;
-            Ok(Value::try_from(res)?)
+            Ok(res.into())
         },
         ParsedValue::Raw(val) => Ok(val.clone()),
-        // Item::Evaluated(_) => Err(Error::UnexpectedError(
-        //     "Parser should not evaluate items".into(),
-        // )),
     }
 }
 
