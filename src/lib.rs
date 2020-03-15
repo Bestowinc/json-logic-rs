@@ -4,6 +4,7 @@ use serde_json::Value;
 use std::convert::{From, TryFrom};
 // use std::eq
 use std::collections::HashMap;
+use std::fmt;
 use thiserror;
 
 pub mod js_op;
@@ -35,14 +36,23 @@ impl Operator {
         (self.operator)(items)
     }
 }
+impl fmt::Debug for Operator {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("Operator")
+            .field("symbol", &self.symbol)
+            .field("operator", &"<operator fn>")
+            .finish()
+    }
+}
 
 type OperatorFn<'a> = fn(&Vec<EvaluatedValue>) -> Result<EvaluatedValue<'a>, Error>;
 
 /// Operator for JS-style abstract equality
 fn op_abstract_eq<'a>(items: &Vec<EvaluatedValue>) -> Result<EvaluatedValue<'a>, Error> {
-
     let to_res = |first: &Value, second: &Value| -> Result<EvaluatedValue<'a>, Error> {
-        Ok(EvaluatedValue::New(Value::Bool(abstract_eq(&first, &second))))
+        Ok(EvaluatedValue::New(Value::Bool(abstract_eq(
+            &first, &second,
+        ))))
     };
 
     match items[..] {
@@ -66,6 +76,7 @@ static OPERATOR_MAP: phf::Map<&'static str, Operator> = phf_map! {
 /// Parsed values are one of:
 ///   - A rule: a valid JSONLogic rule which can be evaluated
 ///   - A raw value: a non-rule, raw JSON value
+#[derive(Debug)]
 enum ParsedValue<'a> {
     Rule(Rule<'a>),
     Raw(&'a Value),
@@ -76,6 +87,7 @@ enum ParsedValue<'a> {
 /// An evaluated value is one of:
 ///   - A new value: either a calculated Rule or a filled Variable
 ///   - A raw value: a non-rule, raw JSON value
+#[derive(Debug)]
 enum EvaluatedValue<'a> {
     New(Value),
     Raw(&'a Value),
@@ -86,12 +98,14 @@ impl TryFrom<ParsedValue<'_>> for Value {
 
     fn try_from(item: ParsedValue) -> Result<Self, Self::Error> {
         match item {
-            ParsedValue::Rule(_) => Err(Error::UnexpectedError("oh no".into())),
+            ParsedValue::Rule(rule) => Err(Error::UnexpectedError(format!(
+                "Cannot parse Rule into Value. Found Rule: {:?}",
+                rule
+            ))),
             ParsedValue::Raw(val) => Ok(val.clone()),
         }
     }
 }
-
 
 impl From<EvaluatedValue<'_>> for Value {
     fn from(item: EvaluatedValue) -> Self {
@@ -107,16 +121,15 @@ impl TryFrom<Rule<'_>> for Value {
 
     fn try_from(rule: Rule) -> Result<Self, Self::Error> {
         let mut rv = Map::with_capacity(1);
-        let values = rule.arguments.into_iter().map(
-                Value::try_from
-        ).collect::<Result<Vec<Self>, Self::Error>>()?;
-        rv.insert(
-            rule.operator.symbol.into(), Value::Array(values)
-        );
+        let values = rule
+            .arguments
+            .into_iter()
+            .map(Value::try_from)
+            .collect::<Result<Vec<Self>, Self::Error>>()?;
+        rv.insert(rule.operator.symbol.into(), Value::Array(values));
         Ok(Value::Object(rv))
     }
 }
-
 
 pub trait VarMap {
     fn get(&self, key: String) -> Result<Option<&Value>, Error>;
@@ -147,11 +160,12 @@ struct Variable<'a> {
     name: &'a String,
 }
 
+#[derive(Debug)]
 struct Rule<'a> {
     operator: &'a Operator,
     arguments: Vec<ParsedValue<'a>>,
 }
-impl<'a>  Rule<'a> {
+impl<'a> Rule<'a> {
     /// Evaluate the rule after recursively evaluating any nested rules
     fn evaluate<D: VarMap>(&self, data: &'a D) -> Result<EvaluatedValue, Error> {
         let arguments = self
@@ -225,7 +239,7 @@ pub fn jsonlogic<'a, D: VarMap>(value: &'a Value, data: D) -> Result<Value, Erro
         ParsedValue::Rule(rule) => {
             let res = rule.evaluate(&data)?;
             Ok(res.into())
-        },
+        }
         ParsedValue::Raw(val) => Ok(val.clone()),
     }
 }
