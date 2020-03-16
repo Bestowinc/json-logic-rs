@@ -14,11 +14,15 @@ pub use js_op::{
     strict_ne,
 };
 
+const NULL: Value = Value::Null;
+
 /// Public error enumeration
 #[derive(thiserror::Error, Debug, PartialEq)]
 pub enum Error {
     #[error("Invalid rule! operator: '{key:?}', reason: {reason:?}")]
     InvalidRule { key: String, reason: &'static str },
+    #[error("Invalid variable: '{value:?}', reason: {reason:?}")]
+    InvalidVariable { value: Value, reason: &'static str },
     #[error("Invalid variable mapping! {0} is not an object.")]
     InvalidVarMap(Value),
     #[error("Encountered an unexpected error. Please raise an issue on GitHub and include the following error message: {0}")]
@@ -80,6 +84,7 @@ static OPERATOR_MAP: phf::Map<&'static str, Operator> = phf_map! {
 enum ParsedValue<'a> {
     Rule(Rule<'a>),
     Raw(&'a Value),
+    Variable(Variable<'a>),
 }
 
 /// An Evaluated JSON value
@@ -98,11 +103,13 @@ impl TryFrom<ParsedValue<'_>> for Value {
 
     fn try_from(item: ParsedValue) -> Result<Self, Self::Error> {
         match item {
-            ParsedValue::Rule(rule) => Err(Error::UnexpectedError(format!(
-                "Cannot parse Rule into Value. Found Rule: {:?}",
-                rule
-            ))),
+            ParsedValue::Rule(rule) => Value::try_from(rule),
             ParsedValue::Raw(val) => Ok(val.clone()),
+            ParsedValue::Variable(var) => {
+                let mut map = Map::with_capacity(1);
+                map.insert("var".into(), Value::String(var.name.clone()));
+                Ok(Value::Object(map))
+            }
         }
     }
 }
@@ -132,30 +139,31 @@ impl TryFrom<Rule<'_>> for Value {
 }
 
 pub trait VarMap {
-    fn get(&self, key: String) -> Result<Option<&Value>, Error>;
+    fn get<S: AsRef<str>>(&self, key: S) -> Result<Option<&Value>, Error>;
 }
 
 impl VarMap for HashMap<String, Value> {
-    fn get(&self, key: String) -> Result<Option<&Value>, Error> {
-        Ok(HashMap::get(&self, &key))
+    fn get<S: AsRef<str>>(&self, key: S) -> Result<Option<&Value>, Error> {
+        Ok(HashMap::get(&self, key.as_ref()))
     }
 }
 
 impl VarMap for Map<String, Value> {
-    fn get(&self, key: String) -> Result<Option<&Value>, Error> {
-        Ok(Map::get(&self, &key))
+    fn get<S: AsRef<str>>(&self, key: S) -> Result<Option<&Value>, Error> {
+        Ok(Map::get(&self, key.as_ref()))
     }
 }
 
 impl VarMap for Value {
-    fn get(&self, key: String) -> Result<Option<&Value>, Error> {
+    fn get<S: AsRef<str>>(&self, key: S) -> Result<Option<&Value>, Error> {
         match self {
-            Value::Object(map) => Ok(map.get(&key)),
-            _ => panic!("Ahhh!"),
+            Value::Object(map) => Ok(map.get(key.as_ref())),
+            _ => Err(Error::InvalidVarMap(self.clone())),
         }
     }
 }
 
+#[derive(Debug)]
 struct Variable<'a> {
     name: &'a String,
 }
@@ -174,10 +182,11 @@ impl<'a> Rule<'a> {
             .map(|value| match value {
                 ParsedValue::Rule(rule) => rule.evaluate(data),
                 ParsedValue::Raw(val) => Ok(EvaluatedValue::Raw(*val)),
-                // Item::Evaluated(val) => Ok(Item::Raw(val)),
+                ParsedValue::Variable(var) => {
+                    Ok(EvaluatedValue::Raw(interpolate_variable(data, &var)))
+                }
             })
             .collect::<Result<Vec<EvaluatedValue>, Error>>()?;
-        // Operator::execute(self.operator, &arguments)
         self.operator.execute(&arguments)
     }
 }
@@ -187,6 +196,22 @@ fn parse_args<'a>(arguments: &'a Vec<Value>) -> Result<Vec<ParsedValue<'a>>, Err
         .iter()
         .map(parse)
         .collect::<Result<Vec<ParsedValue>, Error>>()
+}
+
+fn interpolate_variable<'a, D: VarMap>(
+    data: &'a D,
+    variable: &Variable,
+) -> &'a Value {
+    variable.name.split(".").fold(
+        &NULL,
+        |acc, i| {
+            match acc {
+                Value::Null => data.get(i).ok().unwrap_or(None).unwrap_or(&NULL),
+                Value::Object(map) => map.get(i).unwrap_or(&NULL),
+                _ => &NULL
+            }
+        }
+    )
 }
 
 /// Recursively parse a value into a series of Items.
@@ -203,7 +228,17 @@ fn parse<'a>(value: &'a Value) -> Result<ParsedValue<'a>, Error> {
                         "could not get value for key '{}' from len(1) object: {:?}",
                         key, obj
                     )))?;
-                    if let Some(operator) = OPERATOR_MAP.get(key.as_str()) {
+                    if key == "var" {
+                        match val {
+                            Value::String(var_name) => {
+                                Ok(ParsedValue::Variable(Variable { name: var_name }))
+                            }
+                            _ => Err(Error::InvalidVariable {
+                                value: val.clone(),
+                                reason: "Variable values must be strings.",
+                            }),
+                        }
+                    } else if let Some(operator) = OPERATOR_MAP.get(key.as_str()) {
                         match val {
                             // But only if the value is an array
                             Value::Array(arguments) => Ok(ParsedValue::Rule(Rule {
@@ -241,6 +276,7 @@ pub fn jsonlogic<'a, D: VarMap>(value: &'a Value, data: D) -> Result<Value, Erro
             Ok(res.into())
         }
         ParsedValue::Raw(val) => Ok(val.clone()),
+        ParsedValue::Variable(var) => Ok(interpolate_variable(&data, &var).clone()),
     }
 }
 
@@ -285,6 +321,46 @@ mod tests {
                 json!({"==": [{"==": [{"==": [1, 1]}, true]}, {"==": [1, 1]}]}),
                 json!({}),
                 Ok(json!(true)),
+            ),
+            // Variable substitution
+            (
+                json!({"var": "foo"}),
+                json!({"foo": "bar"}),
+                Ok(json!("bar")),
+            ),
+            // Absent variable
+            (
+                json!({"var": "foo"}),
+                json!({}),
+                Ok(json!(null)),
+            ),
+            (
+                json!({"==": [{"var": "first"}, true]}),
+                json!({"first": true}),
+                Ok(json!(true)),
+            ),
+            // Dotted variable substitution
+            (
+                json!({"var": "foo.bar"}),
+                json!({"foo": {"bar": "baz"}}),
+                Ok(json!("baz")),
+            ),
+            // Absent dotted variable
+            (
+                json!({"var": "foo.bar"}),
+                json!({"foo": {"baz": "baz"}}),
+                Ok(json!(null)),
+            ),
+            // Non-object type in dotted variable path
+            (
+                json!({"var": "foo.bar.baz"}),
+                json!({"foo": {"bar": 1}}),
+                Ok(json!(null)),
+            ),
+            (
+                json!({"var": "foo.bar"}),
+                json!({"foo": "not an object"}),
+                Ok(json!(null)),
             ),
         ]
     }
