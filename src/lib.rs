@@ -1,9 +1,6 @@
 use phf::phf_map;
-use serde_json::map::Map;
-use serde_json::Value;
+use serde_json::{Map, Number, Value};
 use std::convert::{From, TryFrom};
-// use std::eq
-use std::collections::HashMap;
 use std::fmt;
 use thiserror;
 
@@ -19,15 +16,17 @@ const NULL: Value = Value::Null;
 /// Public error enumeration
 #[derive(thiserror::Error, Debug, PartialEq)]
 pub enum Error {
-    #[error("Invalid rule! operator: '{key:?}', reason: {reason:?}")]
-    InvalidRule { key: String, reason: &'static str },
-    #[error("Invalid variable: '{value:?}', reason: {reason:?}")]
-    InvalidVariable { value: Value, reason: &'static str },
-    #[error("Invalid variable mapping! {0} is not an object.")]
+    #[error("Invalid data - value: {value:?}, reason: {reason:?}")]
+    InvalidData { value: Value, reason: String },
+    #[error("Invalid rule - operator: '{key:?}', reason: {reason:?}")]
+    InvalidOperation { key: String, reason: &'static str },
+    #[error("Invalid variable - '{value:?}', reason: {reason:?}")]
+    InvalidVariable { value: Value, reason: String },
+    #[error("Invalid variable mapping - {0} is not an object.")]
     InvalidVarMap(Value),
     #[error("Encountered an unexpected error. Please raise an issue on GitHub and include the following error message: {0}")]
     UnexpectedError(String),
-    #[error("Wrong argument count. Expected {expected:?}, got {actual:?}")]
+    #[error("Wrong argument count - expected: {expected:?}, actual: {actual:?}")]
     WrongArgumentCount { expected: usize, actual: usize },
 }
 
@@ -82,9 +81,35 @@ static OPERATOR_MAP: phf::Map<&'static str, Operator> = phf_map! {
 ///   - A raw value: a non-rule, raw JSON value
 #[derive(Debug)]
 enum ParsedValue<'a> {
-    Rule(Rule<'a>),
+    Operation(Operation<'a>),
     Raw(&'a Value),
     Variable(Variable<'a>),
+}
+impl<'a> ParsedValue<'a> {
+    /// Recursively parse a value
+    fn from_value(value: &'a Value) -> Result<Self, Error> {
+        Ok(
+            Variable::from_value(value)?
+            .map(Self::Variable)
+            .or(Operation::from_value(value)?.map(Self::Operation))
+            .unwrap_or(Self::Raw(value))
+        )
+    }
+
+    fn from_values(values: &'a Vec<Value>) -> Result<Vec<Self>, Error> {
+        values
+            .iter()
+            .map(Self::from_value)
+            .collect::<Result<Vec<Self>, Error>>()
+    }
+
+    fn evaluate(&self, data: &'a Value) -> Result<EvaluatedValue, Error> {
+        match self {
+            Self::Operation(rule) => rule.evaluate(data),
+            Self::Raw(val) => Ok(EvaluatedValue::Raw(*val)),
+            Self::Variable(var) => var.interpolate(data).map(EvaluatedValue::Raw),
+        }
+    }
 }
 
 /// An Evaluated JSON value
@@ -103,11 +128,11 @@ impl TryFrom<ParsedValue<'_>> for Value {
 
     fn try_from(item: ParsedValue) -> Result<Self, Self::Error> {
         match item {
-            ParsedValue::Rule(rule) => Value::try_from(rule),
+            ParsedValue::Operation(op) => Value::try_from(op),
             ParsedValue::Raw(val) => Ok(val.clone()),
             ParsedValue::Variable(var) => {
                 let mut map = Map::with_capacity(1);
-                map.insert("var".into(), Value::String(var.name.clone()));
+                map.insert("var".into(), var.value.clone());
                 Ok(Value::Object(map))
             }
         }
@@ -123,161 +148,234 @@ impl From<EvaluatedValue<'_>> for Value {
     }
 }
 
-impl TryFrom<Rule<'_>> for Value {
+impl TryFrom<Operation<'_>> for Value {
     type Error = Error;
 
-    fn try_from(rule: Rule) -> Result<Self, Self::Error> {
+    fn try_from(op: Operation) -> Result<Self, Self::Error> {
         let mut rv = Map::with_capacity(1);
-        let values = rule
+        let values = op
             .arguments
             .into_iter()
             .map(Value::try_from)
             .collect::<Result<Vec<Self>, Self::Error>>()?;
-        rv.insert(rule.operator.symbol.into(), Value::Array(values));
+        rv.insert(op.operator.symbol.into(), Value::Array(values));
         Ok(Value::Object(rv))
     }
 }
 
-pub trait VarMap {
-    fn get<S: AsRef<str>>(&self, key: S) -> Result<Option<&Value>, Error>;
-}
 
-impl VarMap for HashMap<String, Value> {
-    fn get<S: AsRef<str>>(&self, key: S) -> Result<Option<&Value>, Error> {
-        Ok(HashMap::get(&self, key.as_ref()))
+#[derive(Debug)]
+struct Variable<'a> {
+    value: &'a Value,
+}
+impl<'a> Variable<'a> {
+    fn from_value(value: &'a Value) -> Result<Option<Self>, Error> {
+        match value {
+            Value::Object(map) => {
+                if map.len() != 1 {
+                    return Ok(None);
+                };
+                match map.get("var") {
+                    Some(var) => match var {
+                        Value::String(_) => Ok(Some(Variable { value: var })),
+                        Value::Number(_) => Ok(Some(Variable { value: var })),
+                        Value::Array(arr) => match arr.len() {
+                            0..=2 => Ok(Some(Variable { value: var })),
+                            _ => Err(Error::InvalidVariable {
+                                value: value.clone(),
+                                reason: "Array variables must be of len 0..2 inclusive".into(),
+                            }),
+                        },
+                        _ => Err(Error::InvalidVariable {
+                            value: value.clone(),
+                            reason: "Variables must be strings, integers, or arrays".into(),
+                        }),
+                    },
+                    None => Ok(None),
+                }
+            }
+            _ => Ok(None),
+        }
     }
-}
 
-impl VarMap for Map<String, Value> {
-    fn get<S: AsRef<str>>(&self, key: S) -> Result<Option<&Value>, Error> {
-        Ok(Map::get(&self, key.as_ref()))
+    fn interpolate(&self, data: &'a Value) -> Result<&'a Value, Error> {
+        // if self.name == "" { return data };
+        match self.value {
+            Value::Null => Ok(data),
+            Value::String(var_name) => self.interpolate_string_var(data, var_name),
+            Value::Number(idx) => self.interpolate_numeric_var(data, idx),
+            Value::Array(var) => self.interpolate_array_var(data, var),
+            _ => Err(Error::InvalidVariable{
+                value: self.value.clone(),
+                reason: "Unsupported variable type. Variables must be strings, integers, arrays, or null.".into()
+            })
+        }
     }
-}
 
-impl VarMap for Value {
-    fn get<S: AsRef<str>>(&self, key: S) -> Result<Option<&Value>, Error> {
-        match self {
-            Value::Object(map) => Ok(map.get(key.as_ref())),
-            _ => Err(Error::InvalidVarMap(self.clone())),
+    fn get_default(&self) -> &'a Value {
+        match self.value {
+            Value::Array(val) => val.get(1).unwrap_or(&NULL),
+            _ => &NULL,
+        }
+    }
+
+    fn interpolate_array_var(
+        &self,
+        data: &'a Value,
+        var: &'a Vec<Value>,
+    ) -> Result<&'a Value, Error> {
+        let len = var.len();
+        match len {
+            0 => Ok(data),
+            1 | 2 => match &var[0] {
+                Value::String(var_name) => self.interpolate_string_var(data, &var_name),
+                Value::Number(var_idx) => self.interpolate_numeric_var(data, &var_idx),
+                _ => Err(Error::InvalidVariable {
+                    value: Value::Array(var.clone()),
+                    reason: "Variables must be strings or integers".into(),
+                }),
+            },
+            _ => Err(Error::InvalidVariable {
+                value: Value::Array(var.clone()),
+                reason: format!("Array variables must be of len 1 or 2, not {}", len),
+            }),
+        }
+    }
+
+    fn interpolate_numeric_var(
+        &self,
+        data: &'a Value,
+        idx: &'a Number,
+    ) -> Result<&'a Value, Error> {
+        let default = self.get_default();
+        match data {
+            Value::Array(val) => {
+                idx
+                    // Option<u64>
+                    .as_u64()
+                    // Option<Result<usize, Error>>
+                    .map(|i| {
+                        usize::try_from(i).map_err(|e| Error::InvalidVariable {
+                            value: Value::Number(idx.clone()),
+                            reason: format!(
+                                "Could not convert value to a system-sized integer: {:?}",
+                                e
+                            ),
+                        })
+                    })
+                    // Option<Result<Value, Error>>
+                    .map(|res| res.map(|i| val.get(i).unwrap_or(default)))
+                    // Result<Value, Error>
+                    .unwrap_or(Ok(default))
+            }
+            _ => Err(Error::InvalidVariable {
+                value: Value::Number(idx.clone()),
+                reason: "Cannot access non-array data with an index variable".into(),
+            }),
+        }
+    }
+
+    fn interpolate_string_var(
+        &self,
+        data: &'a Value,
+        var_name: &'a String,
+    ) -> Result<&'a Value, Error> {
+        if var_name == "" {
+            return Ok(data);
+        };
+        let default = self.get_default();
+        match data {
+            Value::Object(_) => var_name.split(".").fold(
+                Ok(data), |acc, i| match acc? {
+                    // If the current value is an object, try to get the value
+                    Value::Object(map) => {
+                        // Default to null if not found
+                        Ok(map.get(i).unwrap_or(default))
+                    },
+                    // If the current value is an array, we need an integer
+                    // index. If integer conversion fails, return an error.
+                    Value::Array(arr) => {
+                        i.parse::<usize>().map(
+                            |i| arr.get(i).unwrap_or(default)
+                        ).map_err(|_| Error::InvalidVariable{
+                            value: Value::String(var_name.clone()),
+                            reason: "Cannot access array data with non-integer key".into()
+                        })
+                    },
+                    // If the object is any other type, just return the default
+                    _ => Ok(default),
+                }
+            ),
+            // A string key is invalid for anything other than an object
+            _ => Err(Error::InvalidVariable{
+                value: Value::String(var_name.clone()),
+                reason: "String indices are not supported for non-object data".into()
+            }),
         }
     }
 }
 
-#[derive(Debug)]
-struct Variable<'a> {
-    name: &'a String,
-}
 
 #[derive(Debug)]
-struct Rule<'a> {
+struct Operation<'a> {
     operator: &'a Operator,
     arguments: Vec<ParsedValue<'a>>,
 }
-impl<'a> Rule<'a> {
-    /// Evaluate the rule after recursively evaluating any nested rules
-    fn evaluate<D: VarMap>(&self, data: &'a D) -> Result<EvaluatedValue, Error> {
+impl<'a> Operation<'a> {
+    fn from_value(value: &'a Value) -> Result<Option<Self>, Error> {
+        match value {
+            // Operations are Objects
+            Value::Object(obj) => {
+                // Operations have just one key/value pair.
+                if obj.len() != 1 { return Ok(None) }
+
+                let key = obj.keys().next().ok_or(Error::UnexpectedError(format!(
+                    "could not get first key from len(1) object: {:?}",
+                    obj
+                )))?;
+                let val = obj.get(key).ok_or(Error::UnexpectedError(format!(
+                    "could not get value for key '{}' from len(1) object: {:?}",
+                    key, obj
+                )))?;
+
+                // Operators have known keys
+                if let Some(operator) = OPERATOR_MAP.get(key.as_str()) {
+                    match val {
+                        // Operator values are arrays
+                        Value::Array(arguments) => Ok(Some(Operation {
+                            operator,
+                            arguments: ParsedValue::from_values(arguments)?,
+                        })),
+                        _ => Err(Error::InvalidOperation {
+                            key: key.into(),
+                            reason: "Values for operator keys must be arrays",
+                        }),
+                    }
+                } else {
+                    Ok(None)
+                }
+            },
+            // We're definitely not an operation
+            _ => Ok(None)
+        }
+    }
+    /// Evaluate the operation after recursively evaluating any nested operations
+    fn evaluate(&self, data: &Value) -> Result<EvaluatedValue, Error> {
         let arguments = self
             .arguments
             .iter()
-            .map(|value| match value {
-                ParsedValue::Rule(rule) => rule.evaluate(data),
-                ParsedValue::Raw(val) => Ok(EvaluatedValue::Raw(*val)),
-                ParsedValue::Variable(var) => {
-                    Ok(EvaluatedValue::Raw(interpolate_variable(data, &var)))
-                }
-            })
+            .map(|value| value.evaluate(data))
             .collect::<Result<Vec<EvaluatedValue>, Error>>()?;
         self.operator.execute(&arguments)
     }
 }
 
-fn parse_args<'a>(arguments: &'a Vec<Value>) -> Result<Vec<ParsedValue<'a>>, Error> {
-    arguments
-        .iter()
-        .map(parse)
-        .collect::<Result<Vec<ParsedValue>, Error>>()
-}
 
-fn interpolate_variable<'a, D: VarMap>(
-    data: &'a D,
-    variable: &Variable,
-) -> &'a Value {
-    variable.name.split(".").fold(
-        &NULL,
-        |acc, i| {
-            match acc {
-                Value::Null => data.get(i).ok().unwrap_or(None).unwrap_or(&NULL),
-                Value::Object(map) => map.get(i).unwrap_or(&NULL),
-                _ => &NULL
-            }
-        }
-    )
-}
-
-/// Recursively parse a value into a series of Items.
-fn parse<'a>(value: &'a Value) -> Result<ParsedValue<'a>, Error> {
-    match value {
-        Value::Object(obj) => {
-            match obj.len() {
-                1 => {
-                    let key = obj.keys().next().ok_or(Error::UnexpectedError(format!(
-                        "could not get first key from len(1) object: {:?}",
-                        obj
-                    )))?;
-                    let val = obj.get(key).ok_or(Error::UnexpectedError(format!(
-                        "could not get value for key '{}' from len(1) object: {:?}",
-                        key, obj
-                    )))?;
-                    if key == "var" {
-                        match val {
-                            Value::String(var_name) => {
-                                Ok(ParsedValue::Variable(Variable { name: var_name }))
-                            }
-                            _ => Err(Error::InvalidVariable {
-                                value: val.clone(),
-                                reason: "Variable values must be strings.",
-                            }),
-                        }
-                    } else if let Some(operator) = OPERATOR_MAP.get(key.as_str()) {
-                        match val {
-                            // But only if the value is an array
-                            Value::Array(arguments) => Ok(ParsedValue::Rule(Rule {
-                                operator,
-                                arguments: parse_args(arguments)?,
-                            })),
-                            _ => Err(Error::InvalidRule {
-                                key: key.into(),
-                                reason: "Values for operator keys must be arrays",
-                            }),
-                        }
-                    } else {
-                        // If the item's single key is not an operator, it's not a rule
-                        // Ok(Item::Raw(&alue::Object(obj)))
-                        Ok(ParsedValue::Raw(&value))
-                    }
-                }
-                // If the object has < or > 1 key, it's not a rule
-                // _ => Ok(Item::Raw(Value::Object(obj))),
-                _ => Ok(ParsedValue::Raw(&value)),
-            }
-        }
-        // If the item is not an object, it's not a rule
-        _ => Ok(ParsedValue::Raw(&value)),
-    }
-}
-
-/// Run JSONLogic for the given rule and data.
+/// Run JSONLogic for the given operation and data.
 ///
-pub fn jsonlogic<'a, D: VarMap>(value: &'a Value, data: D) -> Result<Value, Error> {
-    let parsed = parse(&value)?;
-    match parsed {
-        ParsedValue::Rule(rule) => {
-            let res = rule.evaluate(&data)?;
-            Ok(res.into())
-        }
-        ParsedValue::Raw(val) => Ok(val.clone()),
-        ParsedValue::Variable(var) => Ok(interpolate_variable(&data, &var).clone()),
-    }
+pub fn jsonlogic(value: &Value, data: &Value) -> Result<Value, Error> {
+    let parsed = ParsedValue::from_value(&value)?;
+    parsed.evaluate(data).map(|res| res.into())
 }
 
 #[cfg(test)]
@@ -285,7 +383,7 @@ mod tests {
     use super::*;
     use serde_json::json;
 
-    fn jsonlogic_cases() -> Vec<(Value, Value, Result<Value, Error>)> {
+    fn jsonlogic_cases() -> Vec<(Value, Value, Result<Value, ()>)> {
         vec![
             // Passing a static value returns the value unchanged.
             (json!("foo"), json!({}), Ok(json!("foo"))),
@@ -328,12 +426,14 @@ mod tests {
                 json!({"foo": "bar"}),
                 Ok(json!("bar")),
             ),
-            // Absent variable
+            // Index into array data
             (
-                json!({"var": "foo"}),
-                json!({}),
-                Ok(json!(null)),
+                json!({"var": 1}),
+                json!(["foo", "bar"]),
+                Ok(json!("bar"))
             ),
+            // Absent variable
+            (json!({"var": "foo"}), json!({}), Ok(json!(null))),
             (
                 json!({"==": [{"var": "first"}, true]}),
                 json!({"first": true}),
@@ -343,6 +443,12 @@ mod tests {
             (
                 json!({"var": "foo.bar"}),
                 json!({"foo": {"bar": "baz"}}),
+                Ok(json!("baz")),
+            ),
+            // Dotted variable with nested array access
+            (
+                json!({"var": "foo.1"}),
+                json!({"foo": ["bar", "baz", "pop"]}),
                 Ok(json!("baz")),
             ),
             // Absent dotted variable
@@ -367,15 +473,15 @@ mod tests {
 
     #[test]
     fn test_jsonlogic() {
-        jsonlogic_cases().into_iter().for_each(|(rule, data, exp)| {
-            println!("Running rule: {:?} with data: {:?}", rule, data);
-            let result = jsonlogic(&rule, data);
+        jsonlogic_cases().into_iter().for_each(|(op, data, exp)| {
+            println!("Running rule: {:?} with data: {:?}", op, data);
+            let result = jsonlogic(&op, &data);
             println!("- Result: {:?}", result);
             println!("- Expected: {:?}", exp);
             if exp.is_ok() {
                 assert_eq!(result.unwrap(), exp.unwrap());
             } else {
-                assert_eq!(result.unwrap_err(), exp.unwrap_err());
+                result.unwrap_err();
             }
         })
     }
