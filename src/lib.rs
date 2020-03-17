@@ -117,6 +117,22 @@ mod tests {
                 Ok(json!(["b"])),
             ),
             (json!({"missing": [1, 5]}), json!([1, 2, 3]), Ok(json!([5]))),
+            // "missing_some" data operator
+            (
+                json!({"missing_some": [1, ["a", "b"]]}),
+                json!({"a": 1, "b": 2}),
+                Ok(json!([])),
+            ),
+            (
+                json!({"missing_some": [1, ["a", "b", "c"]]}),
+                json!({"a": 1, "b": 2}),
+                Ok(json!([])),
+            ),
+            (
+                json!({"missing_some": [2, ["a", "b", "c"]]}),
+                json!({"a": 1}),
+                Ok(json!(["b", "c"])),
+            ),
         ]
     }
 

@@ -17,14 +17,16 @@ pub enum Parsed<'a> {
     Raw(&'a Value),
     Variable(data::Variable<'a>),
     Missing(data::Missing<'a>),
+    MissingSome(data::MissingSome<'a>),
 }
 impl<'a> Parsed<'a> {
     /// Recursively parse a value
     pub fn from_value(value: &'a Value) -> Result<Self, Error> {
         Ok(data::Variable::from_value(value)?
             .map(Self::Variable)
-            .or(Operation::from_value(value)?.map(Self::Operation))
             .or(data::Missing::from_value(value)?.map(Self::Missing))
+            .or(data::MissingSome::from_value(value)?.map(Self::MissingSome))
+            .or(Operation::from_value(value)?.map(Self::Operation))
             .unwrap_or(Self::Raw(value)))
     }
 
@@ -41,6 +43,7 @@ impl<'a> Parsed<'a> {
             Self::Raw(val) => Ok(Evaluated::Raw(*val)),
             Self::Variable(var) => var.evaluate(data).map(Evaluated::Raw),
             Self::Missing(missing) => missing.evaluate(data).map(Evaluated::New),
+            Self::MissingSome(missing) => missing.evaluate(data).map(Evaluated::New),
         }
     }
 }
@@ -53,6 +56,7 @@ impl TryFrom<Parsed<'_>> for Value {
             Parsed::Raw(val) => Ok(val.clone()),
             Parsed::Variable(var) => Ok(Value::from(var)),
             Parsed::Missing(missing) => Ok(Value::from(missing)),
+            Parsed::MissingSome(missing) => Ok(Value::from(missing)),
         }
     }
 }
