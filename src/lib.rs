@@ -2,6 +2,7 @@ use phf::phf_map;
 use serde_json::{Map, Number, Value};
 use std::convert::{From, TryFrom};
 use std::fmt;
+use std::iter::once;
 use thiserror;
 
 pub mod js_op;
@@ -19,7 +20,7 @@ pub enum Error {
     #[error("Invalid data - value: {value:?}, reason: {reason:?}")]
     InvalidData { value: Value, reason: String },
     #[error("Invalid rule - operator: '{key:?}', reason: {reason:?}")]
-    InvalidOperation { key: String, reason: &'static str },
+    InvalidOperation { key: String, reason: String },
     #[error("Invalid variable - '{value:?}', reason: {reason:?}")]
     InvalidVariable { value: Value, reason: String },
     #[error("Invalid variable mapping - {0} is not an object.")]
@@ -84,16 +85,16 @@ enum ParsedValue<'a> {
     Operation(Operation<'a>),
     Raw(&'a Value),
     Variable(Variable<'a>),
+    Missing(Missing<'a>),
 }
 impl<'a> ParsedValue<'a> {
     /// Recursively parse a value
     fn from_value(value: &'a Value) -> Result<Self, Error> {
-        Ok(
-            Variable::from_value(value)?
+        Ok(Variable::from_value(value)?
             .map(Self::Variable)
             .or(Operation::from_value(value)?.map(Self::Operation))
-            .unwrap_or(Self::Raw(value))
-        )
+            .or(Missing::from_value(value)?.map(Self::Missing))
+            .unwrap_or(Self::Raw(value)))
     }
 
     fn from_values(values: &'a Vec<Value>) -> Result<Vec<Self>, Error> {
@@ -107,7 +108,21 @@ impl<'a> ParsedValue<'a> {
         match self {
             Self::Operation(rule) => rule.evaluate(data),
             Self::Raw(val) => Ok(EvaluatedValue::Raw(*val)),
-            Self::Variable(var) => var.interpolate(data).map(EvaluatedValue::Raw),
+            Self::Variable(var) => var.evaluate(data).map(EvaluatedValue::Raw),
+            Self::Missing(missing) => missing.evaluate(data),
+        }
+    }
+}
+
+impl TryFrom<ParsedValue<'_>> for Value {
+    type Error = Error;
+
+    fn try_from(item: ParsedValue) -> Result<Self, Self::Error> {
+        match item {
+            ParsedValue::Operation(op) => Value::try_from(op),
+            ParsedValue::Raw(val) => Ok(val.clone()),
+            ParsedValue::Variable(var) => Ok(Value::from(var)),
+            ParsedValue::Missing(missing) => Ok(Value::from(missing)),
         }
     }
 }
@@ -123,22 +138,6 @@ enum EvaluatedValue<'a> {
     Raw(&'a Value),
 }
 
-impl TryFrom<ParsedValue<'_>> for Value {
-    type Error = Error;
-
-    fn try_from(item: ParsedValue) -> Result<Self, Self::Error> {
-        match item {
-            ParsedValue::Operation(op) => Value::try_from(op),
-            ParsedValue::Raw(val) => Ok(val.clone()),
-            ParsedValue::Variable(var) => {
-                let mut map = Map::with_capacity(1);
-                map.insert("var".into(), var.value.clone());
-                Ok(Value::Object(map))
-            }
-        }
-    }
-}
-
 impl From<EvaluatedValue<'_>> for Value {
     fn from(item: EvaluatedValue) -> Self {
         match item {
@@ -147,22 +146,6 @@ impl From<EvaluatedValue<'_>> for Value {
         }
     }
 }
-
-impl TryFrom<Operation<'_>> for Value {
-    type Error = Error;
-
-    fn try_from(op: Operation) -> Result<Self, Self::Error> {
-        let mut rv = Map::with_capacity(1);
-        let values = op
-            .arguments
-            .into_iter()
-            .map(Value::try_from)
-            .collect::<Result<Vec<Self>, Self::Error>>()?;
-        rv.insert(op.operator.symbol.into(), Value::Array(values));
-        Ok(Value::Object(rv))
-    }
-}
-
 
 #[derive(Debug)]
 struct Variable<'a> {
@@ -198,7 +181,7 @@ impl<'a> Variable<'a> {
         }
     }
 
-    fn interpolate(&self, data: &'a Value) -> Result<&'a Value, Error> {
+    fn evaluate(&self, data: &'a Value) -> Result<&'a Value, Error> {
         // if self.name == "" { return data };
         match self.value {
             Value::Null => Ok(data),
@@ -283,38 +266,121 @@ impl<'a> Variable<'a> {
         if var_name == "" {
             return Ok(data);
         };
-        let default = self.get_default();
-        match data {
-            Value::Object(_) => var_name.split(".").fold(
-                Ok(data), |acc, i| match acc? {
-                    // If the current value is an object, try to get the value
-                    Value::Object(map) => {
-                        // Default to null if not found
-                        Ok(map.get(i).unwrap_or(default))
-                    },
-                    // If the current value is an array, we need an integer
-                    // index. If integer conversion fails, return an error.
-                    Value::Array(arr) => {
-                        i.parse::<usize>().map(
-                            |i| arr.get(i).unwrap_or(default)
-                        ).map_err(|_| Error::InvalidVariable{
-                            value: Value::String(var_name.clone()),
-                            reason: "Cannot access array data with non-integer key".into()
-                        })
-                    },
-                    // If the object is any other type, just return the default
-                    _ => Ok(default),
-                }
-            ),
-            // A string key is invalid for anything other than an object
-            _ => Err(Error::InvalidVariable{
-                value: Value::String(var_name.clone()),
-                reason: "String indices are not supported for non-object data".into()
-            }),
-        }
+        let key = KeyType::String(var_name);
+        get_key(data, &key).map(|v| v.unwrap_or(self.get_default()))
+    }
+}
+impl<'a> From<Variable<'a>> for Value {
+    fn from(var: Variable) -> Self {
+        let mut map = Map::with_capacity(1);
+        map.insert("var".into(), var.value.clone());
+        Value::Object(map)
     }
 }
 
+
+#[derive(Debug)]
+struct Missing<'a> {
+    values: Vec<KeyType<'a>>,
+}
+impl<'a> Missing<'a> {
+    fn from_value(value: &'a Value) -> Result<Option<Self>, Error> {
+        match value {
+            Value::Object(obj) => {
+                if let Some(val) = obj.get("missing") {
+                    match val {
+                        Value::Array(vals) => {
+                            let mut vals_iter = vals.iter();
+                            let first = vals_iter.next();
+                            let missing_vals = match first {
+                                None => Ok(vals),
+                                // If the first value is a String, check to
+                                // be sure the rest are too
+                                Some(Value::String(_)) => {
+                                    vals_iter.fold(Ok(()), |acc, each| {
+                                        match each {
+                                            Value::String(_) => acc,
+                                            _ => Err(Error::InvalidOperation{
+                                                key: "missing".into(),
+                                                reason: format!("All 'missing' parameters must be of the same type. Expected String, got {:?}.", each)
+                                            })
+                                        }
+                                    })?;
+                                    Ok(vals)
+                                }
+                                // If the first value is a Number, check to
+                                // be sure the rest are too
+                                Some(Value::Number(_)) => {
+                                    vals_iter.fold(Ok(()), |acc, each| {
+                                        match each {
+                                            Value::Number(_) => acc,
+                                            _ => Err(Error::InvalidOperation{
+                                                key: "missing".into(),
+                                                reason: format!("All 'missing' parameter must be of the same type. Expected Number, got {:?}.", each)
+                                            })
+                                        }
+                                    })?;
+                                    Ok(vals)
+                                }
+                                _ => Err(Error::InvalidOperation {
+                                    key: "missing".into(),
+                                    reason: "'missing' parameters must be strings or numbers"
+                                        .into(),
+                                }),
+                            }?;
+                            let key_vals = missing_vals.iter().map(|val| {
+                                match val {
+                                    Value::String(key) => Ok(KeyType::String(key)),
+                                    Value::Number(idx) => Ok(KeyType::Number(idx)),
+                                    _ => Err(Error::UnexpectedError("Some keys were not strings or numbers even after validation".into()))
+                                }
+                            }).collect::<Result<Vec<KeyType>, Error>>()?;
+                            Ok(Some(Missing { values: key_vals }))
+                        }
+                        _ => Err(Error::InvalidOperation {
+                            key: "missing".into(),
+                            reason: "Parameters to 'missing' must be an array.".into(),
+                        }),
+                    }
+                } else {
+                    Ok(None)
+                }
+            }
+            _ => Ok(None),
+        }
+    }
+
+    fn evaluate(&self, data: &Value) -> Result<EvaluatedValue, Error> {
+        let vals = self
+            .values
+            .iter()
+            .map(|v| get_key(data, v))
+            .collect::<Result<Vec<Option<&Value>>, Error>>()?
+            .iter()
+            .zip(self.values.iter())
+            .filter(|(val, _key)| val.is_none())
+            .map(|(_val, key)| Value::from(key))
+            .collect::<Vec<Value>>();
+        Ok(EvaluatedValue::New(Value::Array(vals)))
+    }
+}
+impl From<Missing<'_>> for Value {
+    fn from(missing: Missing) -> Self {
+        let mut map = Map::with_capacity(1);
+        map.insert(
+            "missing".into(),
+            missing
+                .values
+                .into_iter()
+                .map(|v| match v {
+                    KeyType::String(key) => Value::String(key.clone()),
+                    KeyType::Number(idx) => Value::Number(idx.clone()),
+                })
+                .collect(),
+        );
+        Self::Object(map)
+    }
+}
 
 #[derive(Debug)]
 struct Operation<'a> {
@@ -327,7 +393,9 @@ impl<'a> Operation<'a> {
             // Operations are Objects
             Value::Object(obj) => {
                 // Operations have just one key/value pair.
-                if obj.len() != 1 { return Ok(None) }
+                if obj.len() != 1 {
+                    return Ok(None);
+                }
 
                 let key = obj.keys().next().ok_or(Error::UnexpectedError(format!(
                     "could not get first key from len(1) object: {:?}",
@@ -348,15 +416,15 @@ impl<'a> Operation<'a> {
                         })),
                         _ => Err(Error::InvalidOperation {
                             key: key.into(),
-                            reason: "Values for operator keys must be arrays",
+                            reason: "Values for operator keys must be arrays".into(),
                         }),
                     }
                 } else {
                     Ok(None)
                 }
-            },
+            }
             // We're definitely not an operation
-            _ => Ok(None)
+            _ => Ok(None),
         }
     }
     /// Evaluate the operation after recursively evaluating any nested operations
@@ -370,6 +438,20 @@ impl<'a> Operation<'a> {
     }
 }
 
+impl TryFrom<Operation<'_>> for Value {
+    type Error = Error;
+
+    fn try_from(op: Operation) -> Result<Self, Self::Error> {
+        let mut rv = Map::with_capacity(1);
+        let values = op
+            .arguments
+            .into_iter()
+            .map(Value::try_from)
+            .collect::<Result<Vec<Self>, Self::Error>>()?;
+        rv.insert(op.operator.symbol.into(), Value::Array(values));
+        Ok(Value::Object(rv))
+    }
+}
 
 /// Run JSONLogic for the given operation and data.
 ///
@@ -427,11 +509,7 @@ mod tests {
                 Ok(json!("bar")),
             ),
             // Index into array data
-            (
-                json!({"var": 1}),
-                json!(["foo", "bar"]),
-                Ok(json!("bar"))
-            ),
+            (json!({"var": 1}), json!(["foo", "bar"]), Ok(json!("bar"))),
             // Absent variable
             (json!({"var": "foo"}), json!({}), Ok(json!(null))),
             (
@@ -467,6 +545,22 @@ mod tests {
                 json!({"var": "foo.bar"}),
                 json!({"foo": "not an object"}),
                 Ok(json!(null)),
+            ),
+            // "missing" data operator
+            (
+                json!({"missing": ["a", "b"]}),
+                json!({"a": 1, "b": 2}),
+                Ok(json!([]))
+            ),
+            (
+                json!({"missing": ["a", "b"]}),
+                json!({"a": 1}),
+                Ok(json!(["b"]))
+            ),
+            (
+                json!({"missing": [1, 5]}),
+                json!([1, 2, 3]),
+                Ok(json!([5]))
             ),
         ]
     }
@@ -538,5 +632,85 @@ pub fn truthy(val: &Value) -> bool {
             }
         }
         Value::Object(_) => true,
+    }
+}
+
+#[derive(Debug)]
+enum KeyType<'a> {
+    String(&'a String),
+    Number(&'a Number),
+}
+impl From<KeyType<'_>> for Value {
+    fn from(key: KeyType) -> Self {
+        Value::from(&key)
+    }
+}
+impl From<&KeyType<'_>> for Value {
+    fn from(key: &KeyType) -> Self {
+        match *key {
+            KeyType::String(key) => Self::String(key.clone()),
+            KeyType::Number(idx) => Self::Number(idx.clone()),
+        }
+    }
+}
+
+fn get_key<'a>(data: &'a Value, key: &KeyType) -> Result<Option<&'a Value>, Error> {
+    match key {
+        KeyType::String(key) => {
+            match data {
+                Value::Object(_) => key.split(".").fold(Ok(Some(data)), |acc, i| match acc? {
+                    // If a previous key was not found, just send the None on through
+                    None => Ok(None),
+                    // If the current value is an object, try to get the value
+                    Some(Value::Object(map)) => Ok(map.get(i)),
+                    // If the current value is an array, we need an integer
+                    // index. If integer conversion fails, return an error.
+                    Some(Value::Array(arr)) => {
+                        i.parse::<usize>()
+                            .map(|i| arr.get(i))
+                            .map_err(|_| Error::InvalidVariable {
+                                value: Value::String(String::from(*key)),
+                                reason: "Cannot access array data with non-integer key".into(),
+                            })
+                    }
+                    _ => Ok(None),
+                }),
+                // We can only get string values off of objects. Anything else is an error.
+                _ => Err(Error::InvalidData {
+                    value: data.clone(),
+                    reason: format!("Cannot get string key '{:?}' from non-object data", key),
+                }),
+            }
+        }
+        KeyType::Number(idx) => {
+            match data {
+                Value::Array(val) => {
+                    idx
+                        // Option<u64>
+                        .as_u64()
+                        // Result<u64, Error>
+                        .ok_or(Error::InvalidVariable {
+                            value: Value::Number((*idx).clone()),
+                            reason: format!("Could not convert value to u64: {:?}", idx),
+                        })
+                        // Result<usize, Error>>
+                        .and_then(|i| {
+                            usize::try_from(i).map_err(|e| Error::InvalidVariable {
+                                value: Value::Number((*idx).clone()),
+                                reason: format!(
+                                    "Could not convert value to a system-sized integer: {:?}",
+                                    e
+                                ),
+                            })
+                        })
+                        // Result<Option<Value>, Error>
+                        .map(|idx| val.get(idx))
+                }
+                _ => Err(Error::InvalidVariable {
+                    value: Value::Number((*idx).clone()),
+                    reason: "Cannot access non-array data with an index variable".into(),
+                }),
+            }
+        }
     }
 }
