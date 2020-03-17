@@ -85,7 +85,7 @@ fn to_primitive(value: &Value, hint: PrimitiveHint) -> Primitive {
 ///
 /// ```rust
 /// use serde_json::json;
-/// use jsonlogic::abstract_eq;
+/// use jsonlogic::js_op::abstract_eq;
 ///
 /// assert!(
 ///   abstract_eq(
@@ -282,7 +282,7 @@ pub fn abstract_eq(first: &Value, second: &Value) -> bool {
 ///
 /// ```rust
 /// use serde_json::json;
-/// use jsonlogic::strict_eq;
+/// use jsonlogic::js_op::strict_eq;
 ///
 /// // References of the same type and value are strictly equal
 /// assert!(strict_eq(&json!(1), &json!(1)));
@@ -328,7 +328,7 @@ pub fn strict_ne(first: &Value, second: &Value) -> bool {
 ///
 /// ```rust
 /// use serde_json::json;
-/// use jsonlogic::abstract_lt;
+/// use jsonlogic::js_op::abstract_lt;
 ///
 /// assert_eq!(abstract_lt(&json!(-1), &json!(0)), true);
 /// assert_eq!(abstract_lt(&json!("-1"), &json!(0)), true);
@@ -364,7 +364,7 @@ pub fn abstract_lt(first: &Value, second: &Value) -> bool {
 ///
 /// ```rust
 /// use serde_json::json;
-/// use jsonlogic::abstract_gt;
+/// use jsonlogic::js_op::abstract_gt;
 ///
 /// assert_eq!(abstract_gt(&json!(0), &json!(-1)), true);
 /// assert_eq!(abstract_gt(&json!(0), &json!("-1")), true);
@@ -408,49 +408,6 @@ pub fn abstract_lte(first: &Value, second: &Value) -> bool {
 /// Provide abstract >= comparisons
 pub fn abstract_gte(first: &Value, second: &Value) -> bool {
     abstract_gt(first, second) || abstract_eq(first, second)
-}
-
-/// Return whether a value is "truthy" by the JSONLogic spec
-///
-/// The spec (http://jsonlogic.com/truthy) defines truthy values that
-/// diverge slightly from raw JavaScript. This ensures a matching
-/// interpretation.
-///
-/// In general, the spec specifies that values are truthy or falsey
-/// depending on their containing something, e.g. non-zero integers,
-/// non-zero length strings, and non-zero length arrays are truthy.
-/// This does not apply to objects, which are always truthy.
-///
-///
-/// ```rust
-/// use serde_json::json;
-/// use jsonlogic::truthy;
-///
-/// let trues = [
-///     json!(true), json!([1]), json!([1,2]), json!({}), json!({"a": 1}),
-///     json!(1), json!(-1), json!("foo")
-/// ];
-///
-/// let falses = [
-///     json!(false), json!([]), json!(""), json!(0), json!(null)
-/// ];
-///
-/// trues.iter().for_each(|v| assert!(truthy(&v)));
-/// falses.iter().for_each(|v| assert!(!truthy(&v)));
-/// ```
-pub fn truthy(val: &Value) -> bool {
-    match val {
-        Value::Null => false,
-        Value::Bool(v) => *v,
-        Value::Number(v) => {
-            v.as_f64().map(
-                |v_num| if v_num == 0.0 { false } else { true }
-            ).unwrap_or(false)
-        }
-        Value::String(v) => if v == "" { false } else { true },
-        Value::Array(v) => if v.len() == 0 { false } else { true },
-        Value::Object(_) => true,
-    }
 }
 
 
