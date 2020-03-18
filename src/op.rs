@@ -169,6 +169,19 @@ pub fn truthy(val: &Value) -> bool {
 }
 
 #[cfg(test)]
+mod test_operators {
+    use super::*;
+
+    /// All operators symbols must match their keys
+    #[test]
+    fn test_symbols() {
+        OPERATOR_MAP.into_iter().for_each(
+            |(k, op)| assert_eq!(*k, op.symbol)
+        )
+    }
+}
+
+#[cfg(test)]
 mod test_truthy {
     use super::*;
     use serde_json::json;
