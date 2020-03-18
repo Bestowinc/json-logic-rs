@@ -7,7 +7,7 @@ use std::convert::TryFrom;
 use std::fmt;
 
 use crate::error::Error;
-use crate::js_op::abstract_eq;
+use crate::js_op;
 use crate::value::{Evaluated, Parsed};
 
 pub struct Operator {
@@ -34,8 +34,12 @@ type OperatorFn = fn(&Vec<&Value>) -> Result<Value, Error>;
 pub const OPERATOR_MAP: phf::Map<&'static str, Operator> = phf_map! {
     "==" => Operator {
         symbol: "==",
-        operator: |items| Ok(Value::Bool(abstract_eq(items[0], items[1]))),
-        num_params: Some(2..3)}
+        operator: |items| Ok(Value::Bool(js_op::abstract_eq(items[0], items[1]))),
+        num_params: Some(2..3)},
+    "===" => Operator {
+        symbol: "===",
+        operator: |items| Ok(Value::Bool(js_op::strict_eq(items[0], items[1]))),
+        num_params: Some(2..3)},
 };
 
 #[derive(Debug)]
@@ -67,6 +71,7 @@ impl<'a> Operation<'a> {
                     match val {
                         // Operator values are arrays
                         Value::Array(arguments) => {
+                            // If argument count is constrained, check it now
                             operator
                                 .num_params
                                 .as_ref()

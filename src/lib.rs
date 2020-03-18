@@ -49,7 +49,6 @@ mod jsonlogic_tests {
 
     fn abstract_eq_cases() -> Vec<(Value, Value, Result<Value, ()>)> {
         vec![
-            // Operators - "=="
             (json!({"==": [1, 1]}), json!({}), Ok(json!(true))),
             (json!({"==": [1, 2]}), json!({}), Ok(json!(false))),
             (json!({"==": [1, "1"]}), json!({}), Ok(json!(true))),
@@ -70,6 +69,31 @@ mod jsonlogic_tests {
             // Wrong number of arguments
             (json!({"==": [1]}), json!({}), Err(())),
             (json!({"==": [1, 1, 1]}), json!({}), Err(())),
+        ]
+    }
+
+    fn strict_eq_cases() -> Vec<(Value, Value, Result<Value, ()>)> {
+        vec![
+            (json!({"===": [1, 1]}), json!({}), Ok(json!(true))),
+            (json!({"===": [1, 2]}), json!({}), Ok(json!(false))),
+            (json!({"===": [1, "1"]}), json!({}), Ok(json!(false))),
+            (json!({"===": [{}, "[object Object]"]}), json!({}), Ok(json!(false))),
+            (json!({"===": [1, [1]]}), json!({}), Ok(json!(false))),
+            (json!({"===": [1, true]}), json!({}), Ok(json!(false))),
+            // Recursive evaluation
+            (
+                json!({"===": [true, {"===": [1, 1]}]}),
+                json!({}),
+                Ok(json!(true)),
+            ),
+            (
+                json!({"===": [{"===": [{"===": [1, 1]}, true]}, {"===": [1, 1]}]}),
+                json!({}),
+                Ok(json!(true)),
+            ),
+            // Wrong number of arguments
+            (json!({"===": [1]}), json!({}), Err(())),
+            (json!({"===": [1, 1, 1]}), json!({}), Err(())),
         ]
     }
 
@@ -180,6 +204,11 @@ mod jsonlogic_tests {
     #[test]
     fn test_abstract_eq_op() {
         abstract_eq_cases().into_iter().for_each(assert_jsonlogic)
+    }
+
+    #[test]
+    fn test_strict_eq_op() {
+        strict_eq_cases().into_iter().for_each(assert_jsonlogic)
     }
 
     #[test]
