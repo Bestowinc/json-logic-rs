@@ -97,6 +97,31 @@ mod jsonlogic_tests {
         ]
     }
 
+    fn strict_ne_cases() -> Vec<(Value, Value, Result<Value, ()>)> {
+        vec![
+            (json!({"!==": [1, 1]}), json!({}), Ok(json!(false))),
+            (json!({"!==": [1, 2]}), json!({}), Ok(json!(true))),
+            (json!({"!==": [1, "1"]}), json!({}), Ok(json!(true))),
+            (json!({"!==": [{}, "[object Object]"]}), json!({}), Ok(json!(true))),
+            (json!({"!==": [1, [1]]}), json!({}), Ok(json!(true))),
+            (json!({"!==": [1, true]}), json!({}), Ok(json!(true))),
+            // Recursive evaluation
+            (
+                json!({"!==": [true, {"!==": [1, 1]}]}),
+                json!({}),
+                Ok(json!(true)),
+            ),
+            (
+                json!({"!==": [{"!==": [{"!==": [1, 1]}, false]}, {"!==": [1, 1]}]}),
+                json!({}),
+                Ok(json!(false)),
+            ),
+            // Wrong number of arguments
+            (json!({"!==": [1]}), json!({}), Err(())),
+            (json!({"!==": [1, 1, 1]}), json!({}), Err(())),
+        ]
+    }
+
     fn var_cases() -> Vec<(Value, Value, Result<Value, ()>)> {
         vec![
             // Variable substitution
@@ -209,6 +234,11 @@ mod jsonlogic_tests {
     #[test]
     fn test_strict_eq_op() {
         strict_eq_cases().into_iter().for_each(assert_jsonlogic)
+    }
+
+    #[test]
+    fn test_strict_ne_op() {
+        strict_ne_cases().into_iter().for_each(assert_jsonlogic)
     }
 
     #[test]
