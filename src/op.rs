@@ -12,10 +12,10 @@ use crate::value::{Evaluated, Parsed};
 
 pub struct Operator {
     symbol: &'static str,
-    operator: OperatorFn<'static>,
+    operator: OperatorFn,
 }
 impl Operator {
-    pub fn execute<'a>(&self, items: &Vec<Evaluated>) -> Result<Evaluated<'a>, Error> {
+    pub fn execute(&self, items: &Vec<&Value>) -> Result<Value, Error> {
         (self.operator)(items)
     }
 }
@@ -28,19 +28,12 @@ impl fmt::Debug for Operator {
     }
 }
 
-type OperatorFn<'a> = fn(&Vec<Evaluated>) -> Result<Evaluated<'a>, Error>;
+type OperatorFn = fn(&Vec<&Value>) -> Result<Value, Error>;
 
 /// Operator for JS-style abstract equality
-pub fn op_abstract_eq<'a>(items: &Vec<Evaluated>) -> Result<Evaluated<'a>, Error> {
-    let to_res = |first: &Value, second: &Value| -> Result<Evaluated<'a>, Error> {
-        Ok(Evaluated::New(Value::Bool(abstract_eq(&first, &second))))
-    };
-
-    match items[..] {
-        [Evaluated::Raw(first), Evaluated::Raw(second)] => to_res(first, second),
-        [Evaluated::New(ref first), Evaluated::Raw(second)] => to_res(first, second),
-        [Evaluated::Raw(first), Evaluated::New(ref second)] => to_res(first, second),
-        [Evaluated::New(ref first), Evaluated::New(ref second)] => to_res(first, second),
+pub fn op_abstract_eq(items: &Vec<&Value>) -> Result<Value, Error> {
+    match items.len() {
+        2 => Ok(Value::Bool(abstract_eq(items[0], items[1]))),
         _ => Err(Error::WrongArgumentCount {
             expected: 2,
             actual: items.len(),
@@ -48,7 +41,7 @@ pub fn op_abstract_eq<'a>(items: &Vec<Evaluated>) -> Result<Evaluated<'a>, Error
     }
 }
 
-pub static OPERATOR_MAP: phf::Map<&'static str, Operator> = phf_map! {
+pub const OPERATOR_MAP: phf::Map<&'static str, Operator> = phf_map! {
     "==" => Operator {symbol: "==", operator: op_abstract_eq}
 };
 
@@ -98,13 +91,15 @@ impl<'a> Operation<'a> {
         }
     }
     /// Evaluate the operation after recursively evaluating any nested operations
-    pub fn evaluate(&self, data: &Value) -> Result<Evaluated, Error> {
+    pub fn evaluate(&self, data: &'a Value) -> Result<Evaluated<'a>, Error> {
         let arguments = self
             .arguments
             .iter()
-            .map(|value| value.evaluate(data))
-            .collect::<Result<Vec<Evaluated>, Error>>()?;
-        self.operator.execute(&arguments)
+            .map(|value| value.evaluate(data).map(|evaluated| Value::from(evaluated)))
+            .collect::<Result<Vec<Value>, Error>>()?;
+        self.operator
+            .execute(&arguments.iter().collect())
+            .map(Evaluated::New)
     }
 }
 

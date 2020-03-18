@@ -37,7 +37,7 @@ impl<'a> Parsed<'a> {
             .collect::<Result<Vec<Self>, Error>>()
     }
 
-    pub fn evaluate(&self, data: &'a Value) -> Result<Evaluated, Error> {
+    pub fn evaluate(&self, data: &'a Value) -> Result<Evaluated<'a>, Error> {
         match self {
             Self::Operation(op) => op.evaluate(data),
             Self::Raw(val) => Ok(Evaluated::Raw(*val)),

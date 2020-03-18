@@ -8,7 +8,7 @@ mod op;
 mod value;
 
 use error::Error;
-use value::{Evaluated, Parsed};
+use value::Parsed;
 
 const NULL: Value = Value::Null;
 
@@ -20,11 +20,11 @@ pub fn jsonlogic(value: &Value, data: &Value) -> Result<Value, Error> {
 }
 
 #[cfg(test)]
-mod tests {
+mod jsonlogic_tests {
     use super::*;
     use serde_json::json;
 
-    fn jsonlogic_cases() -> Vec<(Value, Value, Result<Value, ()>)> {
+    fn no_op_cases() -> Vec<(Value, Value, Result<Value, ()>)> {
         vec![
             // Passing a static value returns the value unchanged.
             (json!("foo"), json!({}), Ok(json!("foo"))),
@@ -44,6 +44,11 @@ mod tests {
                 json!({}),
                 Ok(json!({"a": 1, "b": 2})),
             ),
+        ]
+    }
+
+    fn abstract_eq_cases() -> Vec<(Value, Value, Result<Value, ()>)> {
+        vec![
             // Operators - "=="
             (json!({"==": [1, 1]}), json!({}), Ok(json!(true))),
             (json!({"==": [1, 2]}), json!({}), Ok(json!(false))),
@@ -61,6 +66,11 @@ mod tests {
                 json!({}),
                 Ok(json!(true)),
             ),
+        ]
+    }
+
+    fn var_cases() -> Vec<(Value, Value, Result<Value, ()>)> {
+        vec![
             // Variable substitution
             (
                 json!({"var": "foo"}),
@@ -105,6 +115,11 @@ mod tests {
                 json!({"foo": "not an object"}),
                 Ok(json!(null)),
             ),
+        ]
+    }
+
+    fn missing_cases() -> Vec<(Value, Value, Result<Value, ()>)> {
+        vec![
             // "missing" data operator
             (
                 json!({"missing": ["a", "b"]}),
@@ -117,6 +132,11 @@ mod tests {
                 Ok(json!(["b"])),
             ),
             (json!({"missing": [1, 5]}), json!([1, 2, 3]), Ok(json!([5]))),
+        ]
+    }
+
+    fn missing_some_cases() -> Vec<(Value, Value, Result<Value, ()>)> {
+        vec![
             // "missing_some" data operator
             (
                 json!({"missing_some": [1, ["a", "b"]]}),
@@ -136,18 +156,40 @@ mod tests {
         ]
     }
 
+    fn assert_jsonlogic((op, data, exp): (Value, Value, Result<Value, ()>)) -> () {
+        println!("Running rule: {:?} with data: {:?}", op, data);
+        let result = jsonlogic(&op, &data);
+        println!("- Result: {:?}", result);
+        println!("- Expected: {:?}", exp);
+        if exp.is_ok() {
+            assert_eq!(result.unwrap(), exp.unwrap());
+        } else {
+            result.unwrap_err();
+        }
+    }
+
     #[test]
-    fn test_jsonlogic() {
-        jsonlogic_cases().into_iter().for_each(|(op, data, exp)| {
-            println!("Running rule: {:?} with data: {:?}", op, data);
-            let result = jsonlogic(&op, &data);
-            println!("- Result: {:?}", result);
-            println!("- Expected: {:?}", exp);
-            if exp.is_ok() {
-                assert_eq!(result.unwrap(), exp.unwrap());
-            } else {
-                result.unwrap_err();
-            }
-        })
+    fn test_no_op() {
+        no_op_cases().into_iter().for_each(assert_jsonlogic)
+    }
+
+    #[test]
+    fn test_abstract_eq_op() {
+        abstract_eq_cases().into_iter().for_each(assert_jsonlogic)
+    }
+
+    #[test]
+    fn test_var_data_op() {
+        var_cases().into_iter().for_each(assert_jsonlogic)
+    }
+
+    #[test]
+    fn test_missing_data_op() {
+        missing_cases().into_iter().for_each(assert_jsonlogic)
+    }
+
+    #[test]
+    fn test_missing_some_data_op() {
+        missing_some_cases().into_iter().for_each(assert_jsonlogic)
     }
 }
