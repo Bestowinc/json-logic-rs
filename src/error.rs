@@ -17,5 +17,5 @@ pub enum Error {
     #[error("Encountered an unexpected error. Please raise an issue on GitHub and include the following error message: {0}")]
     UnexpectedError(String),
     #[error("Wrong argument count - expected: {expected:?}, actual: {actual:?}")]
-    WrongArgumentCount { expected: usize, actual: usize },
+    WrongArgumentCount { expected: std::ops::Range<usize>, actual: usize },
 }

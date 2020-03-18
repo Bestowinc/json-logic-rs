@@ -53,6 +53,7 @@ mod jsonlogic_tests {
             (json!({"==": [1, 1]}), json!({}), Ok(json!(true))),
             (json!({"==": [1, 2]}), json!({}), Ok(json!(false))),
             (json!({"==": [1, "1"]}), json!({}), Ok(json!(true))),
+            (json!({"==": [{}, "[object Object]"]}), json!({}), Ok(json!(true))),
             (json!({"==": [1, [1]]}), json!({}), Ok(json!(true))),
             (json!({"==": [1, true]}), json!({}), Ok(json!(true))),
             // Recursive evaluation
@@ -66,6 +67,9 @@ mod jsonlogic_tests {
                 json!({}),
                 Ok(json!(true)),
             ),
+            // Wrong number of arguments
+            (json!({"==": [1]}), json!({}), Err(())),
+            (json!({"==": [1, 1, 1]}), json!({}), Err(())),
         ]
     }
 

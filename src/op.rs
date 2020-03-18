@@ -13,6 +13,7 @@ use crate::value::{Evaluated, Parsed};
 pub struct Operator {
     symbol: &'static str,
     operator: OperatorFn,
+    num_params: Option<std::ops::Range<usize>>,
 }
 impl Operator {
     pub fn execute(&self, items: &Vec<&Value>) -> Result<Value, Error> {
@@ -30,19 +31,11 @@ impl fmt::Debug for Operator {
 
 type OperatorFn = fn(&Vec<&Value>) -> Result<Value, Error>;
 
-/// Operator for JS-style abstract equality
-pub fn op_abstract_eq(items: &Vec<&Value>) -> Result<Value, Error> {
-    match items.len() {
-        2 => Ok(Value::Bool(abstract_eq(items[0], items[1]))),
-        _ => Err(Error::WrongArgumentCount {
-            expected: 2,
-            actual: items.len(),
-        }),
-    }
-}
-
 pub const OPERATOR_MAP: phf::Map<&'static str, Operator> = phf_map! {
-    "==" => Operator {symbol: "==", operator: op_abstract_eq}
+    "==" => Operator {
+        symbol: "==",
+        operator: |items| Ok(Value::Bool(abstract_eq(items[0], items[1]))),
+        num_params: Some(2..3)}
 };
 
 #[derive(Debug)]
@@ -73,10 +66,26 @@ impl<'a> Operation<'a> {
                 if let Some(operator) = OPERATOR_MAP.get(key.as_str()) {
                     match val {
                         // Operator values are arrays
-                        Value::Array(arguments) => Ok(Some(Operation {
-                            operator,
-                            arguments: Parsed::from_values(arguments)?,
-                        })),
+                        Value::Array(arguments) => {
+                            operator
+                                .num_params
+                                .as_ref()
+                                .map(|range| {
+                                    if range.contains(&arguments.len()) {
+                                        Ok(())
+                                    } else {
+                                        Err(Error::WrongArgumentCount {
+                                            expected: range.clone(),
+                                            actual: arguments.len(),
+                                        })
+                                    }
+                                })
+                                .transpose()?;
+                            Ok(Some(Operation {
+                                operator,
+                                arguments: Parsed::from_values(arguments)?,
+                            }))
+                        }
                         _ => Err(Error::InvalidOperation {
                             key: key.into(),
                             reason: "Values for operator keys must be arrays".into(),
