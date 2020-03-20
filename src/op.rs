@@ -3,12 +3,11 @@
 
 use phf::phf_map;
 use serde_json::{Map, Value};
-use std::convert::TryFrom;
 use std::fmt;
 
 use crate::error::Error;
-use crate::js_op;
 use crate::value::{Evaluated, Parsed};
+use crate::{js_op, Parser};
 
 pub struct Operator {
     symbol: &'static str,
@@ -51,8 +50,8 @@ pub struct Operation<'a> {
     operator: &'a Operator,
     arguments: Vec<Parsed<'a>>,
 }
-impl<'a> Operation<'a> {
-    pub fn from_value(value: &'a Value) -> Result<Option<Self>, Error> {
+impl<'a> Parser<'a> for Operation<'a> {
+    fn from_value(value: &'a Value) -> Result<Option<Self>, Error> {
         match value {
             // Operations are Objects
             Value::Object(obj) => {
@@ -109,7 +108,7 @@ impl<'a> Operation<'a> {
         }
     }
     /// Evaluate the operation after recursively evaluating any nested operations
-    pub fn evaluate(&self, data: &'a Value) -> Result<Evaluated<'a>, Error> {
+    fn evaluate(&self, data: &'a Value) -> Result<Evaluated, Error> {
         let arguments = self
             .arguments
             .iter()
@@ -121,18 +120,16 @@ impl<'a> Operation<'a> {
     }
 }
 
-impl TryFrom<Operation<'_>> for Value {
-    type Error = Error;
-
-    fn try_from(op: Operation) -> Result<Self, Self::Error> {
+impl From<Operation<'_>> for Value {
+    fn from(op: Operation) -> Value {
         let mut rv = Map::with_capacity(1);
         let values = op
             .arguments
             .into_iter()
-            .map(Value::try_from)
-            .collect::<Result<Vec<Self>, Self::Error>>()?;
+            .map(Value::from)
+            .collect::<Vec<Value>>();
         rv.insert(op.operator.symbol.into(), Value::Array(values));
-        Ok(Value::Object(rv))
+        Value::Object(rv)
     }
 }
 
@@ -179,9 +176,9 @@ mod test_operators {
     /// All operators symbols must match their keys
     #[test]
     fn test_symbols() {
-        OPERATOR_MAP.into_iter().for_each(
-            |(k, op)| assert_eq!(*k, op.symbol)
-        )
+        OPERATOR_MAP
+            .into_iter()
+            .for_each(|(k, op)| assert_eq!(*k, op.symbol))
     }
 }
 

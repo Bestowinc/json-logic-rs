@@ -8,9 +8,14 @@ mod op;
 mod value;
 
 use error::Error;
-use value::Parsed;
+use value::{Evaluated, Parsed};
 
 const NULL: Value = Value::Null;
+
+trait Parser<'a>: Sized + Into<Value> {
+    fn from_value(value: &'a Value) -> Result<Option<Self>, Error>;
+    fn evaluate(&self, data: &'a Value) -> Result<Evaluated, Error>;
+}
 
 /// Run JSONLogic for the given operation and data.
 ///
@@ -52,7 +57,11 @@ mod jsonlogic_tests {
             (json!({"==": [1, 1]}), json!({}), Ok(json!(true))),
             (json!({"==": [1, 2]}), json!({}), Ok(json!(false))),
             (json!({"==": [1, "1"]}), json!({}), Ok(json!(true))),
-            (json!({"==": [{}, "[object Object]"]}), json!({}), Ok(json!(true))),
+            (
+                json!({"==": [{}, "[object Object]"]}),
+                json!({}),
+                Ok(json!(true)),
+            ),
             (json!({"==": [1, [1]]}), json!({}), Ok(json!(true))),
             (json!({"==": [1, true]}), json!({}), Ok(json!(true))),
             // Recursive evaluation
@@ -77,7 +86,11 @@ mod jsonlogic_tests {
             (json!({"===": [1, 1]}), json!({}), Ok(json!(true))),
             (json!({"===": [1, 2]}), json!({}), Ok(json!(false))),
             (json!({"===": [1, "1"]}), json!({}), Ok(json!(false))),
-            (json!({"===": [{}, "[object Object]"]}), json!({}), Ok(json!(false))),
+            (
+                json!({"===": [{}, "[object Object]"]}),
+                json!({}),
+                Ok(json!(false)),
+            ),
             (json!({"===": [1, [1]]}), json!({}), Ok(json!(false))),
             (json!({"===": [1, true]}), json!({}), Ok(json!(false))),
             // Recursive evaluation
@@ -102,7 +115,11 @@ mod jsonlogic_tests {
             (json!({"!==": [1, 1]}), json!({}), Ok(json!(false))),
             (json!({"!==": [1, 2]}), json!({}), Ok(json!(true))),
             (json!({"!==": [1, "1"]}), json!({}), Ok(json!(true))),
-            (json!({"!==": [{}, "[object Object]"]}), json!({}), Ok(json!(true))),
+            (
+                json!({"!==": [{}, "[object Object]"]}),
+                json!({}),
+                Ok(json!(true)),
+            ),
             (json!({"!==": [1, [1]]}), json!({}), Ok(json!(true))),
             (json!({"!==": [1, true]}), json!({}), Ok(json!(true))),
             // Recursive evaluation

@@ -1,10 +1,8 @@
 use serde_json::Value;
 
-use std::convert::{From, TryFrom};
-
-use crate::data;
 use crate::error::Error;
 use crate::op::Operation;
+use crate::{data, Parser};
 
 /// A Parsed JSON value
 ///
@@ -14,7 +12,7 @@ use crate::op::Operation;
 #[derive(Debug)]
 pub enum Parsed<'a> {
     Operation(Operation<'a>),
-    Raw(&'a Value),
+    Raw(data::Raw<'a>),
     Variable(data::Variable<'a>),
     Missing(data::Missing<'a>),
     MissingSome(data::MissingSome<'a>),
@@ -22,12 +20,16 @@ pub enum Parsed<'a> {
 impl<'a> Parsed<'a> {
     /// Recursively parse a value
     pub fn from_value(value: &'a Value) -> Result<Self, Error> {
-        Ok(data::Variable::from_value(value)?
+        data::Variable::from_value(value)?
             .map(Self::Variable)
             .or(data::Missing::from_value(value)?.map(Self::Missing))
             .or(data::MissingSome::from_value(value)?.map(Self::MissingSome))
             .or(Operation::from_value(value)?.map(Self::Operation))
-            .unwrap_or(Self::Raw(value)))
+            .or(data::Raw::from_value(value)?.map(Self::Raw))
+            .ok_or(Error::UnexpectedError(format!(
+                "Failed to parse Value {:?}",
+                value
+            )))
     }
 
     pub fn from_values(values: &'a Vec<Value>) -> Result<Vec<Self>, Error> {
@@ -37,26 +39,24 @@ impl<'a> Parsed<'a> {
             .collect::<Result<Vec<Self>, Error>>()
     }
 
-    pub fn evaluate(&self, data: &'a Value) -> Result<Evaluated<'a>, Error> {
+    pub fn evaluate(&self, data: &'a Value) -> Result<Evaluated, Error> {
         match self {
             Self::Operation(op) => op.evaluate(data),
-            Self::Raw(val) => Ok(Evaluated::Raw(*val)),
-            Self::Variable(var) => var.evaluate(data).map(Evaluated::Raw),
-            Self::Missing(missing) => missing.evaluate(data).map(Evaluated::New),
-            Self::MissingSome(missing) => missing.evaluate(data).map(Evaluated::New),
+            Self::Raw(val) => val.evaluate(data),
+            Self::Variable(var) => var.evaluate(data),
+            Self::Missing(missing) => missing.evaluate(data),
+            Self::MissingSome(missing) => missing.evaluate(data),
         }
     }
 }
-impl TryFrom<Parsed<'_>> for Value {
-    type Error = Error;
-
-    fn try_from(item: Parsed) -> Result<Self, Self::Error> {
+impl From<Parsed<'_>> for Value {
+    fn from(item: Parsed) -> Value {
         match item {
-            Parsed::Operation(op) => Value::try_from(op),
-            Parsed::Raw(val) => Ok(val.clone()),
-            Parsed::Variable(var) => Ok(Value::from(var)),
-            Parsed::Missing(missing) => Ok(Value::from(missing)),
-            Parsed::MissingSome(missing) => Ok(Value::from(missing)),
+            Parsed::Operation(op) => Value::from(op),
+            Parsed::Raw(raw) => Value::from(raw),
+            Parsed::Variable(var) => Value::from(var),
+            Parsed::Missing(missing) => Value::from(missing),
+            Parsed::MissingSome(missing) => Value::from(missing),
         }
     }
 }

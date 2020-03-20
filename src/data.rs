@@ -2,7 +2,8 @@
 //!
 
 use crate::error::Error;
-use crate::NULL;
+use crate::value::Evaluated;
+use crate::{Parser, NULL};
 use serde_json::{Map, Number, Value};
 use std::convert::{From, TryFrom};
 
@@ -26,11 +27,29 @@ impl From<&KeyType<'_>> for Value {
 }
 
 #[derive(Debug)]
+pub struct Raw<'a> {
+    value: &'a Value,
+}
+impl<'a> Parser<'a> for Raw<'a> {
+    fn from_value(value: &'a Value) -> Result<Option<Self>, Error> {
+        Ok(Some(Self { value }))
+    }
+    fn evaluate(&self, _data: &Value) -> Result<Evaluated, Error> {
+        Ok(Evaluated::Raw(self.value))
+    }
+}
+impl From<Raw<'_>> for Value {
+    fn from(raw: Raw) -> Self {
+        raw.value.clone()
+    }
+}
+
+#[derive(Debug)]
 pub struct Missing<'a> {
     values: Vec<KeyType<'a>>,
 }
-impl<'a> Missing<'a> {
-    pub fn from_value(value: &'a Value) -> Result<Option<Self>, Error> {
+impl<'a> Parser<'a> for Missing<'a> {
+    fn from_value(value: &'a Value) -> Result<Option<Self>, Error> {
         match value {
             Value::Object(obj) => {
                 if let Some(val) = obj.get("missing") {
@@ -44,9 +63,9 @@ impl<'a> Missing<'a> {
         }
     }
 
-    pub fn evaluate(&self, data: &Value) -> Result<Value, Error> {
+    fn evaluate(&self, data: &Value) -> Result<Evaluated, Error> {
         let missing_keys = missing_keys(data, &self.values)?;
-        Ok(Value::Array(missing_keys))
+        Ok(Evaluated::New(Value::Array(missing_keys)))
     }
 }
 impl From<Missing<'_>> for Value {
@@ -62,8 +81,8 @@ pub struct MissingSome<'a> {
     minimum: u64,
     keys: Vec<KeyType<'a>>,
 }
-impl<'a> MissingSome<'a> {
-    pub fn from_value(value: &'a Value) -> Result<Option<Self>, Error> {
+impl<'a> Parser<'a> for MissingSome<'a> {
+    fn from_value(value: &'a Value) -> Result<Option<Self>, Error> {
         match value {
             Value::Object(obj) => Ok(obj
                 // Option<Value>
@@ -112,14 +131,15 @@ impl<'a> MissingSome<'a> {
             _ => Ok(None),
         }
     }
-    pub fn evaluate(&self, data: &Value) -> Result<Value, Error> {
+    fn evaluate(&self, data: &Value) -> Result<Evaluated, Error> {
         let missing = missing_keys(data, &self.keys)?;
-        let present_keys =  self.keys.len() - missing.len();
-        if (present_keys as u64) >= self.minimum {
-            Ok(Value::Array(Vec::with_capacity(0)))
+        let present_keys = self.keys.len() - missing.len();
+        let val = if (present_keys as u64) >= self.minimum {
+            Value::Array(Vec::with_capacity(0))
         } else {
-            Ok(Value::Array(missing))
-        }
+            Value::Array(missing)
+        };
+        Ok(Evaluated::New(val))
     }
 }
 impl<'a> From<MissingSome<'a>> for Value {
@@ -140,8 +160,8 @@ impl<'a> From<MissingSome<'a>> for Value {
 pub struct Variable<'a> {
     value: &'a Value,
 }
-impl<'a> Variable<'a> {
-    pub fn from_value(value: &'a Value) -> Result<Option<Self>, Error> {
+impl<'a> Parser<'a> for Variable<'a> {
+    fn from_value(value: &'a Value) -> Result<Option<Self>, Error> {
         match value {
             Value::Object(map) => {
                 if map.len() != 1 {
@@ -170,20 +190,21 @@ impl<'a> Variable<'a> {
         }
     }
 
-    pub fn evaluate(&self, data: &'a Value) -> Result<&'a Value, Error> {
+    fn evaluate(&self, data: &'a Value) -> Result<Evaluated, Error> {
         // if self.name == "" { return data };
         match self.value {
-            Value::Null => Ok(data),
-            Value::String(var_name) => self.interpolate_string_var(data, var_name),
-            Value::Number(idx) => self.interpolate_numeric_var(data, idx),
-            Value::Array(var) => self.interpolate_array_var(data, var),
+            Value::Null => Ok(Evaluated::Raw(data)),
+            Value::String(var_name) => self.interpolate_string_var(data, var_name).map(Evaluated::Raw),
+            Value::Number(idx) => self.interpolate_numeric_var(data, idx).map(Evaluated::Raw),
+            Value::Array(var) => self.interpolate_array_var(data, var).map(Evaluated::Raw),
             _ => Err(Error::InvalidVariable{
                 value: self.value.clone(),
                 reason: "Unsupported variable type. Variables must be strings, integers, arrays, or null.".into()
             })
         }
     }
-
+}
+impl<'a> Variable<'a> {
     fn get_default(&self) -> &'a Value {
         match self.value {
             Value::Array(val) => val.get(1).unwrap_or(&NULL),
