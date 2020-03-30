@@ -18,6 +18,21 @@ impl Operator {
     pub fn execute(&self, items: &Vec<&Value>) -> Result<Value, Error> {
         (self.operator)(items)
     }
+
+    pub fn args_are_valid_len<T>(&self, args: &Vec<T>) -> Result<(), std::ops::Range<usize>> {
+        self.num_params
+            .as_ref()
+            // If we've got a specified len, check the args
+            .map(|range| {
+                if range.contains(&args.len()) {
+                    Ok(())
+                } else {
+                    Err(range.clone())
+                }
+            })
+            // Otherwise, we're fine.
+            .unwrap_or(Ok(()))
+    }
 }
 impl fmt::Debug for Operator {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
@@ -28,7 +43,42 @@ impl fmt::Debug for Operator {
     }
 }
 
+pub struct LazyOperator {
+    symbol: &'static str,
+    operator: LazyOperatorFn,
+    num_params: Option<std::ops::Range<usize>>,
+}
+impl LazyOperator {
+    pub fn execute(&self, data: &Value, items: &Vec<&Value>) -> Result<Value, Error> {
+        (self.operator)(data, items)
+    }
+
+    pub fn args_are_valid_len<T>(&self, args: &Vec<T>) -> Result<(), std::ops::Range<usize>> {
+        self.num_params
+            .as_ref()
+            // If we've got a specified len, check the args
+            .map(|range| {
+                if range.contains(&args.len()) {
+                    Ok(())
+                } else {
+                    Err(range.clone())
+                }
+            })
+            // Otherwise, we're fine.
+            .unwrap_or(Ok(()))
+    }
+}
+impl fmt::Debug for LazyOperator {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("Operator")
+            .field("symbol", &self.symbol)
+            .field("operator", &"<operator fn>")
+            .finish()
+    }
+}
+
 type OperatorFn = fn(&Vec<&Value>) -> Result<Value, Error>;
+type LazyOperatorFn = fn(&Value, &Vec<&Value>) -> Result<Value, Error>;
 
 pub const OPERATOR_MAP: phf::Map<&'static str, Operator> = phf_map! {
     "==" => Operator {
@@ -45,6 +95,94 @@ pub const OPERATOR_MAP: phf::Map<&'static str, Operator> = phf_map! {
         num_params: Some(2..3)},
 };
 
+pub const LAZY_OPERATOR_MAP: phf::Map<&'static str, LazyOperator> = phf_map! {
+    "if" => LazyOperator {
+        symbol: "if",
+        operator: |data, items| Err(Error::UnexpectedError("not defined".into())),
+        num_params: None,
+    }
+};
+
+
+/// An operation that doesn't do any recursive parsing or evaluation.
+///
+/// Any operator functions used must handle parsing of values themselves.
+#[derive(Debug)]
+pub struct LazyOperation<'a> {
+    operator: &'a LazyOperator,
+    arguments: &'a Vec<Value>,
+}
+impl<'a> Parser<'a> for LazyOperation<'a> {
+    fn from_value(value: &'a Value) -> Result<Option<Self>, Error> {
+        // We can only be an operation if we're an object
+        let obj = match value {
+            Value::Object(obj) => obj,
+            _ => return Ok(None),
+        };
+        // With just one key.
+        if obj.len() != 1 {
+            return Ok(None);
+        };
+
+        // We've already validated the length to be one, so any error
+        // here is super unexpected.
+        let key = obj.keys().next().ok_or(Error::UnexpectedError(format!(
+            "could not get first key from len(1) object: {:?}",
+            obj
+        )))?;
+        let val = obj.get(key).ok_or(Error::UnexpectedError(format!(
+            "could not get value for key '{}' from len(1) object: {:?}",
+            key, obj
+        )))?;
+
+        // See if the key is an operator. If it's not, return None.
+        let op = match LAZY_OPERATOR_MAP.get(key.as_str()) {
+            Some(op) => op,
+            _ => return Ok(None),
+        };
+
+        // Arguments must be an Array. Anything else is an error.
+        let args = match val {
+            Value::Array(args) => args,
+            _ => {
+                return Err(Error::InvalidOperation {
+                    key: key.into(),
+                    reason: "Values for operator keys must be arrays".into(),
+                })
+            }
+        };
+
+        // If the operator specifies a range for params, check them.
+        op.args_are_valid_len(&args)
+            .map_err(|exp_range| Error::WrongArgumentCount {
+                expected: exp_range,
+                actual: args.len(),
+            })?;
+
+        Ok(Some(LazyOperation {
+            operator: op,
+            arguments: args,
+        }))
+    }
+
+    fn evaluate(&self, data: &'a Value) -> Result<Evaluated, Error> {
+        self.operator
+            .execute(data, &self.arguments.iter().collect())
+            .map(Evaluated::New)
+    }
+}
+
+impl From<LazyOperation<'_>> for Value {
+    fn from(op: LazyOperation) -> Value {
+        let mut rv = Map::with_capacity(1);
+        rv.insert(
+            op.operator.symbol.into(),
+            Value::Array(op.arguments.clone()),
+        );
+        Value::Object(rv)
+    }
+}
+
 #[derive(Debug)]
 pub struct Operation<'a> {
     operator: &'a Operator,
@@ -52,61 +190,57 @@ pub struct Operation<'a> {
 }
 impl<'a> Parser<'a> for Operation<'a> {
     fn from_value(value: &'a Value) -> Result<Option<Self>, Error> {
-        match value {
-            // Operations are Objects
-            Value::Object(obj) => {
-                // Operations have just one key/value pair.
-                if obj.len() != 1 {
-                    return Ok(None);
-                }
+        // We can only be an operation if we're an object
+        let obj = match value {
+            Value::Object(obj) => obj,
+            _ => return Ok(None),
+        };
+        // With just one key.
+        if obj.len() != 1 {
+            return Ok(None);
+        };
 
-                let key = obj.keys().next().ok_or(Error::UnexpectedError(format!(
-                    "could not get first key from len(1) object: {:?}",
-                    obj
-                )))?;
-                let val = obj.get(key).ok_or(Error::UnexpectedError(format!(
-                    "could not get value for key '{}' from len(1) object: {:?}",
-                    key, obj
-                )))?;
+        // We've already validated the length to be one, so any error
+        // here is super unexpected.
+        let key = obj.keys().next().ok_or(Error::UnexpectedError(format!(
+            "could not get first key from len(1) object: {:?}",
+            obj
+        )))?;
+        let val = obj.get(key).ok_or(Error::UnexpectedError(format!(
+            "could not get value for key '{}' from len(1) object: {:?}",
+            key, obj
+        )))?;
 
-                // Operators have known keys
-                if let Some(operator) = OPERATOR_MAP.get(key.as_str()) {
-                    match val {
-                        // Operator values are arrays
-                        Value::Array(arguments) => {
-                            // If argument count is constrained, check it now
-                            operator
-                                .num_params
-                                .as_ref()
-                                .map(|range| {
-                                    if range.contains(&arguments.len()) {
-                                        Ok(())
-                                    } else {
-                                        Err(Error::WrongArgumentCount {
-                                            expected: range.clone(),
-                                            actual: arguments.len(),
-                                        })
-                                    }
-                                })
-                                .transpose()?;
-                            Ok(Some(Operation {
-                                operator,
-                                arguments: Parsed::from_values(arguments)?,
-                            }))
-                        }
-                        _ => Err(Error::InvalidOperation {
-                            key: key.into(),
-                            reason: "Values for operator keys must be arrays".into(),
-                        }),
-                    }
-                } else {
-                    Ok(None)
-                }
+        // See if the key is an operator. If it's not, return None.
+        let op = match OPERATOR_MAP.get(key.as_str()) {
+            Some(op) => op,
+            _ => return Ok(None),
+        };
+
+        // Arguments must be an Array. Anything else is an error.
+        let args = match val {
+            Value::Array(args) => args,
+            _ => {
+                return Err(Error::InvalidOperation {
+                    key: key.into(),
+                    reason: "Values for operator keys must be arrays".into(),
+                })
             }
-            // We're definitely not an operation
-            _ => Ok(None),
-        }
+        };
+
+        // If the operator specifies a range for params, check them.
+        op.args_are_valid_len(&args)
+            .map_err(|exp_range| Error::WrongArgumentCount {
+                expected: exp_range,
+                actual: args.len(),
+            })?;
+
+        Ok(Some(Operation {
+            operator: op,
+            arguments: Parsed::from_values(args)?,
+        }))
     }
+
     /// Evaluate the operation after recursively evaluating any nested operations
     fn evaluate(&self, data: &'a Value) -> Result<Evaluated, Error> {
         let arguments = self

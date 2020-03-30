@@ -21,7 +21,7 @@ trait Parser<'a>: Sized + Into<Value> {
 ///
 pub fn jsonlogic(value: &Value, data: &Value) -> Result<Value, Error> {
     let parsed = Parsed::from_value(&value)?;
-    parsed.evaluate(data).map(|res| res.into())
+    parsed.evaluate(data).map(Value::from)
 }
 
 #[cfg(test)]
