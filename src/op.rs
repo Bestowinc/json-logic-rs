@@ -7,7 +7,7 @@ use std::fmt;
 
 use crate::error::Error;
 use crate::value::{Evaluated, Parsed};
-use crate::{js_op, Parser};
+use crate::{js_op, Parser, NULL};
 
 pub struct Operator {
     symbol: &'static str,
@@ -98,10 +98,52 @@ pub const OPERATOR_MAP: phf::Map<&'static str, Operator> = phf_map! {
 pub const LAZY_OPERATOR_MAP: phf::Map<&'static str, LazyOperator> = phf_map! {
     "if" => LazyOperator {
         symbol: "if",
-        operator: |data, items| Err(Error::UnexpectedError("not defined".into())),
-        num_params: None,
+        operator: op_if,
+        // note this is a practical limit more than theoretical one. The spec
+        // doesn't say anything about not supporting more than 4.2 billion
+        // arguments, but we're drawing a line in the sand.
+        num_params: Some(3..std::u32::MAX as usize),
     }
 };
+
+
+fn op_if(data: &Value, args: &Vec<&Value>) -> Result<Value, Error> {
+    args.into_iter().enumerate().fold(
+        Ok((NULL, false, false)),
+        |last_res, (i, val)| {
+            let (last_eval, was_truthy, should_return) = last_res?;
+            // We hit a final value already
+            if should_return {
+                Ok((last_eval, was_truthy, should_return))
+            }
+            // Potential false-value, initial evaluation, else-if clause
+            else if i % 2 == 0 {
+                let parsed = Parsed::from_value(val)?;
+                let eval = parsed.evaluate(data)?;
+                let truthy = match eval {
+                    Evaluated::New(ref v) => is_truthy(v),
+                    Evaluated::Raw(v) => is_truthy(v),
+                };
+                // We're not sure we're the return value, so don't
+                // force a return.
+                Ok((Value::from(eval), truthy, false))
+            }
+            // We're a possible true-value
+            else {
+                // If there was a previous evaluation and it was truthy,
+                // return, and indicate we're a final value.
+                if was_truthy {
+                    let parsed = Parsed::from_value(val)?;
+                    let t_eval = parsed.evaluate(data)?;
+                    Ok((Value::from(t_eval), true, true))
+                } else {
+                    // Ignore ourselves
+                    Ok((last_eval, was_truthy, should_return))
+                }
+            }
+        }
+    ).map(|rv| rv.0)
+}
 
 
 /// An operation that doesn't do any recursive parsing or evaluation.
@@ -277,7 +319,7 @@ impl From<Operation<'_>> for Value {
 /// depending on their containing something, e.g. non-zero integers,
 /// non-zero length strings, and non-zero length arrays are truthy.
 /// This does not apply to objects, which are always truthy.
-pub fn truthy(val: &Value) -> bool {
+pub fn is_truthy(val: &Value) -> bool {
     match val {
         Value::Null => false,
         Value::Bool(v) => *v,
@@ -336,7 +378,7 @@ mod test_truthy {
 
         let falses = [json!(false), json!([]), json!(""), json!(0), json!(null)];
 
-        trues.iter().for_each(|v| assert!(truthy(&v)));
-        falses.iter().for_each(|v| assert!(!truthy(&v)));
+        trues.iter().for_each(|v| assert!(is_truthy(&v)));
+        falses.iter().for_each(|v| assert!(!is_truthy(&v)));
     }
 }

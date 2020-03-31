@@ -1,7 +1,7 @@
 use serde_json::Value;
 
 use crate::error::Error;
-use crate::op::Operation;
+use crate::op::{LazyOperation, Operation};
 use crate::{data, Parser};
 
 /// A Parsed JSON value
@@ -12,6 +12,7 @@ use crate::{data, Parser};
 #[derive(Debug)]
 pub enum Parsed<'a> {
     Operation(Operation<'a>),
+    LazyOperation(LazyOperation<'a>),
     Raw(data::Raw<'a>),
     Variable(data::Variable<'a>),
     Missing(data::Missing<'a>),
@@ -25,6 +26,7 @@ impl<'a> Parsed<'a> {
             .or(data::Missing::from_value(value)?.map(Self::Missing))
             .or(data::MissingSome::from_value(value)?.map(Self::MissingSome))
             .or(Operation::from_value(value)?.map(Self::Operation))
+            .or(LazyOperation::from_value(value)?.map(Self::LazyOperation))
             .or(data::Raw::from_value(value)?.map(Self::Raw))
             .ok_or(Error::UnexpectedError(format!(
                 "Failed to parse Value {:?}",
@@ -42,6 +44,7 @@ impl<'a> Parsed<'a> {
     pub fn evaluate(&self, data: &'a Value) -> Result<Evaluated, Error> {
         match self {
             Self::Operation(op) => op.evaluate(data),
+            Self::LazyOperation(op) => op.evaluate(data),
             Self::Raw(val) => val.evaluate(data),
             Self::Variable(var) => var.evaluate(data),
             Self::Missing(missing) => missing.evaluate(data),
@@ -53,6 +56,7 @@ impl From<Parsed<'_>> for Value {
     fn from(item: Parsed) -> Value {
         match item {
             Parsed::Operation(op) => Value::from(op),
+            Parsed::LazyOperation(op) => Value::from(op),
             Parsed::Raw(raw) => Value::from(raw),
             Parsed::Variable(var) => Value::from(var),
             Parsed::Missing(missing) => Value::from(missing),

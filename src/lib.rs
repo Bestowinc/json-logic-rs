@@ -226,6 +226,31 @@ mod jsonlogic_tests {
         ]
     }
 
+    fn if_cases() -> Vec<(Value, Value, Result<Value, ()>)> {
+        vec![
+            (
+                json!({"if": [true, "true", "false"]}),
+                json!({}),
+                Ok(json!("true")),
+            ),
+            (
+                json!({"if": [false, "true", "false"]}),
+                json!({}),
+                Ok(json!("false")),
+            ),
+            (
+                json!({"if": [false, "true", true, "true2"]}),
+                json!({}),
+                Ok(json!("true2")),
+            ),
+            (
+                json!({"if": [false, "true", false, "true2", "false2"]}),
+                json!({}),
+                Ok(json!("false2")),
+            ),
+        ]
+    }
+
     fn assert_jsonlogic((op, data, exp): (Value, Value, Result<Value, ()>)) -> () {
         println!("Running rule: {:?} with data: {:?}", op, data);
         let result = jsonlogic(&op, &data);
@@ -271,5 +296,10 @@ mod jsonlogic_tests {
     #[test]
     fn test_missing_some_data_op() {
         missing_some_cases().into_iter().for_each(assert_jsonlogic)
+    }
+
+    #[test]
+    fn test_if_op() {
+        if_cases().into_iter().for_each(assert_jsonlogic)
     }
 }
