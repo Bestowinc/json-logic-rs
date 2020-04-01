@@ -85,6 +85,10 @@ pub const OPERATOR_MAP: phf::Map<&'static str, Operator> = phf_map! {
         symbol: "==",
         operator: |items| Ok(Value::Bool(js_op::abstract_eq(items[0], items[1]))),
         num_params: Some(2..3)},
+    "!=" => Operator {
+        symbol: "!=",
+        operator: |items| Ok(Value::Bool(js_op::abstract_ne(items[0], items[1]))),
+        num_params: Some(2..3)},
     "===" => Operator {
         symbol: "===",
         operator: |items| Ok(Value::Bool(js_op::strict_eq(items[0], items[1]))),

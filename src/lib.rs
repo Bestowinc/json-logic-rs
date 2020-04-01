@@ -81,6 +81,23 @@ mod jsonlogic_tests {
         ]
     }
 
+    fn abstract_ne_cases() -> Vec<(Value, Value, Result<Value, ()>)> {
+        vec![
+            (json!({"!=": [1, 1]}), json!({}), Ok(json!(false))),
+            (json!({"!=": [1, 2]}), json!({}), Ok(json!(true))),
+            (json!({"!=": [1, "1"]}), json!({}), Ok(json!(false))),
+            (
+                json!({"!=": [{}, "[object Object]"]}),
+                json!({}),
+                Ok(json!(false)),
+            ),
+            (json!({"!=": [{"!=": [1, 2]}, 1]}), json!({}), Ok(json!(false))),
+            // Wrong number of arguments
+            (json!({"!=": [1]}), json!({}), Err(())),
+            (json!({"!=": [1, 1, 1]}), json!({}), Err(())),
+        ]
+    }
+
     fn strict_eq_cases() -> Vec<(Value, Value, Result<Value, ()>)> {
         vec![
             (json!({"===": [1, 1]}), json!({}), Ok(json!(true))),
@@ -411,6 +428,11 @@ mod jsonlogic_tests {
     #[test]
     fn test_abstract_eq_op() {
         abstract_eq_cases().into_iter().for_each(assert_jsonlogic)
+    }
+
+    #[test]
+    fn test_abstract_ne_op() {
+        abstract_ne_cases().into_iter().for_each(assert_jsonlogic)
     }
 
     #[test]
