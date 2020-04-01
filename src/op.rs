@@ -108,7 +108,12 @@ pub const LAZY_OPERATOR_MAP: phf::Map<&'static str, LazyOperator> = phf_map! {
         symbol: "or",
         operator: op_or,
         num_params: Some(1..std::u32::MAX as usize),
-    }
+    },
+    "and" => LazyOperator {
+        symbol: "and",
+        operator: op_and,
+        num_params: Some(1..std::u32::MAX as usize),
+    },
 };
 
 /// Implement the "if" operator
@@ -130,13 +135,13 @@ fn op_if(data: &Value, args: &Vec<&Value>) -> Result<Value, Error> {
             else if i % 2 == 0 {
                 let parsed = Parsed::from_value(val)?;
                 let eval = parsed.evaluate(data)?;
-                let truthy = match eval {
+                let is_truthy = match eval {
                     Evaluated::New(ref v) => truthy(v),
                     Evaluated::Raw(v) => truthy(v),
                 };
                 // We're not sure we're the return value, so don't
                 // force a return.
-                Ok((Value::from(eval), truthy, false))
+                Ok((Value::from(eval), is_truthy, false))
             }
             // We're a possible true-value
             else {
@@ -188,6 +193,42 @@ fn op_or(data: &Value, args: &Vec<&Value>) -> Result<Value, Error> {
         OrResult::Current(v) => Ok(v),
         _ => Err(Error::UnexpectedError(
             "Or operation had no values to operate on".into(),
+        )),
+    }
+}
+
+/// Perform short-circuiting and evaluation
+fn op_and(data: &Value, args: &Vec<&Value>) -> Result<Value, Error> {
+    enum AndResult {
+        Uninitialized,
+        Falsey(Value),
+        Current(Value),
+    }
+
+    let eval = args
+        .into_iter()
+        .fold(Ok(AndResult::Uninitialized), |last_res, current| {
+            let last_eval = last_res?;
+
+            if let AndResult::Falsey(_) = last_eval {
+                return Ok(last_eval);
+            }
+
+            let parsed = Parsed::from_value(current)?;
+            let evaluated = parsed.evaluate(data)?;
+
+            if !truthy_from_evaluated(&evaluated) {
+                return Ok(AndResult::Falsey(evaluated.into()));
+            }
+
+            Ok(AndResult::Current(evaluated.into()))
+        })?;
+
+    match eval {
+        AndResult::Falsey(v) => Ok(v),
+        AndResult::Current(v) => Ok(v),
+        _ => Err(Error::UnexpectedError(
+            "And operation had no values to operate on".into(),
         )),
     }
 }

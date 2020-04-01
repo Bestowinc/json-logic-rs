@@ -326,6 +326,71 @@ mod jsonlogic_tests {
         ]
     }
 
+    fn and_cases() -> Vec<(Value, Value, Result<Value, ()>)> {
+        vec![
+            (
+                json!({"and": [true]}),
+                json!({}),
+                Ok(json!(true)),
+            ),
+            (
+                json!({"and": [false]}),
+                json!({}),
+                Ok(json!(false)),
+            ),
+            (
+                json!({"and": [false, true]}),
+                json!({}),
+                Ok(json!(false)),
+            ),
+            (
+                json!({"and": [true, false]}),
+                json!({}),
+                Ok(json!(false)),
+            ),
+            (
+                json!({"and": [true, true]}),
+                json!({}),
+                Ok(json!(true)),
+            ),
+            (
+                json!({"and": [false, true, false]}),
+                json!({}),
+                Ok(json!(false)),
+            ),
+            (
+                json!({"and": [12, true, 0]}),
+                json!({}),
+                Ok(json!(0)),
+            ),
+            (
+                json!({"and": [12, true, 0, 12, false]}),
+                json!({}),
+                Ok(json!(0)),
+            ),
+            (
+                json!({"and": [true, true, 12]}),
+                json!({}),
+                Ok(json!(12)),
+            ),
+            (
+                json!({"and": [{"===": [1, 1]}, false]}),
+                json!({}),
+                Ok(json!(false)),
+            ),
+            (
+                json!({"and": [{"===": [{"var": "foo"}, 1]}, true]}),
+                json!({"foo": 1}),
+                Ok(json!(true)),
+            ),
+            (
+                json!({"and": [{"===": [{"var": "foo"}, 1]}, true]}),
+                json!({"foo": 2}),
+                Ok(json!(false)),
+            ),
+        ]
+    }
+
     fn assert_jsonlogic((op, data, exp): (Value, Value, Result<Value, ()>)) -> () {
         println!("Running rule: {:?} with data: {:?}", op, data);
         let result = jsonlogic(&op, &data);
@@ -381,5 +446,10 @@ mod jsonlogic_tests {
     #[test]
     fn test_or_op() {
         or_cases().into_iter().for_each(assert_jsonlogic)
+    }
+
+    #[test]
+    fn test_and_op() {
+        and_cases().into_iter().for_each(assert_jsonlogic)
     }
 }
