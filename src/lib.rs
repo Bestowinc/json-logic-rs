@@ -248,6 +248,81 @@ mod jsonlogic_tests {
                 json!({}),
                 Ok(json!("false2")),
             ),
+            (
+                json!({"if": [{"===": [1, 1]}, "true", "false"]}),
+                json!({}),
+                Ok(json!("true")),
+            ),
+            (
+                json!({"if": [{"===": [1, 2]}, "true", "false"]}),
+                json!({}),
+                Ok(json!("false")),
+            ),
+            (
+                json!({"if": [{"===": [1, 2]}, "true", {"===": [1, 1]}, "true2"]}),
+                json!({}),
+                Ok(json!("true2")),
+            ),
+            (
+                json!({"if": [{"===": [1, 2]}, "true", {"===": [1, 2]}, "true2", "false2"]}),
+                json!({}),
+                Ok(json!("false2")),
+            ),
+        ]
+    }
+
+    fn or_cases() -> Vec<(Value, Value, Result<Value, ()>)> {
+        vec![
+            (
+                json!({"or": [true]}),
+                json!({}),
+                Ok(json!(true)),
+            ),
+            (
+                json!({"or": [false]}),
+                json!({}),
+                Ok(json!(false)),
+            ),
+            (
+                json!({"or": [false, true]}),
+                json!({}),
+                Ok(json!(true)),
+            ),
+            (
+                json!({"or": [false, true, false]}),
+                json!({}),
+                Ok(json!(true)),
+            ),
+            (
+                json!({"or": [false, false, 12]}),
+                json!({}),
+                Ok(json!(12)),
+            ),
+            (
+                json!({"or": [false, false, 12, 13, 14]}),
+                json!({}),
+                Ok(json!(12)),
+            ),
+            (
+                json!({"or": [false, false, 0, 12]}),
+                json!({}),
+                Ok(json!(12)),
+            ),
+            (
+                json!({"or": [false, {"===": [1, 1]}]}),
+                json!({}),
+                Ok(json!(true)),
+            ),
+            (
+                json!({"or": [false, {"===": [{"var": "foo"}, 1]}]}),
+                json!({"foo": 1}),
+                Ok(json!(true)),
+            ),
+            (
+                json!({"or": [false, {"===": [{"var": "foo"}, 1]}]}),
+                json!({"foo": 2}),
+                Ok(json!(false)),
+            ),
         ]
     }
 
@@ -301,5 +376,10 @@ mod jsonlogic_tests {
     #[test]
     fn test_if_op() {
         if_cases().into_iter().for_each(assert_jsonlogic)
+    }
+
+    #[test]
+    fn test_or_op() {
+        or_cases().into_iter().for_each(assert_jsonlogic)
     }
 }

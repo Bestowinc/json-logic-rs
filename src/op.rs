@@ -103,14 +103,24 @@ pub const LAZY_OPERATOR_MAP: phf::Map<&'static str, LazyOperator> = phf_map! {
         // doesn't say anything about not supporting more than 4.2 billion
         // arguments, but we're drawing a line in the sand.
         num_params: Some(3..std::u32::MAX as usize),
+    },
+    "or" => LazyOperator {
+        symbol: "or",
+        operator: op_or,
+        num_params: Some(1..std::u32::MAX as usize),
     }
 };
 
-
+/// Implement the "if" operator
+///
+/// The base case works like: [condition, true, false]
+/// However, it can lso work like:
+///     [condition, true, condition2, true2, false2]
+///     for an if/elseif/else type of operation
 fn op_if(data: &Value, args: &Vec<&Value>) -> Result<Value, Error> {
-    args.into_iter().enumerate().fold(
-        Ok((NULL, false, false)),
-        |last_res, (i, val)| {
+    args.into_iter()
+        .enumerate()
+        .fold(Ok((NULL, false, false)), |last_res, (i, val)| {
             let (last_eval, was_truthy, should_return) = last_res?;
             // We hit a final value already
             if should_return {
@@ -121,8 +131,8 @@ fn op_if(data: &Value, args: &Vec<&Value>) -> Result<Value, Error> {
                 let parsed = Parsed::from_value(val)?;
                 let eval = parsed.evaluate(data)?;
                 let truthy = match eval {
-                    Evaluated::New(ref v) => is_truthy(v),
-                    Evaluated::Raw(v) => is_truthy(v),
+                    Evaluated::New(ref v) => truthy(v),
+                    Evaluated::Raw(v) => truthy(v),
                 };
                 // We're not sure we're the return value, so don't
                 // force a return.
@@ -141,10 +151,46 @@ fn op_if(data: &Value, args: &Vec<&Value>) -> Result<Value, Error> {
                     Ok((last_eval, was_truthy, should_return))
                 }
             }
-        }
-    ).map(|rv| rv.0)
+        })
+        .map(|rv| rv.0)
 }
 
+/// Perform short-circuiting or evaluation
+fn op_or(data: &Value, args: &Vec<&Value>) -> Result<Value, Error> {
+    enum OrResult {
+        Uninitialized,
+        Truthy(Value),
+        Current(Value),
+    }
+
+    let eval = args
+        .into_iter()
+        .fold(Ok(OrResult::Uninitialized), |last_res, current| {
+            let last_eval = last_res?;
+
+            // if we've found a truthy value, don't evaluate anything else
+            if let OrResult::Truthy(_) = last_eval {
+                return Ok(last_eval);
+            }
+
+            let parsed = Parsed::from_value(current)?;
+            let evaluated = parsed.evaluate(data)?;
+
+            if truthy_from_evaluated(&evaluated) {
+                return Ok(OrResult::Truthy(evaluated.into()));
+            }
+
+            Ok(OrResult::Current(evaluated.into()))
+        })?;
+
+    match eval {
+        OrResult::Truthy(v) => Ok(v),
+        OrResult::Current(v) => Ok(v),
+        _ => Err(Error::UnexpectedError(
+            "Or operation had no values to operate on".into(),
+        )),
+    }
+}
 
 /// An operation that doesn't do any recursive parsing or evaluation.
 ///
@@ -309,6 +355,13 @@ impl From<Operation<'_>> for Value {
     }
 }
 
+fn truthy_from_evaluated(evaluated: &Evaluated) -> bool {
+    match evaluated {
+        Evaluated::New(ref v) => truthy(v),
+        Evaluated::Raw(v) => truthy(v),
+    }
+}
+
 /// Return whether a value is "truthy" by the JSONLogic spec
 ///
 /// The spec (http://jsonlogic.com/truthy) defines truthy values that
@@ -319,7 +372,7 @@ impl From<Operation<'_>> for Value {
 /// depending on their containing something, e.g. non-zero integers,
 /// non-zero length strings, and non-zero length arrays are truthy.
 /// This does not apply to objects, which are always truthy.
-pub fn is_truthy(val: &Value) -> bool {
+pub fn truthy(val: &Value) -> bool {
     match val {
         Value::Null => false,
         Value::Bool(v) => *v,
@@ -351,8 +404,16 @@ mod test_operators {
 
     /// All operators symbols must match their keys
     #[test]
-    fn test_symbols() {
+    fn test_operator_map_symbols() {
         OPERATOR_MAP
+            .into_iter()
+            .for_each(|(k, op)| assert_eq!(*k, op.symbol))
+    }
+
+    /// All lazy operators symbols must match their keys
+    #[test]
+    fn test_lazy_operator_map_symbols() {
+        LAZY_OPERATOR_MAP
             .into_iter()
             .for_each(|(k, op)| assert_eq!(*k, op.symbol))
     }
@@ -378,7 +439,7 @@ mod test_truthy {
 
         let falses = [json!(false), json!([]), json!(""), json!(0), json!(null)];
 
-        trues.iter().for_each(|v| assert!(is_truthy(&v)));
-        falses.iter().for_each(|v| assert!(!is_truthy(&v)));
+        trues.iter().for_each(|v| assert!(truthy(&v)));
+        falses.iter().for_each(|v| assert!(!truthy(&v)));
     }
 }
