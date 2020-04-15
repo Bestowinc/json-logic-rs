@@ -320,7 +320,7 @@ pub fn strict_eq(first: &Value, second: &Value) -> bool {
 }
 
 pub fn strict_ne(first: &Value, second: &Value) -> bool {
-    ! strict_eq(first, second)
+    !strict_eq(first, second)
 }
 
 /// Perform JS-style abstract less-than
@@ -410,11 +410,41 @@ pub fn abstract_gte(first: &Value, second: &Value) -> bool {
     abstract_gt(first, second) || abstract_eq(first, second)
 }
 
+fn is_number_for_plus(value: &Value) -> bool {
+    match value {
+        Value::Null => true,
+        Value::Number(_) => true,
+        Value::Bool(_) => true,
+        _ => false,
+    }
+}
+
+/// Do plus
+pub fn abstract_plus(first: &Value, second: &Value) -> Value {
+    let first_num = to_primitive_number(first);
+    let second_num = to_primitive_number(second);
+
+    match (first_num, second_num) {
+        (Some(f), Some(s)) => {
+            return Value::Number(Number::from_f64(f + s).unwrap());
+        }
+        _ => {}
+    };
+
+    let first_string = to_string(first);
+    let second_string = to_string(second);
+
+    Value::String(
+        first_string
+            .chars()
+            .chain(second_string.chars())
+            .collect()
+    )
+}
 
 // =====================================================================
 // Unit Tests
 // =====================================================================
-
 
 #[cfg(test)]
 mod abstract_operations {
@@ -564,6 +594,23 @@ mod abstract_operations {
             (json!(true), json!({})),
             (json!(false), json!([1, 2])),
             (json!(true), json!([1, 2])),
+        ]
+    }
+
+    fn plus_cases() -> Vec<(Value, Value, Value)> {
+        vec![
+            (json!(1), json!(1), json!(2.0)),
+            (json!(1), json!(true), json!(2.0)),
+            (json!(true), json!(true), json!(2.0)),
+            (json!(1), json!(false), json!(1.0)),
+            (json!(false), json!(false), json!(0.0)),
+            (json!(1), json!(null), json!(1.0)),
+            (json!(null), json!(null), json!(0.0)),
+            (json!(1), json!("1"), json!("11")),
+            (json!(1), json!([1]), json!("11")),
+            (json!(1), json!([1, 2]), json!("11,2")),
+            (json!(1), json!([1, null, 3]), json!("11,,3")),
+            (json!(1), json!({}), json!("1[object Object]")),
         ]
     }
 
@@ -767,6 +814,29 @@ mod abstract_operations {
             assert_eq!(abstract_gte(&first, &second), false);
         })
     }
+
+    #[test]
+    fn test_abstract_plus() {
+        plus_cases().iter().for_each(|(first, second, exp)| {
+            println!("{:?}-{:?}", &first, &second);
+            let result = abstract_plus(&first, &second);
+            match result {
+                Value::Number(ref i) => {
+                    match exp {
+                        Value::Number(j) => assert_eq!(i, j),
+                        _ => assert!(false),
+                    }
+                },
+                Value::String(ref i) => {
+                    match exp {
+                        Value::String(j) => assert_eq!(i, j),
+                        _ => assert!(false)
+                    }
+                },
+                _ => assert!(false)
+            }
+        })
+    }
 }
 
 #[cfg(test)]
@@ -840,5 +910,3 @@ mod test_strict {
         assert!(!strict_ne(&obj, &obj))
     }
 }
-
-
