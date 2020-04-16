@@ -4,6 +4,11 @@ use serde_json::{Number, Value};
 use std::f64;
 use std::str::FromStr;
 
+// numeric characters according to parseFloat
+const NUMERICS: &'static [char] = &[
+    '0', '1', '2', '3', '4', '5', '6', '7', '8', '9', '0', '.', '-', '+', 'e', 'E',
+];
+
 // TODOS:
 // - there are too many tests in docstrings
 // - the docstrings are too sarcastic about JS equality
@@ -410,15 +415,6 @@ pub fn abstract_gte(first: &Value, second: &Value) -> bool {
     abstract_gt(first, second) || abstract_eq(first, second)
 }
 
-fn is_number_for_plus(value: &Value) -> bool {
-    match value {
-        Value::Null => true,
-        Value::Number(_) => true,
-        Value::Bool(_) => true,
-        _ => false,
-    }
-}
-
 /// Do plus
 pub fn abstract_plus(first: &Value, second: &Value) -> Value {
     let first_num = to_primitive_number(first);
@@ -434,12 +430,95 @@ pub fn abstract_plus(first: &Value, second: &Value) -> Value {
     let first_string = to_string(first);
     let second_string = to_string(second);
 
-    Value::String(
-        first_string
-            .chars()
-            .chain(second_string.chars())
-            .collect()
-    )
+    Value::String(first_string.chars().chain(second_string.chars()).collect())
+}
+
+/// Try to parse a string as a float, javascript style
+///
+/// Strip whitespace, accumulate any potentially numeric characters at the
+/// start of the string and try to convert them into a float. We don't
+/// quite follow the spec exactly: we don't deal with infinity
+/// and NaN. That is okay, because this is only used in a context dealing
+/// with JSON values, which can't be Infinity or NaN.
+fn parse_float_string(val: &String) -> Option<f64> {
+    let (leading_numerics, _, _) = val.trim().chars().fold(
+        (Vec::new(), false, false),
+        |(mut acc, broke, saw_decimal), c| {
+            if broke {
+                // if we hit a nonnumeric last iter, just return what we've got
+                (acc, broke, saw_decimal)
+            } else if NUMERICS.contains(&c) {
+                // if we're a numeric, stick it on the acc
+                acc.push(c);
+                (acc, broke, c == '.')
+            } else {
+                // return the acc as is and let 'em know we hit a nonnumeric
+                (acc, true, saw_decimal)
+            }
+        },
+    );
+    // don't bother collecting into a string if we don't need to
+    if leading_numerics.len() == 0 {
+        return None;
+    };
+    // collect into a string, try to parse as a float, return an option
+    leading_numerics
+        .iter()
+        .collect::<String>()
+        .parse::<f64>()
+        .ok()
+}
+
+/// Attempt to parse a value into a float.
+///
+/// The implementation should match https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/parseFloat
+/// as closely as is reasonable.
+pub fn parse_float(val: &Value) -> Option<f64> {
+    match val {
+        Value::Number(num) => num.as_f64(),
+        Value::String(string) => parse_float_string(string),
+        _ => parse_float(&Value::String(to_string(&val))),
+    }
+}
+
+#[cfg(test)]
+mod test_parse_float {
+    use super::*;
+    use serde_json::json;
+
+    fn cases() -> Vec<(Value, Option<f64>)> {
+        vec![
+            (json!(1), Some(1.0)),
+            (json!(1.5), Some(1.5)),
+            (json!(-1.5), Some(-1.5)),
+            (json!("1"), Some(1.0)),
+            (json!("1e2"), Some(100.0)),
+            (json!("1E2"), Some(100.0)),
+            (json!("1.1e2"), Some(110.0)),
+            (json!("-1.1e2"), Some(-110.0)),
+            (json!("1e-2"), Some(0.01)),
+            (json!("1.0"), Some(1.0)),
+            (json!("1.1"), Some(1.1)),
+            (json!(false), None),
+            (json!(true), None),
+            (json!(null), None),
+            (json!("+5"), Some(5.0)),
+            (json!("-5"), Some(-5.0)),
+            (json!([]), None),
+            (json!([1]), Some(1.0)),
+            // this is weird, but correct. it converts to a string first
+            // "1,2" and then parses up to the first comma as a number
+            (json!([1, 2]), Some(1.0)),
+            (json!({}), None),
+        ]
+    }
+
+    #[test]
+    fn test_parse_float() {
+        cases()
+            .into_iter()
+            .for_each(|(input, exp)| assert_eq!(parse_float(&input), exp));
+    }
 }
 
 // =====================================================================
@@ -821,19 +900,15 @@ mod abstract_operations {
             println!("{:?}-{:?}", &first, &second);
             let result = abstract_plus(&first, &second);
             match result {
-                Value::Number(ref i) => {
-                    match exp {
-                        Value::Number(j) => assert_eq!(i, j),
-                        _ => assert!(false),
-                    }
+                Value::Number(ref i) => match exp {
+                    Value::Number(j) => assert_eq!(i, j),
+                    _ => assert!(false),
                 },
-                Value::String(ref i) => {
-                    match exp {
-                        Value::String(j) => assert_eq!(i, j),
-                        _ => assert!(false)
-                    }
+                Value::String(ref i) => match exp {
+                    Value::String(j) => assert_eq!(i, j),
+                    _ => assert!(false),
                 },
-                _ => assert!(false)
+                _ => assert!(false),
             }
         })
     }
