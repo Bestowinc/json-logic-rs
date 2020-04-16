@@ -441,7 +441,7 @@ pub fn abstract_plus(first: &Value, second: &Value) -> Value {
 /// and NaN. That is okay, because this is only used in a context dealing
 /// with JSON values, which can't be Infinity or NaN.
 fn parse_float_string(val: &String) -> Option<f64> {
-    let (leading_numerics, _, _) = val.trim().chars().fold(
+    let (mut leading_numerics, _, _) = val.trim().chars().fold(
         (Vec::new(), false, false),
         |(mut acc, broke, saw_decimal), c| {
             if broke {
@@ -451,11 +451,11 @@ fn parse_float_string(val: &String) -> Option<f64> {
                 let is_decimal = c == '.';
                 if saw_decimal && is_decimal {
                     // if we're a decimal and we've seen one before, break
-                    (acc, broke, is_decimal)
+                    (acc, true, is_decimal)
                 } else {
                     // if we're a numeric, stick it on the acc
                     acc.push(c);
-                    (acc, broke, c == '.')
+                    (acc, broke, saw_decimal || is_decimal)
                 }
             } else {
                 // return the acc as is and let 'em know we hit a nonnumeric
@@ -467,6 +467,13 @@ fn parse_float_string(val: &String) -> Option<f64> {
     if leading_numerics.len() == 0 {
         return None;
     };
+    if let Some('e') | Some('E') = leading_numerics.last() {
+        // If the last character is an 'e' or an `E`, remove it, to match
+        // edge case where JS ignores a trailing `e` rather than treating it
+        // as bad exponential notation, e.g. JS treats 1e as just 1.
+        leading_numerics.pop();
+    }
+
     // collect into a string, try to parse as a float, return an option
     leading_numerics
         .iter()
@@ -505,6 +512,10 @@ mod test_parse_float {
             (json!("1e-2"), Some(0.01)),
             (json!("1.0"), Some(1.0)),
             (json!("1.1"), Some(1.1)),
+            (json!("1.1.1"), Some(1.1)),
+            (json!("1234abc"), Some(1234.0)),
+            (json!("1e"), Some(1.0)),
+            (json!("1E"), Some(1.0)),
             (json!(false), None),
             (json!(true), None),
             (json!(null), None),
