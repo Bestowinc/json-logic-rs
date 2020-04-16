@@ -448,9 +448,15 @@ fn parse_float_string(val: &String) -> Option<f64> {
                 // if we hit a nonnumeric last iter, just return what we've got
                 (acc, broke, saw_decimal)
             } else if NUMERICS.contains(&c) {
-                // if we're a numeric, stick it on the acc
-                acc.push(c);
-                (acc, broke, c == '.')
+                let is_decimal = c == '.';
+                if saw_decimal && is_decimal {
+                    // if we're a decimal and we've seen one before, break
+                    (acc, broke, is_decimal)
+                } else {
+                    // if we're a numeric, stick it on the acc
+                    acc.push(c);
+                    (acc, broke, c == '.')
+                }
             } else {
                 // return the acc as is and let 'em know we hit a nonnumeric
                 (acc, true, saw_decimal)
