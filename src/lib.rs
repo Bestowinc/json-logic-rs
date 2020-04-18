@@ -425,6 +425,18 @@ mod jsonlogic_tests {
         ]
     }
 
+    fn multiplication_cases() -> Vec<(Value, Value, Result<Value, ()>)> {
+        vec![
+            (json!({"*": 1}), json!({}), Ok(json!(1.0))),
+            (json!({"*": [1]}), json!({}), Ok(json!(1.0))),
+            (json!({"*": [1, 2]}), json!({}), Ok(json!(2.0))),
+            (json!({"*": [0, 2]}), json!({}), Ok(json!(0.0))),
+            (json!({"*": [1, 2, 3]}), json!({}), Ok(json!(6.0))),
+            (json!({"*": [1, 2, "3"]}), json!({}), Ok(json!(6.0))),
+            (json!({"*": [1, "2abc", "3"]}), json!({}), Ok(json!(6.0))),
+        ]
+    }
+
     fn max_cases() -> Vec<(Value, Value, Result<Value, ()>)> {
         vec![
             (
@@ -642,6 +654,11 @@ mod jsonlogic_tests {
     #[test]
     fn test_minus_op() {
         minus_cases().into_iter().for_each(assert_jsonlogic)
+    }
+
+    #[test]
+    fn test_mul_op() {
+        multiplication_cases().into_iter().for_each(assert_jsonlogic)
     }
 
     #[test]
