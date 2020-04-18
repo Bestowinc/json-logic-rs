@@ -450,6 +450,18 @@ mod jsonlogic_tests {
         ]
     }
 
+    fn modulo_cases() -> Vec<(Value, Value, Result<Value, ()>)> {
+        vec![
+            (json!({"%": [2, 1]}), json!({}), Ok(json!(0.0))),
+            (json!({"%": [1, 2]}), json!({}), Ok(json!(1.0))),
+            (json!({"%": [1, "2"]}), json!({}), Ok(json!(1.0))),
+            (json!({"%": [12, "-2"]}), json!({}), Ok(json!(0.0))),
+            (json!({"%": []}), json!({}), Err(())),
+            (json!({"%": [5]}), json!({}), Err(())),
+            (json!({"%": [5, 2, 1]}), json!({}), Err(())),
+        ]
+    }
+
     fn max_cases() -> Vec<(Value, Value, Result<Value, ()>)> {
         vec![
             (
@@ -677,6 +689,11 @@ mod jsonlogic_tests {
     #[test]
     fn test_div_op() {
         division_cases().into_iter().for_each(assert_jsonlogic)
+    }
+
+    #[test]
+    fn test_mod_op() {
+        modulo_cases().into_iter().for_each(assert_jsonlogic)
     }
 
     #[test]

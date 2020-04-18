@@ -605,6 +605,30 @@ pub fn abstract_div(first: &Value, second: &Value) -> Result<f64, Error> {
 }
 
 
+/// Do modulo
+pub fn abstract_mod(first: &Value, second: &Value) -> Result<f64, Error> {
+    let first_num = to_number(first);
+    let second_num = to_number(second);
+
+    if let None = first_num {
+        return Err(Error::InvalidArgument {
+            value: first.clone(),
+            operation: "%".into(),
+            reason: "Could not convert value to number.".into(),
+        });
+    }
+    if let None = second_num {
+        return Err(Error::InvalidArgument {
+            value: second.clone(),
+            operation: "%".into(),
+            reason: "Could not convert value to number.".into(),
+        });
+    }
+
+    Ok(first_num.unwrap() % second_num.unwrap())
+}
+
+
 /// Attempt to convert a value to a negative number
 pub fn to_negative(val: &Value) -> Result<f64, Error> {
     to_number(val)
