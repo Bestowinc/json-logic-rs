@@ -373,27 +373,27 @@ mod jsonlogic_tests {
             (
                 json!({"map": [[1, 2, 3], {"*": [{"var": ""}, 2]}]}),
                 json!(null),
-                Ok(json!([2.0, 4.0, 6.0]))
+                Ok(json!([2.0, 4.0, 6.0])),
             ),
             (
                 json!({"map": [[], {"*": [{"var": ""}, 2]}]}),
                 json!(null),
-                Ok(json!([]))
+                Ok(json!([])),
             ),
             (
                 json!({"map": [{"var": "vals"}, {"*": [{"var": ""}, 2]}]}),
                 json!({"vals": [1, 2, 3]}),
-                Ok(json!([2.0, 4.0, 6.0]))
+                Ok(json!([2.0, 4.0, 6.0])),
             ),
             (
                 json!({"map": [{"var": ""}, {"*": [{"var": ""}, 2]}]}),
                 json!([1, 2, 3]),
-                Ok(json!([2.0, 4.0, 6.0]))
+                Ok(json!([2.0, 4.0, 6.0])),
             ),
             (
                 json!({"map": [[true, 2, 0, [], {}], {"!!": [{"var": ""}]}]}),
                 json!(null),
-                Ok(json!([true, true, false, false, true]))
+                Ok(json!([true, true, false, false, true])),
             ),
         ]
     }
@@ -403,27 +403,27 @@ mod jsonlogic_tests {
             (
                 json!({"filter": [[1, 2, 3], {"%": [{"var": ""}, 2]}]}),
                 json!(null),
-                Ok(json!([1, 3]))
+                Ok(json!([1, 3])),
             ),
             (
                 json!({"filter": [[], {"%": [{"var": ""}, 2]}]}),
                 json!(null),
-                Ok(json!([]))
+                Ok(json!([])),
             ),
             (
                 json!({"filter": [[2, 4, 6], {"%": [{"var": ""}, 2]}]}),
                 json!(null),
-                Ok(json!([]))
+                Ok(json!([])),
             ),
             (
                 json!({"filter": [{"var": "vals"}, {"%": [{"var": ""}, 2]}]}),
                 json!({"vals": [1, 2, 3]}),
-                Ok(json!([1, 3]))
+                Ok(json!([1, 3])),
             ),
             (
                 json!({"filter": [["aa", "bb", "aa"], {"===": [{"var": ""}, "aa"]}]}),
                 json!(null),
-                Ok(json!(["aa", "aa"]))
+                Ok(json!(["aa", "aa"])),
             ),
             (
                 json!(
@@ -438,7 +438,73 @@ mod jsonlogic_tests {
                     }
                 ),
                 json!(null),
-                Ok(json!([1, 2]))
+                Ok(json!([1, 2])),
+            ),
+        ]
+    }
+
+    fn reduce_cases() -> Vec<(Value, Value, Result<Value, ()>)> {
+        vec![
+            (
+                json!(
+                    {"reduce":[
+                        [1, 2, 3, 4, 5],
+                        {"+": [{"var":"current"}, {"var":"accumulator"}]},
+                        0
+                    ]}
+                ),
+                json!(null),
+                Ok(json!(15.0)),
+            ),
+            (
+                json!(
+                    {"reduce":[
+                        {"var": "vals"},
+                        {"+": [{"var":"current"}, {"var":"accumulator"}]},
+                        0
+                    ]}
+                ),
+                json!({"vals": [1, 2, 3, 4, 5]}),
+                Ok(json!(15.0)),
+            ),
+            (
+                json!(
+                    {"reduce":[
+                        {"var": "vals"},
+                        {"+": [{"var":"current"}, {"var":"accumulator"}]},
+                        {"var": "init"}
+                    ]}
+                ),
+                json!({"vals": [1, 2, 3, 4, 5], "init": 0}),
+                Ok(json!(15.0)),
+            ),
+            (
+                json!(
+                    {"reduce":[
+                        {"var": "vals"},
+                        {"and":
+                            [{"var": "accumulator"},
+                             {"!!": [{"var": "current"}]}]
+                        },
+                        true,
+                    ]}
+                ),
+                json!({"vals": [1, true, 10, "foo", 1, 1]}),
+                Ok(json!(true)),
+            ),
+            (
+                json!(
+                    {"reduce":[
+                        {"var": "vals"},
+                        {"and":
+                            [{"var": "accumulator"},
+                             {"!!": [{"var": "current"}]}]
+                        },
+                        true,
+                    ]}
+                ),
+                json!({"vals": [1, true, 10, "foo", 0, 1]}),
+                Ok(json!(false)),
             ),
         ]
     }
@@ -539,50 +605,26 @@ mod jsonlogic_tests {
 
     fn max_cases() -> Vec<(Value, Value, Result<Value, ()>)> {
         vec![
-            (
-                json!({"max": [1, 2, 3]}),
-                json!({}),
-                Ok(json!(3.0))
-            ),
-            (
-                json!({"max": [false, -1, 2]}),
-                json!({}),
-                Ok(json!(2.0))
-            ),
-            (
-                json!({"max": [0, -1, true]}),
-                json!({}),
-                Ok(json!(1.0))
-            ),
+            (json!({"max": [1, 2, 3]}), json!({}), Ok(json!(3.0))),
+            (json!({"max": [false, -1, 2]}), json!({}), Ok(json!(2.0))),
+            (json!({"max": [0, -1, true]}), json!({}), Ok(json!(1.0))),
             (
                 json!({"max": [0, -1, true, [3]]}),
                 json!({}),
-                Ok(json!(3.0))
+                Ok(json!(3.0)),
             ),
         ]
     }
 
     fn min_cases() -> Vec<(Value, Value, Result<Value, ()>)> {
         vec![
-            (
-                json!({"min": [1, 2, 3]}),
-                json!({}),
-                Ok(json!(1.0))
-            ),
-            (
-                json!({"min": [false, 1, 2]}),
-                json!({}),
-                Ok(json!(0.0))
-            ),
-            (
-                json!({"min": [0, -1, true]}),
-                json!({}),
-                Ok(json!(-1.0))
-            ),
+            (json!({"min": [1, 2, 3]}), json!({}), Ok(json!(1.0))),
+            (json!({"min": [false, 1, 2]}), json!({}), Ok(json!(0.0))),
+            (json!({"min": [0, -1, true]}), json!({}), Ok(json!(-1.0))),
             (
                 json!({"min": [0, [-1], true, [3]]}),
                 json!({}),
-                Ok(json!(-1.0))
+                Ok(json!(-1.0)),
             ),
         ]
     }
@@ -717,6 +759,11 @@ mod jsonlogic_tests {
     }
 
     #[test]
+    fn test_reduce_op() {
+        reduce_cases().into_iter().for_each(assert_jsonlogic)
+    }
+
+    #[test]
     fn test_lt_op() {
         lt_cases().into_iter().for_each(assert_jsonlogic)
     }
@@ -768,7 +815,9 @@ mod jsonlogic_tests {
 
     #[test]
     fn test_mul_op() {
-        multiplication_cases().into_iter().for_each(assert_jsonlogic)
+        multiplication_cases()
+            .into_iter()
+            .for_each(assert_jsonlogic)
     }
 
     #[test]

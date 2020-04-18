@@ -259,7 +259,12 @@ pub const LAZY_OPERATOR_MAP: phf::Map<&'static str, LazyOperator> = phf_map! {
         symbol: "filter",
         operator: op_filter,
         num_params: NumParams::Exactly(2),
-    }
+    },
+    "reduce" => LazyOperator {
+        symbol: "reduce",
+        operator: op_reduce,
+        num_params: NumParams::Exactly(3),
+    },
 };
 
 /// Implement the "if" operator
@@ -379,7 +384,6 @@ fn op_and(data: &Value, args: &Vec<&Value>) -> Result<Value, Error> {
     }
 }
 
-
 /// Map an operation onto values
 fn op_map(data: &Value, args: &Vec<&Value>) -> Result<Value, Error> {
     let (items, expression) = (args[0], args[1]);
@@ -404,12 +408,12 @@ fn op_map(data: &Value, args: &Vec<&Value>) -> Result<Value, Error> {
 
     let parsed_expression = Parsed::from_value(expression)?;
 
-    values.iter()
+    values
+        .iter()
         .map(|v| parsed_expression.evaluate(v).map(Value::from))
         .collect::<Result<Vec<Value>, Error>>()
         .map(Value::Array)
 }
-
 
 /// Filter values by some predicate
 fn op_filter(data: &Value, args: &Vec<&Value>) -> Result<Value, Error> {
@@ -436,25 +440,67 @@ fn op_filter(data: &Value, args: &Vec<&Value>) -> Result<Value, Error> {
     let parsed_expression = Parsed::from_value(expression)?;
 
     let value_vec: Vec<Value> = Vec::with_capacity(values.len());
-    values.into_iter()
-        .fold(
-            Ok(value_vec),
-            |acc, cur| {
-                let mut filtered = acc?;
-                let predicate = parsed_expression.evaluate(&cur)?;
+    values
+        .into_iter()
+        .fold(Ok(value_vec), |acc, cur| {
+            let mut filtered = acc?;
+            let predicate = parsed_expression.evaluate(&cur)?;
 
-                match truthy_from_evaluated(&predicate) {
-                    true => {
-                        filtered.push(cur);
-                        Ok(filtered)
-                    },
-                    false => Ok(filtered)
+            match truthy_from_evaluated(&predicate) {
+                true => {
+                    filtered.push(cur);
+                    Ok(filtered)
                 }
+                false => Ok(filtered),
             }
-        )
+        })
         .map(Value::Array)
 }
 
+/// Reduce values into a single result
+///
+/// Note this differs from the reference implementation of jsonlogic
+/// (but not the spec), in that it evaluates the initializer as a
+/// jsonlogic expression rather than a raw value.
+fn op_reduce(data: &Value, args: &Vec<&Value>) -> Result<Value, Error> {
+    let (items, expression, initializer) = (args[0], args[1], args[2]);
+
+    let _parsed_items = Parsed::from_value(items)?;
+    let evaluated_items = _parsed_items.evaluate(data)?;
+
+    let _parsed_initializer = Parsed::from_value(initializer)?;
+    let evaluated_initializer = _parsed_initializer.evaluate(data)?;
+
+    let values: Vec<Value> = match evaluated_items {
+        Evaluated::New(Value::Array(vals)) => vals,
+        Evaluated::Raw(Value::Array(vals)) => vals.iter().map(|v| v.clone()).collect(),
+        _ => {
+            return Err(Error::InvalidArgument {
+                value: args[0].clone(),
+                operation: "map".into(),
+                reason: format!(
+                    "First argument to filter must evaluate to an array. Got {:?}",
+                    evaluated_items
+                ),
+            })
+        }
+    };
+
+    let parsed_expression = Parsed::from_value(expression)?;
+
+    values
+        .into_iter()
+        .fold(Ok(Value::from(evaluated_initializer)), |acc, cur| {
+            let accumulator = acc?;
+            let mut data = Map::with_capacity(2);
+            data.insert("current".into(), cur);
+            data.insert("accumulator".into(), accumulator);
+
+            parsed_expression
+                .evaluate(&Value::Object(data))
+                .map(Value::from)
+        })
+}
 
 fn compare<F>(func: F, items: &Vec<&Value>) -> Result<Value, Error>
 where
