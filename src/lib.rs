@@ -376,6 +376,11 @@ mod jsonlogic_tests {
                 Ok(json!([2.0, 4.0, 6.0]))
             ),
             (
+                json!({"map": [[], {"*": [{"var": ""}, 2]}]}),
+                json!(null),
+                Ok(json!([]))
+            ),
+            (
                 json!({"map": [{"var": "vals"}, {"*": [{"var": ""}, 2]}]}),
                 json!({"vals": [1, 2, 3]}),
                 Ok(json!([2.0, 4.0, 6.0]))
@@ -389,6 +394,51 @@ mod jsonlogic_tests {
                 json!({"map": [[true, 2, 0, [], {}], {"!!": [{"var": ""}]}]}),
                 json!(null),
                 Ok(json!([true, true, false, false, true]))
+            ),
+        ]
+    }
+
+    fn filter_cases() -> Vec<(Value, Value, Result<Value, ()>)> {
+        vec![
+            (
+                json!({"filter": [[1, 2, 3], {"%": [{"var": ""}, 2]}]}),
+                json!(null),
+                Ok(json!([1, 3]))
+            ),
+            (
+                json!({"filter": [[], {"%": [{"var": ""}, 2]}]}),
+                json!(null),
+                Ok(json!([]))
+            ),
+            (
+                json!({"filter": [[2, 4, 6], {"%": [{"var": ""}, 2]}]}),
+                json!(null),
+                Ok(json!([]))
+            ),
+            (
+                json!({"filter": [{"var": "vals"}, {"%": [{"var": ""}, 2]}]}),
+                json!({"vals": [1, 2, 3]}),
+                Ok(json!([1, 3]))
+            ),
+            (
+                json!({"filter": [["aa", "bb", "aa"], {"===": [{"var": ""}, "aa"]}]}),
+                json!(null),
+                Ok(json!(["aa", "aa"]))
+            ),
+            (
+                json!(
+                    {
+                        "filter": [
+                            [1, 2, 3],
+                            {"<": [
+                                {"-": [{"var": ""}, 3]},
+                                0
+                            ]}
+                        ]
+                    }
+                ),
+                json!(null),
+                Ok(json!([1, 2]))
             ),
         ]
     }
@@ -659,6 +709,11 @@ mod jsonlogic_tests {
     #[test]
     fn test_map_op() {
         map_cases().into_iter().for_each(assert_jsonlogic)
+    }
+
+    #[test]
+    fn test_filter_op() {
+        filter_cases().into_iter().for_each(assert_jsonlogic)
     }
 
     #[test]

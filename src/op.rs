@@ -254,6 +254,11 @@ pub const LAZY_OPERATOR_MAP: phf::Map<&'static str, LazyOperator> = phf_map! {
         symbol: "map",
         operator: op_map,
         num_params: NumParams::Exactly(2),
+    },
+    "filter" => LazyOperator {
+        symbol: "filter",
+        operator: op_filter,
+        num_params: NumParams::Exactly(2),
     }
 };
 
@@ -404,6 +409,52 @@ fn op_map(data: &Value, args: &Vec<&Value>) -> Result<Value, Error> {
         .collect::<Result<Vec<Value>, Error>>()
         .map(Value::Array)
 }
+
+
+/// Filter values by some predicate
+fn op_filter(data: &Value, args: &Vec<&Value>) -> Result<Value, Error> {
+    let (items, expression) = (args[0], args[1]);
+
+    let _parsed = Parsed::from_value(items)?;
+    let evaluated_items = _parsed.evaluate(data)?;
+
+    let values: Vec<Value> = match evaluated_items {
+        Evaluated::New(Value::Array(vals)) => vals,
+        Evaluated::Raw(Value::Array(vals)) => vals.into_iter().map(|v| v.clone()).collect(),
+        _ => {
+            return Err(Error::InvalidArgument {
+                value: args[0].clone(),
+                operation: "map".into(),
+                reason: format!(
+                    "First argument to filter must evaluate to an array. Got {:?}",
+                    evaluated_items
+                ),
+            })
+        }
+    };
+
+    let parsed_expression = Parsed::from_value(expression)?;
+
+    let value_vec: Vec<Value> = Vec::with_capacity(values.len());
+    values.into_iter()
+        .fold(
+            Ok(value_vec),
+            |acc, cur| {
+                let mut filtered = acc?;
+                let predicate = parsed_expression.evaluate(&cur)?;
+
+                match truthy_from_evaluated(&predicate) {
+                    true => {
+                        filtered.push(cur);
+                        Ok(filtered)
+                    },
+                    false => Ok(filtered)
+                }
+            }
+        )
+        .map(Value::Array)
+}
+
 
 fn compare<F>(func: F, items: &Vec<&Value>) -> Result<Value, Error>
 where
