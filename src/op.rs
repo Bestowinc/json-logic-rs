@@ -32,10 +32,10 @@ impl NumParams {
     fn check_len<'a>(&self, len: &'a usize) -> Result<&'a usize, Error> {
         match self.is_valid_len(len) {
             true => Ok(len),
-            false => Err(Error::WrongArgumentCount{
+            false => Err(Error::WrongArgumentCount {
                 expected: self.clone(),
-                actual: len.clone()
-            })
+                actual: len.clone(),
+            }),
         }
     }
 }
@@ -43,7 +43,7 @@ impl NumParams {
 pub struct Operator {
     symbol: &'static str,
     operator: OperatorFn,
-    num_params: NumParams
+    num_params: NumParams,
 }
 impl Operator {
     pub fn execute(&self, items: &Vec<&Value>) -> Result<Value, Error> {
@@ -168,7 +168,19 @@ pub const OPERATOR_MAP: phf::Map<&'static str, Operator> = phf_map! {
             ))
             .map(Value::Number),
         num_params: NumParams::AtLeast(1),
-    }
+    },
+    "min" => Operator {
+        symbol: "min",
+        operator: |items| js_op::abstract_min(items)
+            .map(Number::from_f64)
+            .and_then(|opt| opt.ok_or(
+                Error::UnexpectedError(
+                    "Could not convert min result into JSON number.".into()
+                )
+            ))
+            .map(Value::Number),
+        num_params: NumParams::AtLeast(1),
+    },
 };
 
 pub const LAZY_OPERATOR_MAP: phf::Map<&'static str, LazyOperator> = phf_map! {
@@ -307,13 +319,14 @@ fn op_and(data: &Value, args: &Vec<&Value>) -> Result<Value, Error> {
 }
 
 fn compare<F>(func: F, items: &Vec<&Value>) -> Result<Value, Error>
-    where F: Fn(&Value, &Value) -> bool
+where
+    F: Fn(&Value, &Value) -> bool,
 {
     if items.len() == 2 {
         Ok(Value::Bool(func(items[0], items[1])))
     } else {
         Ok(Value::Bool(
-            func(items[0], items[1]) && func(items[1], items[2])
+            func(items[0], items[1]) && func(items[1], items[2]),
         ))
     }
 }
@@ -384,7 +397,7 @@ impl<'a> Parser<'a> for LazyOperation<'a> {
                 _ => {
                     return Err(Error::InvalidOperation {
                         key: key.clone(),
-                        reason: "Arguments to non-unary operations must be arrays".into()
+                        reason: "Arguments to non-unary operations must be arrays".into(),
                     })
                 }
             },
@@ -455,15 +468,14 @@ impl<'a> Parser<'a> for Operation<'a> {
         let args = match val {
             Value::Array(args) => args.iter().collect::<Vec<&Value>>(),
             _ => match op.num_params {
-                    NumParams::Unary => vec![val],
-                    _ => {
-                        return Err(Error::InvalidOperation {
+                NumParams::Unary => vec![val],
+                _ => {
+                    return Err(Error::InvalidOperation {
                         key: key.into(),
                         reason: "Arguments for non-unary operator must be arrays".into(),
                     })
                 }
-            }
-
+            },
         };
 
         op.num_params.check_len(&args.len())?;

@@ -440,6 +440,31 @@ mod jsonlogic_tests {
         ]
     }
 
+    fn min_cases() -> Vec<(Value, Value, Result<Value, ()>)> {
+        vec![
+            (
+                json!({"min": [1, 2, 3]}),
+                json!({}),
+                Ok(json!(1.0))
+            ),
+            (
+                json!({"min": [false, 1, 2]}),
+                json!({}),
+                Ok(json!(0.0))
+            ),
+            (
+                json!({"min": [0, -1, true]}),
+                json!({}),
+                Ok(json!(-1.0))
+            ),
+            (
+                json!({"min": [0, [-1], true, [3]]}),
+                json!({}),
+                Ok(json!(-1.0))
+            ),
+        ]
+    }
+
     fn bang_cases() -> Vec<(Value, Value, Result<Value, ()>)> {
         vec![
             (json!( {"!": []} ), json!({}), Err(())),
@@ -607,6 +632,11 @@ mod jsonlogic_tests {
     #[test]
     fn test_max_op() {
         max_cases().into_iter().for_each(assert_jsonlogic)
+    }
+
+    #[test]
+    fn test_min_op() {
+        min_cases().into_iter().for_each(assert_jsonlogic)
     }
 
     #[test]
