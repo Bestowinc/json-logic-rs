@@ -403,6 +403,7 @@ mod jsonlogic_tests {
         vec![
             (json!({"+": []}), json!({}), Ok(json!(0.0))),
             (json!({"+": [1]}), json!({}), Ok(json!(1.0))),
+            (json!({"+": ["1"]}), json!({}), Ok(json!(1.0))),
             (json!({"+": [1, 1]}), json!({}), Ok(json!(2.0))),
             (json!({"+": [1, 1, 1]}), json!({}), Ok(json!(3.0))),
             (json!({"+": [1, 1, false]}), json!({}), Err(())),

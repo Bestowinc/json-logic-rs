@@ -93,7 +93,7 @@ fn to_primitive(value: &Value, hint: PrimitiveHint) -> Primitive {
 fn to_number(value: &Value) -> Option<f64> {
     match to_primitive(value, PrimitiveHint::Number) {
         Primitive::Number(num) => Some(num),
-        Primitive::String(string) => str_to_number(string)
+        Primitive::String(string) => str_to_number(string),
     }
 }
 
@@ -443,7 +443,13 @@ pub fn abstract_max(items: &Vec<&Value>) -> Result<f64, Error> {
         .fold(Ok(f64::NEG_INFINITY), |acc, cur| {
             let max = acc?;
             match cur {
-                Ok(num) => if num > max { Ok(num) } else { Ok(max) }
+                Ok(num) => {
+                    if num > max {
+                        Ok(num)
+                    } else {
+                        Ok(max)
+                    }
+                }
                 _ => cur,
             }
         })
@@ -456,26 +462,14 @@ mod test_abstract_max {
 
     fn max_cases() -> Vec<(Vec<Value>, Result<f64, ()>)> {
         vec![
-            (
-                vec![json!(1), json!(2), json!(3)],
-                Ok(3.0)
-            ),
-            (
-                vec![json!("1"), json!(true), json!([1])],
-                Ok(1.0)
-            ),
+            (vec![json!(1), json!(2), json!(3)], Ok(3.0)),
+            (vec![json!("1"), json!(true), json!([1])], Ok(1.0)),
             (
                 vec![json!(""), json!(null), json!([]), json!(false)],
-                Ok(0.0)
+                Ok(0.0),
             ),
-            (
-                vec![json!("foo")],
-                Err(())
-            ),
-            (
-                vec![],
-                Ok(f64::NEG_INFINITY)
-            ),
+            (vec![json!("foo")], Err(())),
+            (vec![], Ok(f64::NEG_INFINITY)),
         ]
     }
 
@@ -487,12 +481,13 @@ mod test_abstract_max {
             println!("Res: {:?}", res);
             match exp {
                 Ok(exp) => assert_eq!(res.unwrap(), exp),
-                _ => {res.unwrap_err();}
+                _ => {
+                    res.unwrap_err();
+                }
             };
         })
     }
 }
-
 
 /// Get the max of an array of values, performing abstract type conversion
 pub fn abstract_min(items: &Vec<&Value>) -> Result<f64, Error> {
@@ -508,7 +503,13 @@ pub fn abstract_min(items: &Vec<&Value>) -> Result<f64, Error> {
         .fold(Ok(f64::INFINITY), |acc, cur| {
             let min = acc?;
             match cur {
-                Ok(num) => if num < min { Ok(num) } else { Ok(min) }
+                Ok(num) => {
+                    if num < min {
+                        Ok(num)
+                    } else {
+                        Ok(min)
+                    }
+                }
                 _ => cur,
             }
         })
@@ -521,26 +522,14 @@ mod test_abstract_min {
 
     fn min_cases() -> Vec<(Vec<Value>, Result<f64, ()>)> {
         vec![
-            (
-                vec![json!(1), json!(2), json!(3)],
-                Ok(1.0)
-            ),
-            (
-                vec![json!("1"), json!(true), json!([1])],
-                Ok(1.0)
-            ),
+            (vec![json!(1), json!(2), json!(3)], Ok(1.0)),
+            (vec![json!("1"), json!(true), json!([1])], Ok(1.0)),
             (
                 vec![json!(""), json!(null), json!([]), json!(false)],
-                Ok(0.0)
+                Ok(0.0),
             ),
-            (
-                vec![json!("foo")],
-                Err(())
-            ),
-            (
-                vec![],
-                Ok(f64::INFINITY)
-            ),
+            (vec![json!("foo")], Err(())),
+            (vec![], Ok(f64::INFINITY)),
         ]
     }
 
@@ -552,7 +541,9 @@ mod test_abstract_min {
             println!("Res: {:?}", res);
             match exp {
                 Ok(exp) => assert_eq!(res.unwrap(), exp),
-                _ => {res.unwrap_err();}
+                _ => {
+                    res.unwrap_err();
+                }
             };
         })
     }
@@ -606,6 +597,61 @@ pub fn parse_float_add(vals: &Vec<&Value>) -> Result<f64, Error> {
         })
         .collect::<Result<Vec<f64>, Error>>()?;
     Ok(parsed_vals.iter().fold(0.0, f64::add))
+}
+
+/// Do minus
+pub fn abstract_minus(first: &Value, second: &Value) -> Result<f64, Error> {
+    let first_num = to_number(first);
+    let second_num = to_number(second);
+
+    if let None = first_num {
+        return Err(Error::InvalidArgument {
+            value: first.clone(),
+            operation: "-".into(),
+            reason: "Could not convert value to number.".into(),
+        });
+    }
+    if let None = second_num {
+        return Err(Error::InvalidArgument {
+            value: second.clone(),
+            operation: "-".into(),
+            reason: "Could not convert value to number.".into(),
+        });
+    }
+
+    Ok(first_num.unwrap() - second_num.unwrap())
+}
+
+#[cfg(test)]
+mod test_abstract_minus {
+    use super::*;
+    use serde_json::json;
+
+    fn minus_cases() -> Vec<(Value, Value, Result<f64, ()>)> {
+        vec![
+            (json!(5), json!(2), Ok(3.0)),
+            (json!(0), json!(2), Ok(-2.0)),
+            (json!("5"), json!(2), Ok(3.0)),
+            (json!(["5"]), json!(2), Ok(3.0)),
+            (json!(["5"]), json!(true), Ok(4.0)),
+            (json!("foo"), json!(true), Err(())),
+        ]
+    }
+
+    #[test]
+    fn test_abstract_minus() {
+        minus_cases().into_iter().for_each(
+            |(first, second, exp)| {
+                println!("Minus: {:?} - {:?}", first, second);
+                let res = abstract_minus(&first, &second);
+                println!("Res: {:?}", res);
+                match exp {
+                    Ok(exp) => assert_eq!(res.unwrap(), exp),
+                    _ => {res.unwrap_err();}
+                }
+            }
+        )
+    }
 }
 
 /// Try to parse a string as a float, javascript style
