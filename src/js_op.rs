@@ -654,6 +654,17 @@ mod test_abstract_minus {
     }
 }
 
+/// Attempt to convert a value to a negative number
+pub fn to_negative(val: &Value) -> Result<f64, Error> {
+    to_number(val)
+        .map(|v| -1.0 * v)
+        .ok_or(Error::InvalidArgument{
+            value: val.clone(),
+            operation: "to_negative".into(),
+            reason: "Could not convert value to a number".into()
+        })
+}
+
 /// Try to parse a string as a float, javascript style
 ///
 /// Strip whitespace, accumulate any potentially numeric characters at the
