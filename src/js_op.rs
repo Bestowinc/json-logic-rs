@@ -455,40 +455,6 @@ pub fn abstract_max(items: &Vec<&Value>) -> Result<f64, Error> {
         })
 }
 
-#[cfg(test)]
-mod test_abstract_max {
-    use super::*;
-    use serde_json::json;
-
-    fn max_cases() -> Vec<(Vec<Value>, Result<f64, ()>)> {
-        vec![
-            (vec![json!(1), json!(2), json!(3)], Ok(3.0)),
-            (vec![json!("1"), json!(true), json!([1])], Ok(1.0)),
-            (
-                vec![json!(""), json!(null), json!([]), json!(false)],
-                Ok(0.0),
-            ),
-            (vec![json!("foo")], Err(())),
-            (vec![], Ok(f64::NEG_INFINITY)),
-        ]
-    }
-
-    #[test]
-    fn test_abstract_max() {
-        max_cases().into_iter().for_each(|(items, exp)| {
-            println!("Max: {:?}", items);
-            let res = abstract_max(&items.iter().collect());
-            println!("Res: {:?}", res);
-            match exp {
-                Ok(exp) => assert_eq!(res.unwrap(), exp),
-                _ => {
-                    res.unwrap_err();
-                }
-            };
-        })
-    }
-}
-
 /// Get the max of an array of values, performing abstract type conversion
 pub fn abstract_min(items: &Vec<&Value>) -> Result<f64, Error> {
     items
@@ -513,40 +479,6 @@ pub fn abstract_min(items: &Vec<&Value>) -> Result<f64, Error> {
                 _ => cur,
             }
         })
-}
-
-#[cfg(test)]
-mod test_abstract_min {
-    use super::*;
-    use serde_json::json;
-
-    fn min_cases() -> Vec<(Vec<Value>, Result<f64, ()>)> {
-        vec![
-            (vec![json!(1), json!(2), json!(3)], Ok(1.0)),
-            (vec![json!("1"), json!(true), json!([1])], Ok(1.0)),
-            (
-                vec![json!(""), json!(null), json!([]), json!(false)],
-                Ok(0.0),
-            ),
-            (vec![json!("foo")], Err(())),
-            (vec![], Ok(f64::INFINITY)),
-        ]
-    }
-
-    #[test]
-    fn test_abstract_max() {
-        min_cases().into_iter().for_each(|(items, exp)| {
-            println!("Min: {:?}", items);
-            let res = abstract_min(&items.iter().collect());
-            println!("Res: {:?}", res);
-            match exp {
-                Ok(exp) => assert_eq!(res.unwrap(), exp),
-                _ => {
-                    res.unwrap_err();
-                }
-            };
-        })
-    }
 }
 
 /// Do plus
@@ -647,38 +579,6 @@ pub fn abstract_minus(first: &Value, second: &Value) -> Result<f64, Error> {
     Ok(first_num.unwrap() - second_num.unwrap())
 }
 
-#[cfg(test)]
-mod test_abstract_minus {
-    use super::*;
-    use serde_json::json;
-
-    fn minus_cases() -> Vec<(Value, Value, Result<f64, ()>)> {
-        vec![
-            (json!(5), json!(2), Ok(3.0)),
-            (json!(0), json!(2), Ok(-2.0)),
-            (json!("5"), json!(2), Ok(3.0)),
-            (json!(["5"]), json!(2), Ok(3.0)),
-            (json!(["5"]), json!(true), Ok(4.0)),
-            (json!("foo"), json!(true), Err(())),
-        ]
-    }
-
-    #[test]
-    fn test_abstract_minus() {
-        minus_cases().into_iter().for_each(|(first, second, exp)| {
-            println!("Minus: {:?} - {:?}", first, second);
-            let res = abstract_minus(&first, &second);
-            println!("Res: {:?}", res);
-            match exp {
-                Ok(exp) => assert_eq!(res.unwrap(), exp),
-                _ => {
-                    res.unwrap_err();
-                }
-            }
-        })
-    }
-}
-
 /// Attempt to convert a value to a negative number
 pub fn to_negative(val: &Value) -> Result<f64, Error> {
     to_number(val)
@@ -748,50 +648,6 @@ pub fn parse_float(val: &Value) -> Option<f64> {
         Value::Number(num) => num.as_f64(),
         Value::String(string) => parse_float_string(string),
         _ => parse_float(&Value::String(to_string(&val))),
-    }
-}
-
-#[cfg(test)]
-mod test_parse_float {
-    use super::*;
-    use serde_json::json;
-
-    fn cases() -> Vec<(Value, Option<f64>)> {
-        vec![
-            (json!(1), Some(1.0)),
-            (json!(1.5), Some(1.5)),
-            (json!(-1.5), Some(-1.5)),
-            (json!("1"), Some(1.0)),
-            (json!("1e2"), Some(100.0)),
-            (json!("1E2"), Some(100.0)),
-            (json!("1.1e2"), Some(110.0)),
-            (json!("-1.1e2"), Some(-110.0)),
-            (json!("1e-2"), Some(0.01)),
-            (json!("1.0"), Some(1.0)),
-            (json!("1.1"), Some(1.1)),
-            (json!("1.1.1"), Some(1.1)),
-            (json!("1234abc"), Some(1234.0)),
-            (json!("1e"), Some(1.0)),
-            (json!("1E"), Some(1.0)),
-            (json!(false), None),
-            (json!(true), None),
-            (json!(null), None),
-            (json!("+5"), Some(5.0)),
-            (json!("-5"), Some(-5.0)),
-            (json!([]), None),
-            (json!([1]), Some(1.0)),
-            // this is weird, but correct. it converts to a string first
-            // "1,2" and then parses up to the first comma as a number
-            (json!([1, 2]), Some(1.0)),
-            (json!({}), None),
-        ]
-    }
-
-    #[test]
-    fn test_parse_float() {
-        cases()
-            .into_iter()
-            .for_each(|(input, exp)| assert_eq!(parse_float(&input), exp));
     }
 }
 
@@ -1189,6 +1045,108 @@ mod abstract_operations {
 }
 
 #[cfg(test)]
+mod test_abstract_max {
+    use super::*;
+    use serde_json::json;
+
+    fn max_cases() -> Vec<(Vec<Value>, Result<f64, ()>)> {
+        vec![
+            (vec![json!(1), json!(2), json!(3)], Ok(3.0)),
+            (vec![json!("1"), json!(true), json!([1])], Ok(1.0)),
+            (
+                vec![json!(""), json!(null), json!([]), json!(false)],
+                Ok(0.0),
+            ),
+            (vec![json!("foo")], Err(())),
+            (vec![], Ok(f64::NEG_INFINITY)),
+        ]
+    }
+
+    #[test]
+    fn test_abstract_max() {
+        max_cases().into_iter().for_each(|(items, exp)| {
+            println!("Max: {:?}", items);
+            let res = abstract_max(&items.iter().collect());
+            println!("Res: {:?}", res);
+            match exp {
+                Ok(exp) => assert_eq!(res.unwrap(), exp),
+                _ => {
+                    res.unwrap_err();
+                }
+            };
+        })
+    }
+}
+
+
+#[cfg(test)]
+mod test_abstract_min {
+    use super::*;
+    use serde_json::json;
+
+    fn min_cases() -> Vec<(Vec<Value>, Result<f64, ()>)> {
+        vec![
+            (vec![json!(1), json!(2), json!(3)], Ok(1.0)),
+            (vec![json!("1"), json!(true), json!([1])], Ok(1.0)),
+            (
+                vec![json!(""), json!(null), json!([]), json!(false)],
+                Ok(0.0),
+            ),
+            (vec![json!("foo")], Err(())),
+            (vec![], Ok(f64::INFINITY)),
+        ]
+    }
+
+    #[test]
+    fn test_abstract_min() {
+        min_cases().into_iter().for_each(|(items, exp)| {
+            println!("Min: {:?}", items);
+            let res = abstract_min(&items.iter().collect());
+            println!("Res: {:?}", res);
+            match exp {
+                Ok(exp) => assert_eq!(res.unwrap(), exp),
+                _ => {
+                    res.unwrap_err();
+                }
+            };
+        })
+    }
+}
+
+
+#[cfg(test)]
+mod test_abstract_minus {
+    use super::*;
+    use serde_json::json;
+
+    fn minus_cases() -> Vec<(Value, Value, Result<f64, ()>)> {
+        vec![
+            (json!(5), json!(2), Ok(3.0)),
+            (json!(0), json!(2), Ok(-2.0)),
+            (json!("5"), json!(2), Ok(3.0)),
+            (json!(["5"]), json!(2), Ok(3.0)),
+            (json!(["5"]), json!(true), Ok(4.0)),
+            (json!("foo"), json!(true), Err(())),
+        ]
+    }
+
+    #[test]
+    fn test_abstract_minus() {
+        minus_cases().into_iter().for_each(|(first, second, exp)| {
+            println!("Minus: {:?} - {:?}", first, second);
+            let res = abstract_minus(&first, &second);
+            println!("Res: {:?}", res);
+            match exp {
+                Ok(exp) => assert_eq!(res.unwrap(), exp),
+                _ => {
+                    res.unwrap_err();
+                }
+            }
+        })
+    }
+}
+
+#[cfg(test)]
 mod test_strict {
 
     use super::*;
@@ -1259,3 +1217,48 @@ mod test_strict {
         assert!(!strict_ne(&obj, &obj))
     }
 }
+
+#[cfg(test)]
+mod test_parse_float {
+    use super::*;
+    use serde_json::json;
+
+    fn cases() -> Vec<(Value, Option<f64>)> {
+        vec![
+            (json!(1), Some(1.0)),
+            (json!(1.5), Some(1.5)),
+            (json!(-1.5), Some(-1.5)),
+            (json!("1"), Some(1.0)),
+            (json!("1e2"), Some(100.0)),
+            (json!("1E2"), Some(100.0)),
+            (json!("1.1e2"), Some(110.0)),
+            (json!("-1.1e2"), Some(-110.0)),
+            (json!("1e-2"), Some(0.01)),
+            (json!("1.0"), Some(1.0)),
+            (json!("1.1"), Some(1.1)),
+            (json!("1.1.1"), Some(1.1)),
+            (json!("1234abc"), Some(1234.0)),
+            (json!("1e"), Some(1.0)),
+            (json!("1E"), Some(1.0)),
+            (json!(false), None),
+            (json!(true), None),
+            (json!(null), None),
+            (json!("+5"), Some(5.0)),
+            (json!("-5"), Some(-5.0)),
+            (json!([]), None),
+            (json!([1]), Some(1.0)),
+            // this is weird, but correct. it converts to a string first
+            // "1,2" and then parses up to the first comma as a number
+            (json!([1, 2]), Some(1.0)),
+            (json!({}), None),
+        ]
+    }
+
+    #[test]
+    fn test_parse_float() {
+        cases()
+            .into_iter()
+            .for_each(|(input, exp)| assert_eq!(parse_float(&input), exp));
+    }
+}
+
