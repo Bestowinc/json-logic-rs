@@ -408,6 +408,81 @@ mod jsonlogic_tests {
         ]
     }
 
+    fn lt_cases() -> Vec<(Value, Value, Result<Value, ()>)> {
+        vec![
+            (
+                json!({"<": [1, 2]}),
+                json!({}),
+                Ok(json!(true)),
+            ),
+            (
+                json!({"<": [3, 2]}),
+                json!({}),
+                Ok(json!(false)),
+            ),
+            (
+                json!({"<": [1, {"var": "foo"}]}),
+                json!({"foo": 5}),
+                Ok(json!(true)),
+            ),
+            (
+                json!({"<": [1, 2, 3]}),
+                json!({}),
+                Ok(json!(true)),
+            ),
+            (
+                json!({"<": [3, 2, 3]}),
+                json!({}),
+                Ok(json!(false)),
+            ),
+            (
+                json!({"<": [1, 2, 1]}),
+                json!({}),
+                Ok(json!(false)),
+            ),
+        ]
+    }
+
+    fn plus_cases() -> Vec<(Value, Value, Result<Value, ()>)> {
+        vec![
+            (
+                json!({"+": []}),
+                json!({}),
+                Ok(json!(0.0)),
+            ),
+            (
+                json!({"+": [1]}),
+                json!({}),
+                Ok(json!(1.0)),
+            ),
+            (
+                json!({"+": [1, 1]}),
+                json!({}),
+                Ok(json!(2.0)),
+            ),
+            (
+                json!({"+": [1, 1, 1]}),
+                json!({}),
+                Ok(json!(3.0)),
+            ),
+            (
+                json!({"+": [1, 1, false]}),
+                json!({}),
+                Err(()),
+            ),
+            (
+                json!({"+": [1, 1, "1"]}),
+                json!({}),
+                Ok(json!(3.0))
+            ),
+            (
+                json!({"+": [1, 1, "123abc"]}),  // WHY???
+                json!({}),
+                Ok(json!(125.0))
+            ),
+        ]
+    }
+
     fn assert_jsonlogic((op, data, exp): (Value, Value, Result<Value, ()>)) -> () {
         println!("Running rule: {:?} with data: {:?}", op, data);
         let result = jsonlogic(&op, &data);
@@ -473,5 +548,15 @@ mod jsonlogic_tests {
     #[test]
     fn test_and_op() {
         and_cases().into_iter().for_each(assert_jsonlogic)
+    }
+
+    #[test]
+    fn test_lt_op() {
+        lt_cases().into_iter().for_each(assert_jsonlogic)
+    }
+
+    #[test]
+    fn test_plus_op() {
+        plus_cases().into_iter().for_each(assert_jsonlogic)
     }
 }
