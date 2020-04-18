@@ -86,6 +86,17 @@ fn to_primitive(value: &Value, hint: PrimitiveHint) -> Primitive {
     }
 }
 
+/// Do our best to convert something into a number.
+///
+/// Should be pretty much equivalent to calling Number(value) in JS,
+/// returning None where that would return NaN.
+fn to_number(value: &Value) -> Option<f64> {
+    match to_primitive(value, PrimitiveHint::Number) {
+        Primitive::Number(num) => Some(num),
+        Primitive::String(string) => str_to_number(string)
+    }
+}
+
 /// Compare values in the JavaScript `==` style
 ///
 /// Implements the Abstract Equality Comparison algorithm (`==` in JS)
@@ -416,6 +427,70 @@ pub fn abstract_lte(first: &Value, second: &Value) -> bool {
 /// Provide abstract >= comparisons
 pub fn abstract_gte(first: &Value, second: &Value) -> bool {
     abstract_gt(first, second) || abstract_eq(first, second)
+}
+
+/// Get the max of an array of values, performing abstract type conversion
+pub fn abstract_max(items: &Vec<&Value>) -> Result<f64, Error> {
+    items
+        .into_iter()
+        .map(|v| {
+            to_number(v).ok_or(Error::InvalidArgument {
+                value: (*v).clone(),
+                operation: "max".into(),
+                reason: "Could not convert value to number".into(),
+            })
+        })
+        .fold(Ok(f64::NEG_INFINITY), |acc, cur| {
+            let max = acc?;
+            match cur {
+                Ok(num) => if num > max { Ok(num) } else { Ok(max) }
+                _ => cur,
+            }
+        })
+}
+
+#[cfg(test)]
+mod test_abstract_max {
+    use super::*;
+    use serde_json::json;
+
+    fn max_cases() -> Vec<(Vec<Value>, Result<f64, ()>)> {
+        vec![
+            (
+                vec![json!(1), json!(2), json!(3)],
+                Ok(3.0)
+            ),
+            (
+                vec![json!("1"), json!(true), json!([1])],
+                Ok(1.0)
+            ),
+            (
+                vec![json!(""), json!(null), json!([]), json!(false)],
+                Ok(0.0)
+            ),
+            (
+                vec![json!("foo")],
+                Err(())
+            ),
+            (
+                vec![],
+                Ok(f64::NEG_INFINITY)
+            ),
+        ]
+    }
+
+    #[test]
+    fn test_abstract_max() {
+        max_cases().into_iter().for_each(|(items, exp)| {
+            println!("Max: {:?}", items);
+            let res = abstract_max(&items.iter().collect());
+            println!("Res: {:?}", res);
+            match exp {
+                Ok(exp) => assert_eq!(res.unwrap(), exp),
+                _ => {res.unwrap_err();}
+            };
+        })
+    }
 }
 
 /// Do plus

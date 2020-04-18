@@ -98,6 +98,26 @@ pub const OPERATOR_MAP: phf::Map<&'static str, Operator> = phf_map! {
         symbol: "!==",
         operator: |items| Ok(Value::Bool(js_op::strict_ne(items[0], items[1]))),
         num_params: NumParams::Exactly(2)},
+    // Note: the ! and !! behavior conforms to the specification, but not the
+    // reference implementation. The specification states: "Note: unary
+    // operators can also take a single, non array argument." However,
+    // if a non-unary array of arguments is passed to `!` or `!!` in the
+    // reference implementation, it treats them as though they were a unary
+    // array argument. I have chosen to conform to the spec because it leads
+    // to less surprising behavior. I also think that the idea of taking
+    // non-array unary arguments is ridiculous, particularly given that
+    // the homepage of jsonlogic _also_ states that a "Virtue" of jsonlogic
+    // is that it is "Consistent. `{"operator" : ["values" ... ]}` Always"
+    "!" => Operator {
+        symbol: "!",
+        operator: |items| Ok(Value::Bool(!truthy(items[0]))),
+        num_params: NumParams::Unary,
+    },
+    "!!" => Operator {
+        symbol: "!!",
+        operator: |items| Ok(Value::Bool(truthy(items[0]))),
+        num_params: NumParams::Unary,
+    },
     "<" => Operator {
         symbol: "<",
         operator: op_lt,
@@ -136,26 +156,6 @@ pub const OPERATOR_MAP: phf::Map<&'static str, Operator> = phf_map! {
             )
             .map(Value::Number),
         num_params: NumParams::Any,
-    },
-    // Note: the ! and !! behavior conforms to the specification, but not the
-    // reference implementation. The specification states: "Note: unary
-    // operators can also take a single, non array argument." However,
-    // if a non-unary array of arguments is passed to `!` or `!!` in the
-    // reference implementation, it treats them as though they were a unary
-    // array argument. I have chosen to conform to the spec because it leads
-    // to less surprising behavior. I also think that the idea of taking
-    // non-array unary arguments is ridiculous, particularly given that
-    // the homepage of jsonlogic _also_ states that a "Virtue" of jsonlogic
-    // is that it is "Consistent. `{"operator" : ["values" ... ]}` Always"
-    "!" => Operator {
-        symbol: "!",
-        operator: |items| Ok(Value::Bool(!truthy(items[0]))),
-        num_params: NumParams::Unary,
-    },
-    "!!" => Operator {
-        symbol: "!!",
-        operator: |items| Ok(Value::Bool(truthy(items[0]))),
-        num_params: NumParams::Unary,
     },
 };
 
