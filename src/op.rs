@@ -103,6 +103,11 @@ pub const OPERATOR_MAP: phf::Map<&'static str, Operator> = phf_map! {
         operator: op_lt,
         num_params: NumParams::Variadic(2..4),
     },
+    "<=" => Operator {
+        symbol: "<=",
+        operator: op_lte,
+        num_params: NumParams::Variadic(2..4),
+    },
     "+" => Operator {
         symbol: "+",
         operator: |items| js_op::parse_float_add(items)
@@ -279,6 +284,17 @@ fn op_lt(items: &Vec<&Value>) -> Result<Value, Error> {
     } else {
         return Ok(Value::Bool(
             js_op::abstract_lt(items[0], items[1]) && js_op::abstract_lt(items[1], items[2]),
+        ));
+    }
+}
+
+/// Do <= for either 2 or 3 values
+fn op_lte(items: &Vec<&Value>) -> Result<Value, Error> {
+    if items.len() == 2 {
+        return Ok(Value::Bool(js_op::abstract_lte(items[0], items[1])));
+    } else {
+        return Ok(Value::Bool(
+            js_op::abstract_lte(items[0], items[1]) && js_op::abstract_lte(items[1], items[2]),
         ));
     }
 }

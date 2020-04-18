@@ -91,7 +91,11 @@ mod jsonlogic_tests {
                 json!({}),
                 Ok(json!(false)),
             ),
-            (json!({"!=": [{"!=": [1, 2]}, 1]}), json!({}), Ok(json!(false))),
+            (
+                json!({"!=": [{"!=": [1, 2]}, 1]}),
+                json!({}),
+                Ok(json!(false)),
+            ),
             // Wrong number of arguments
             (json!({"!=": [1]}), json!({}), Err(())),
             (json!({"!=": [1, 1, 1]}), json!({}), Err(())),
@@ -290,31 +294,15 @@ mod jsonlogic_tests {
 
     fn or_cases() -> Vec<(Value, Value, Result<Value, ()>)> {
         vec![
-            (
-                json!({"or": [true]}),
-                json!({}),
-                Ok(json!(true)),
-            ),
-            (
-                json!({"or": [false]}),
-                json!({}),
-                Ok(json!(false)),
-            ),
-            (
-                json!({"or": [false, true]}),
-                json!({}),
-                Ok(json!(true)),
-            ),
+            (json!({"or": [true]}), json!({}), Ok(json!(true))),
+            (json!({"or": [false]}), json!({}), Ok(json!(false))),
+            (json!({"or": [false, true]}), json!({}), Ok(json!(true))),
             (
                 json!({"or": [false, true, false]}),
                 json!({}),
                 Ok(json!(true)),
             ),
-            (
-                json!({"or": [false, false, 12]}),
-                json!({}),
-                Ok(json!(12)),
-            ),
+            (json!({"or": [false, false, 12]}), json!({}), Ok(json!(12))),
             (
                 json!({"or": [false, false, 12, 13, 14]}),
                 json!({}),
@@ -345,51 +333,23 @@ mod jsonlogic_tests {
 
     fn and_cases() -> Vec<(Value, Value, Result<Value, ()>)> {
         vec![
-            (
-                json!({"and": [true]}),
-                json!({}),
-                Ok(json!(true)),
-            ),
-            (
-                json!({"and": [false]}),
-                json!({}),
-                Ok(json!(false)),
-            ),
-            (
-                json!({"and": [false, true]}),
-                json!({}),
-                Ok(json!(false)),
-            ),
-            (
-                json!({"and": [true, false]}),
-                json!({}),
-                Ok(json!(false)),
-            ),
-            (
-                json!({"and": [true, true]}),
-                json!({}),
-                Ok(json!(true)),
-            ),
+            (json!({"and": [true]}), json!({}), Ok(json!(true))),
+            (json!({"and": [false]}), json!({}), Ok(json!(false))),
+            (json!({"and": [false, true]}), json!({}), Ok(json!(false))),
+            (json!({"and": [true, false]}), json!({}), Ok(json!(false))),
+            (json!({"and": [true, true]}), json!({}), Ok(json!(true))),
             (
                 json!({"and": [false, true, false]}),
                 json!({}),
                 Ok(json!(false)),
             ),
-            (
-                json!({"and": [12, true, 0]}),
-                json!({}),
-                Ok(json!(0)),
-            ),
+            (json!({"and": [12, true, 0]}), json!({}), Ok(json!(0))),
             (
                 json!({"and": [12, true, 0, 12, false]}),
                 json!({}),
                 Ok(json!(0)),
             ),
-            (
-                json!({"and": [true, true, 12]}),
-                json!({}),
-                Ok(json!(12)),
-            ),
+            (json!({"and": [true, true, 12]}), json!({}), Ok(json!(12))),
             (
                 json!({"and": [{"===": [1, 1]}, false]}),
                 json!({}),
@@ -410,132 +370,47 @@ mod jsonlogic_tests {
 
     fn lt_cases() -> Vec<(Value, Value, Result<Value, ()>)> {
         vec![
-            (
-                json!({"<": [1, 2]}),
-                json!({}),
-                Ok(json!(true)),
-            ),
-            (
-                json!({"<": [3, 2]}),
-                json!({}),
-                Ok(json!(false)),
-            ),
+            (json!({"<": [1, 2]}), json!({}), Ok(json!(true))),
+            (json!({"<": [3, 2]}), json!({}), Ok(json!(false))),
             (
                 json!({"<": [1, {"var": "foo"}]}),
                 json!({"foo": 5}),
                 Ok(json!(true)),
             ),
-            (
-                json!({"<": [1, 2, 3]}),
-                json!({}),
-                Ok(json!(true)),
-            ),
-            (
-                json!({"<": [3, 2, 3]}),
-                json!({}),
-                Ok(json!(false)),
-            ),
-            (
-                json!({"<": [1, 2, 1]}),
-                json!({}),
-                Ok(json!(false)),
-            ),
+            (json!({"<": [1, 2, 3]}), json!({}), Ok(json!(true))),
+            (json!({"<": [3, 2, 3]}), json!({}), Ok(json!(false))),
+            (json!({"<": [1, 2, 1]}), json!({}), Ok(json!(false))),
         ]
     }
 
     fn plus_cases() -> Vec<(Value, Value, Result<Value, ()>)> {
         vec![
+            (json!({"+": []}), json!({}), Ok(json!(0.0))),
+            (json!({"+": [1]}), json!({}), Ok(json!(1.0))),
+            (json!({"+": [1, 1]}), json!({}), Ok(json!(2.0))),
+            (json!({"+": [1, 1, 1]}), json!({}), Ok(json!(3.0))),
+            (json!({"+": [1, 1, false]}), json!({}), Err(())),
+            (json!({"+": [1, 1, "1"]}), json!({}), Ok(json!(3.0))),
             (
-                json!({"+": []}),
+                json!({"+": [1, 1, "123abc"]}), // WHY???
                 json!({}),
-                Ok(json!(0.0)),
-            ),
-            (
-                json!({"+": [1]}),
-                json!({}),
-                Ok(json!(1.0)),
-            ),
-            (
-                json!({"+": [1, 1]}),
-                json!({}),
-                Ok(json!(2.0)),
-            ),
-            (
-                json!({"+": [1, 1, 1]}),
-                json!({}),
-                Ok(json!(3.0)),
-            ),
-            (
-                json!({"+": [1, 1, false]}),
-                json!({}),
-                Err(()),
-            ),
-            (
-                json!({"+": [1, 1, "1"]}),
-                json!({}),
-                Ok(json!(3.0))
-            ),
-            (
-                json!({"+": [1, 1, "123abc"]}),  // WHY???
-                json!({}),
-                Ok(json!(125.0))
+                Ok(json!(125.0)),
             ),
         ]
     }
 
-
     fn bang_cases() -> Vec<(Value, Value, Result<Value, ()>)> {
         vec![
-            (
-                json!( {"!": []} ),
-                json!({}),
-                Err(())
-            ),
-            (
-                json!( {"!": [1, 2]} ),
-                json!({}),
-                Err(())
-            ),
-            (
-                json!({"!": [true]}),
-                json!({}),
-                Ok(json!(false))
-            ),
-            (
-                json!({"!": [1]}),
-                json!({}),
-                Ok(json!(false))
-            ),
-            (
-                json!({"!": [0]}),
-                json!({}),
-                Ok(json!(true))
-            ),
-            (
-                json!({"!": [[]]}),
-                json!({}),
-                Ok(json!(true))
-            ),
-            (
-                json!({"!": [{}]}),
-                json!({}),
-                Ok(json!(false))
-            ),
-            (
-                json!({"!": [""]}),
-                json!({}),
-                Ok(json!(true))
-            ),
-            (
-                json!({"!": ["foo"]}),
-                json!({}),
-                Ok(json!(false))
-            ),
-            (
-                json!({"!": true}),
-                json!({}),
-                Ok(json!(false))
-            ),
+            (json!( {"!": []} ), json!({}), Err(())),
+            (json!( {"!": [1, 2]} ), json!({}), Err(())),
+            (json!({"!": [true]}), json!({}), Ok(json!(false))),
+            (json!({"!": [1]}), json!({}), Ok(json!(false))),
+            (json!({"!": [0]}), json!({}), Ok(json!(true))),
+            (json!({"!": [[]]}), json!({}), Ok(json!(true))),
+            (json!({"!": [{}]}), json!({}), Ok(json!(false))),
+            (json!({"!": [""]}), json!({}), Ok(json!(true))),
+            (json!({"!": ["foo"]}), json!({}), Ok(json!(false))),
+            (json!({"!": true}), json!({}), Ok(json!(false))),
         ]
     }
 
@@ -612,6 +487,42 @@ mod jsonlogic_tests {
     }
 
     #[test]
+    fn test_lte_op() {
+        lt_cases()
+            .into_iter()
+            .map(|(op, data, exp)| {
+                (
+                    match op {
+                        Value::Object(obj) => json!({"<=": obj.get("<").unwrap()}),
+                        _ => panic!("bad operator"),
+                    },
+                    data,
+                    exp,
+                )
+            })
+            .for_each(assert_jsonlogic);
+        abstract_eq_cases()
+            .into_iter()
+            // Only get cases that are equal, since we don't know whether
+            // non-equality cases were lt or gt or what.
+            .filter(|(_, _, exp)| match exp {
+                Ok(Value::Bool(exp)) => *exp,
+                _ => false,
+            })
+            .map(|(op, data, exp)| {
+                (
+                    match op {
+                        Value::Object(obj) => json!({"<=": obj.get("==").unwrap()}),
+                        _ => panic!("bad operator"),
+                    },
+                    data,
+                    exp,
+                )
+            })
+            .for_each(assert_jsonlogic);
+    }
+
+    #[test]
     fn test_plus_op() {
         plus_cases().into_iter().for_each(assert_jsonlogic)
     }
@@ -624,28 +535,27 @@ mod jsonlogic_tests {
     #[test]
     fn test_bang_bang_op() {
         // just assert the opposite for all the bang cases
-        bang_cases().into_iter().map(
-            |(op, data, exp)| {
+        bang_cases()
+            .into_iter()
+            .map(|(op, data, exp)| {
                 (
                     match op {
                         Value::Object(obj) => {
                             let args = obj.get("!").unwrap();
-                            json!({"!!": args})
-                        },
-                        _ => panic!("op not operator")
+                            json!({ "!!": args })
+                        }
+                        _ => panic!("op not operator"),
                     },
                     data,
                     match exp {
                         Err(_) => exp,
-                        Ok(exp) => {
-                            match exp {
-                                Value::Bool(exp) => Ok(Value::Bool(!exp)),
-                                _ => panic!("unexpected expected")
-                            }
-                        }
-                    }
+                        Ok(exp) => match exp {
+                            Value::Bool(exp) => Ok(Value::Bool(!exp)),
+                            _ => panic!("unexpected expected"),
+                        },
+                    },
                 )
-            }
-        ).for_each(assert_jsonlogic)
+            })
+            .for_each(assert_jsonlogic)
     }
 }
