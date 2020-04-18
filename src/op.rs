@@ -167,6 +167,11 @@ pub const OPERATOR_MAP: phf::Map<&'static str, Operator> = phf_map! {
             .map(Value::Number),
         num_params: NumParams::Any,
     },
+    "-" => Operator {
+        symbol: "-",
+        operator: op_minus,
+        num_params: NumParams::Variadic(1..3),
+    },
     "*" => Operator {
         symbol: "*",
         operator: |items| js_op::parse_float_mul(items)
@@ -179,10 +184,17 @@ pub const OPERATOR_MAP: phf::Map<&'static str, Operator> = phf_map! {
             .map(Value::Number),
         num_params: NumParams::AtLeast(1),
     },
-    "-" => Operator {
-        symbol: "-",
-        operator: op_minus,
-        num_params: NumParams::Variadic(1..3),
+    "/" => Operator {
+        symbol: "/",
+        operator: |items| js_op::abstract_div(items[0], items[1])
+            .map(Number::from_f64)
+            .and_then(|opt| opt.ok_or(
+                Error::UnexpectedError(
+                    "Could not convert dividend into a JSON number".into())
+                )
+            )
+            .map(Value::Number),
+        num_params: NumParams::Exactly(2),
     },
     "max" => Operator {
         symbol: "max",

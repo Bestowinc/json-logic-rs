@@ -434,6 +434,19 @@ mod jsonlogic_tests {
             (json!({"*": [1, 2, 3]}), json!({}), Ok(json!(6.0))),
             (json!({"*": [1, 2, "3"]}), json!({}), Ok(json!(6.0))),
             (json!({"*": [1, "2abc", "3"]}), json!({}), Ok(json!(6.0))),
+            (json!({"*": []}), json!({}), Err(())),
+        ]
+    }
+
+    fn division_cases() -> Vec<(Value, Value, Result<Value, ()>)> {
+        vec![
+            (json!({"/": [2, 1]}), json!({}), Ok(json!(2.0))),
+            (json!({"/": [1, 2]}), json!({}), Ok(json!(0.5))),
+            (json!({"/": [1, "2"]}), json!({}), Ok(json!(0.5))),
+            (json!({"/": [12, "-2"]}), json!({}), Ok(json!(-6.0))),
+            (json!({"/": []}), json!({}), Err(())),
+            (json!({"/": [5]}), json!({}), Err(())),
+            (json!({"/": [5, 2, 1]}), json!({}), Err(())),
         ]
     }
 
@@ -659,6 +672,11 @@ mod jsonlogic_tests {
     #[test]
     fn test_mul_op() {
         multiplication_cases().into_iter().for_each(assert_jsonlogic)
+    }
+
+    #[test]
+    fn test_div_op() {
+        division_cases().into_iter().for_each(assert_jsonlogic)
     }
 
     #[test]
