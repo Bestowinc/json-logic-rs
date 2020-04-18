@@ -157,6 +157,18 @@ pub const OPERATOR_MAP: phf::Map<&'static str, Operator> = phf_map! {
             .map(Value::Number),
         num_params: NumParams::Any,
     },
+    "max" => Operator {
+        symbol: "max",
+        operator: |items| js_op::abstract_max(items)
+            .map(Number::from_f64)
+            .and_then(|opt| opt.ok_or(
+                Error::UnexpectedError(
+                    "Could not convert max result into JSON number.".into()
+                )
+            ))
+            .map(Value::Number),
+        num_params: NumParams::AtLeast(1),
+    }
 };
 
 pub const LAZY_OPERATOR_MAP: phf::Map<&'static str, LazyOperator> = phf_map! {

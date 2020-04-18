@@ -415,6 +415,31 @@ mod jsonlogic_tests {
         ]
     }
 
+    fn max_cases() -> Vec<(Value, Value, Result<Value, ()>)> {
+        vec![
+            (
+                json!({"max": [1, 2, 3]}),
+                json!({}),
+                Ok(json!(3.0))
+            ),
+            (
+                json!({"max": [false, -1, 2]}),
+                json!({}),
+                Ok(json!(2.0))
+            ),
+            (
+                json!({"max": [0, -1, true]}),
+                json!({}),
+                Ok(json!(1.0))
+            ),
+            (
+                json!({"max": [0, -1, true, [3]]}),
+                json!({}),
+                Ok(json!(3.0))
+            ),
+        ]
+    }
+
     fn bang_cases() -> Vec<(Value, Value, Result<Value, ()>)> {
         vec![
             (json!( {"!": []} ), json!({}), Err(())),
@@ -577,6 +602,11 @@ mod jsonlogic_tests {
     #[test]
     fn test_plus_op() {
         plus_cases().into_iter().for_each(assert_jsonlogic)
+    }
+
+    #[test]
+    fn test_max_op() {
+        max_cases().into_iter().for_each(assert_jsonlogic)
     }
 
     #[test]
