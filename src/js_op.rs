@@ -584,19 +584,44 @@ pub fn abstract_plus(first: &Value, second: &Value) -> Value {
 /// and returning errors seems like a more reasonable course of action
 /// than returning null.
 pub fn parse_float_add(vals: &Vec<&Value>) -> Result<f64, Error> {
-    let parsed_vals: Vec<f64> = vals
-        .into_iter()
-        .map(|v| (v, v)) // keep an extra reference around to make the error message
-        .map(|(v0, v1)| (parse_float(v0), v1))
-        .map(|(opt, v)| {
-            opt.ok_or(Error::InvalidArgument {
-                value: (*v).clone(),
+    vals.into_iter()
+        .map(|&v| {
+            parse_float(v).ok_or(Error::InvalidArgument {
+                value: v.clone(),
                 operation: "+".into(),
                 reason: "Argument could not be converted to a float".into(),
             })
         })
-        .collect::<Result<Vec<f64>, Error>>()?;
-    Ok(parsed_vals.iter().fold(0.0, f64::add))
+        .fold(Ok(0.0), |acc, cur| {
+            let total = acc?;
+            match cur {
+                Ok(num) => Ok(total + num),
+                _ => cur,
+            }
+        })
+}
+
+/// Multiply values, parsing to floats first
+///
+/// See notes for parse_float_add on how this differs from normal number
+/// conversion as is done for _other_ arithmetic operators in the reference
+/// implementation
+pub fn parse_float_mul(vals: &Vec<&Value>) -> Result<f64, Error> {
+    vals.into_iter()
+        .map(|&v| {
+            parse_float(v).ok_or(Error::InvalidArgument {
+                value: v.clone(),
+                operation: "*".into(),
+                reason: "Argument could not be converted to a float".into(),
+            })
+        })
+        .fold(Ok(1.0), |acc, cur| {
+            let total = acc?;
+            match cur {
+                Ok(num) => Ok(total * num),
+                _ => cur,
+            }
+        })
 }
 
 /// Do minus
@@ -640,17 +665,17 @@ mod test_abstract_minus {
 
     #[test]
     fn test_abstract_minus() {
-        minus_cases().into_iter().for_each(
-            |(first, second, exp)| {
-                println!("Minus: {:?} - {:?}", first, second);
-                let res = abstract_minus(&first, &second);
-                println!("Res: {:?}", res);
-                match exp {
-                    Ok(exp) => assert_eq!(res.unwrap(), exp),
-                    _ => {res.unwrap_err();}
+        minus_cases().into_iter().for_each(|(first, second, exp)| {
+            println!("Minus: {:?} - {:?}", first, second);
+            let res = abstract_minus(&first, &second);
+            println!("Res: {:?}", res);
+            match exp {
+                Ok(exp) => assert_eq!(res.unwrap(), exp),
+                _ => {
+                    res.unwrap_err();
                 }
             }
-        )
+        })
     }
 }
 
@@ -658,10 +683,10 @@ mod test_abstract_minus {
 pub fn to_negative(val: &Value) -> Result<f64, Error> {
     to_number(val)
         .map(|v| -1.0 * v)
-        .ok_or(Error::InvalidArgument{
+        .ok_or(Error::InvalidArgument {
             value: val.clone(),
             operation: "to_negative".into(),
-            reason: "Could not convert value to a number".into()
+            reason: "Could not convert value to a number".into(),
         })
 }
 
