@@ -493,6 +493,71 @@ mod test_abstract_max {
     }
 }
 
+
+/// Get the max of an array of values, performing abstract type conversion
+pub fn abstract_min(items: &Vec<&Value>) -> Result<f64, Error> {
+    items
+        .into_iter()
+        .map(|v| {
+            to_number(v).ok_or(Error::InvalidArgument {
+                value: (*v).clone(),
+                operation: "max".into(),
+                reason: "Could not convert value to number".into(),
+            })
+        })
+        .fold(Ok(f64::INFINITY), |acc, cur| {
+            let min = acc?;
+            match cur {
+                Ok(num) => if num < min { Ok(num) } else { Ok(min) }
+                _ => cur,
+            }
+        })
+}
+
+#[cfg(test)]
+mod test_abstract_min {
+    use super::*;
+    use serde_json::json;
+
+    fn min_cases() -> Vec<(Vec<Value>, Result<f64, ()>)> {
+        vec![
+            (
+                vec![json!(1), json!(2), json!(3)],
+                Ok(1.0)
+            ),
+            (
+                vec![json!("1"), json!(true), json!([1])],
+                Ok(1.0)
+            ),
+            (
+                vec![json!(""), json!(null), json!([]), json!(false)],
+                Ok(0.0)
+            ),
+            (
+                vec![json!("foo")],
+                Err(())
+            ),
+            (
+                vec![],
+                Ok(f64::INFINITY)
+            ),
+        ]
+    }
+
+    #[test]
+    fn test_abstract_max() {
+        min_cases().into_iter().for_each(|(items, exp)| {
+            println!("Min: {:?}", items);
+            let res = abstract_min(&items.iter().collect());
+            println!("Res: {:?}", res);
+            match exp {
+                Ok(exp) => assert_eq!(res.unwrap(), exp),
+                _ => {res.unwrap_err();}
+            };
+        })
+    }
+}
+
 /// Do plus
 pub fn abstract_plus(first: &Value, second: &Value) -> Value {
     let first_num = to_primitive_number(first);
