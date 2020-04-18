@@ -620,4 +620,32 @@ mod jsonlogic_tests {
     fn test_bang_op() {
         bang_cases().into_iter().for_each(assert_jsonlogic)
     }
+
+    #[test]
+    fn test_bang_bang_op() {
+        // just assert the opposite for all the bang cases
+        bang_cases().into_iter().map(
+            |(op, data, exp)| {
+                (
+                    match op {
+                        Value::Object(obj) => {
+                            let args = obj.get("!").unwrap();
+                            json!({"!!": args})
+                        },
+                        _ => panic!("op not operator")
+                    },
+                    data,
+                    match exp {
+                        Err(_) => exp,
+                        Ok(exp) => {
+                            match exp {
+                                Value::Bool(exp) => Ok(Value::Bool(!exp)),
+                                _ => panic!("unexpected expected")
+                            }
+                        }
+                    }
+                )
+            }
+        ).for_each(assert_jsonlogic)
+    }
 }

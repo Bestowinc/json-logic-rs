@@ -130,6 +130,11 @@ pub const OPERATOR_MAP: phf::Map<&'static str, Operator> = phf_map! {
         operator: |items| Ok(Value::Bool(!truthy(items[0]))),
         num_params: NumParams::Unary,
     },
+    "!!" => Operator {
+        symbol: "!!",
+        operator: |items| Ok(Value::Bool(truthy(items[0]))),
+        num_params: NumParams::Unary,
+    },
 };
 
 pub const LAZY_OPERATOR_MAP: phf::Map<&'static str, LazyOperator> = phf_map! {
