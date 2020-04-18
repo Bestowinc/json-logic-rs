@@ -157,6 +157,11 @@ pub const OPERATOR_MAP: phf::Map<&'static str, Operator> = phf_map! {
             .map(Value::Number),
         num_params: NumParams::Any,
     },
+    "-" => Operator {
+        symbol: "-",
+        operator: op_minus,
+        num_params: NumParams::Variadic(1..3),
+    },
     "max" => Operator {
         symbol: "max",
         operator: |items| js_op::abstract_max(items)
@@ -351,6 +356,20 @@ fn op_gte(items: &Vec<&Value>) -> Result<Value, Error> {
     compare(js_op::abstract_gte, items)
 }
 
+/// Perform subtraction or convert a number to a negative
+fn op_minus(items: &Vec<&Value>) -> Result<Value, Error> {
+    let value = if items.len() == 1 {
+        js_op::to_negative(items[0])?
+    } else {
+        js_op::abstract_minus(items[0], items[1])?
+    };
+    Number::from_f64(value)
+        .ok_or(Error::UnexpectedError(
+            format!("Could not make JSON number from result {:?}", value)
+        ))
+        .map(Value::Number)
+}
+
 /// An operation that doesn't do any recursive parsing or evaluation.
 ///
 /// Any operator functions used must handle parsing of values themselves.
@@ -388,17 +407,25 @@ impl<'a> Parser<'a> for LazyOperation<'a> {
             _ => return Ok(None),
         };
 
+        let err_for_non_unary = || {
+            Err(Error::InvalidOperation{
+                key: key.clone(),
+                reason: "Arguments to non-unary operations must be arrays".into()
+            })
+        };
+
         // If args value is not an array, and the operator is unary,
         // the value is treated as a unary argument array.
         let args = match val {
             Value::Array(args) => args.to_vec(),
             _ => match op.num_params {
                 NumParams::Unary => vec![val.clone()],
+                NumParams::Variadic(ref range) => match range.contains(&1) {
+                    true => vec![val.clone()],
+                    false => return err_for_non_unary()
+                },
                 _ => {
-                    return Err(Error::InvalidOperation {
-                        key: key.clone(),
-                        reason: "Arguments to non-unary operations must be arrays".into(),
-                    })
+                    return err_for_non_unary()
                 }
             },
         };
@@ -463,17 +490,25 @@ impl<'a> Parser<'a> for Operation<'a> {
             _ => return Ok(None),
         };
 
+        let err_for_non_unary = || {
+            Err(Error::InvalidOperation{
+                key: key.clone(),
+                reason: "Arguments to non-unary operations must be arrays".into()
+            })
+        };
+
         // If args value is not an array, and the operator is unary,
         // the value is treated as a unary argument array.
         let args = match val {
             Value::Array(args) => args.iter().collect::<Vec<&Value>>(),
             _ => match op.num_params {
                 NumParams::Unary => vec![val],
+                NumParams::Variadic(ref range) => match range.contains(&1) {
+                    true => vec![val],
+                    false => return err_for_non_unary()
+                },
                 _ => {
-                    return Err(Error::InvalidOperation {
-                        key: key.into(),
-                        reason: "Arguments for non-unary operator must be arrays".into(),
-                    })
+                    return err_for_non_unary()
                 }
             },
         };
