@@ -9,29 +9,45 @@ use crate::error::Error;
 use crate::value::{Evaluated, Parsed};
 use crate::{js_op, Parser, NULL};
 
+#[derive(Debug, Clone)]
+pub enum NumParams {
+    None,
+    Any,
+    Unary,
+    Exactly(usize),
+    AtLeast(usize),
+    Variadic(std::ops::Range<usize>),
+}
+impl NumParams {
+    fn is_valid_len(&self, len: &usize) -> bool {
+        match self {
+            Self::None => len == &0,
+            Self::Any => true,
+            Self::Unary => len == &1,
+            Self::AtLeast(num) => len >= num,
+            Self::Exactly(num) => len == num,
+            Self::Variadic(range) => range.contains(len),
+        }
+    }
+    fn check_len<'a>(&self, len: &'a usize) -> Result<&'a usize, Error> {
+        match self.is_valid_len(len) {
+            true => Ok(len),
+            false => Err(Error::WrongArgumentCount{
+                expected: self.clone(),
+                actual: len.clone()
+            })
+        }
+    }
+}
+
 pub struct Operator {
     symbol: &'static str,
     operator: OperatorFn,
-    num_params: Option<std::ops::Range<usize>>,
+    num_params: NumParams
 }
 impl Operator {
     pub fn execute(&self, items: &Vec<&Value>) -> Result<Value, Error> {
         (self.operator)(items)
-    }
-
-    pub fn args_are_valid_len<T>(&self, args: &Vec<T>) -> Result<(), std::ops::Range<usize>> {
-        self.num_params
-            .as_ref()
-            // If we've got a specified len, check the args
-            .map(|range| {
-                if range.contains(&args.len()) {
-                    Ok(())
-                } else {
-                    Err(range.clone())
-                }
-            })
-            // Otherwise, we're fine.
-            .unwrap_or(Ok(()))
     }
 }
 impl fmt::Debug for Operator {
@@ -46,26 +62,11 @@ impl fmt::Debug for Operator {
 pub struct LazyOperator {
     symbol: &'static str,
     operator: LazyOperatorFn,
-    num_params: Option<std::ops::Range<usize>>,
+    num_params: NumParams,
 }
 impl LazyOperator {
     pub fn execute(&self, data: &Value, items: &Vec<&Value>) -> Result<Value, Error> {
         (self.operator)(data, items)
-    }
-
-    pub fn args_are_valid_len<T>(&self, args: &Vec<T>) -> Result<(), std::ops::Range<usize>> {
-        self.num_params
-            .as_ref()
-            // If we've got a specified len, check the args
-            .map(|range| {
-                if range.contains(&args.len()) {
-                    Ok(())
-                } else {
-                    Err(range.clone())
-                }
-            })
-            // Otherwise, we're fine.
-            .unwrap_or(Ok(()))
     }
 }
 impl fmt::Debug for LazyOperator {
@@ -84,23 +85,23 @@ pub const OPERATOR_MAP: phf::Map<&'static str, Operator> = phf_map! {
     "==" => Operator {
         symbol: "==",
         operator: |items| Ok(Value::Bool(js_op::abstract_eq(items[0], items[1]))),
-        num_params: Some(2..3)},
+        num_params: NumParams::Exactly(2)},
     "!=" => Operator {
         symbol: "!=",
         operator: |items| Ok(Value::Bool(js_op::abstract_ne(items[0], items[1]))),
-        num_params: Some(2..3)},
+        num_params: NumParams::Exactly(2)},
     "===" => Operator {
         symbol: "===",
         operator: |items| Ok(Value::Bool(js_op::strict_eq(items[0], items[1]))),
-        num_params: Some(2..3)},
+        num_params: NumParams::Exactly(2)},
     "!==" => Operator {
         symbol: "!==",
         operator: |items| Ok(Value::Bool(js_op::strict_ne(items[0], items[1]))),
-        num_params: Some(2..3)},
+        num_params: NumParams::Exactly(2)},
     "<" => Operator {
         symbol: "<",
         operator: op_lt,
-        num_params: Some(2..4),
+        num_params: NumParams::Variadic(2..4),
     },
     "+" => Operator {
         symbol: "+",
@@ -112,7 +113,7 @@ pub const OPERATOR_MAP: phf::Map<&'static str, Operator> = phf_map! {
                 )
             )
             .map(Value::Number),
-        num_params: None,
+        num_params: NumParams::Any,
     }
 };
 
@@ -123,17 +124,17 @@ pub const LAZY_OPERATOR_MAP: phf::Map<&'static str, LazyOperator> = phf_map! {
         // note this is a practical limit more than theoretical one. The spec
         // doesn't say anything about not supporting more than 4.2 billion
         // arguments, but we're drawing a line in the sand.
-        num_params: Some(3..std::u32::MAX as usize),
+        num_params: NumParams::AtLeast(3),
     },
     "or" => LazyOperator {
         symbol: "or",
         operator: op_or,
-        num_params: Some(1..std::u32::MAX as usize),
+        num_params: NumParams::AtLeast(1),
     },
     "and" => LazyOperator {
         symbol: "and",
         operator: op_and,
-        num_params: Some(1..std::u32::MAX as usize),
+        num_params: NumParams::AtLeast(1),
     },
 };
 
@@ -271,7 +272,7 @@ fn op_lt(items: &Vec<&Value>) -> Result<Value, Error> {
 #[derive(Debug)]
 pub struct LazyOperation<'a> {
     operator: &'a LazyOperator,
-    arguments: &'a Vec<Value>,
+    arguments: Vec<Value>,
 }
 impl<'a> Parser<'a> for LazyOperation<'a> {
     fn from_value(value: &'a Value) -> Result<Option<Self>, Error> {
@@ -302,23 +303,22 @@ impl<'a> Parser<'a> for LazyOperation<'a> {
             _ => return Ok(None),
         };
 
-        // Arguments must be an Array. Anything else is an error.
+        // If arguments are not an array, they're treated as a unary
+        // function.
         let args = match val {
-            Value::Array(args) => args,
-            _ => {
-                return Err(Error::InvalidOperation {
-                    key: key.into(),
-                    reason: "Values for operator keys must be arrays".into(),
-                })
-            }
+            Value::Array(args) => args.to_vec(),
+            _ => match op.num_params {
+                NumParams::Unary => vec![val.clone()],
+                _ => {
+                    return Err(Error::WrongArgumentCount {
+                        expected: op.num_params.clone(),
+                        actual: 1,
+                    })
+                }
+            },
         };
 
-        // If the operator specifies a range for params, check them.
-        op.args_are_valid_len(&args)
-            .map_err(|exp_range| Error::WrongArgumentCount {
-                expected: exp_range,
-                actual: args.len(),
-            })?;
+        op.num_params.check_len(&args.len())?;
 
         Ok(Some(LazyOperation {
             operator: op,
@@ -389,12 +389,7 @@ impl<'a> Parser<'a> for Operation<'a> {
             }
         };
 
-        // If the operator specifies a range for params, check them.
-        op.args_are_valid_len(&args)
-            .map_err(|exp_range| Error::WrongArgumentCount {
-                expected: exp_range,
-                actual: args.len(),
-            })?;
+        op.num_params.check_len(&args.len())?;
 
         Ok(Some(Operation {
             operator: op,

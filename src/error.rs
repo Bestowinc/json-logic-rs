@@ -3,8 +3,10 @@
 use serde_json::Value;
 use thiserror;
 
+use crate::op::NumParams;
+
 /// Public error enumeration
-#[derive(thiserror::Error, Debug, PartialEq)]
+#[derive(thiserror::Error, Debug)]
 pub enum Error {
     #[error("Invalid data - value: {value:?}, reason: {reason:?}")]
     InvalidData { value: Value, reason: String },
@@ -16,7 +18,11 @@ pub enum Error {
     InvalidVariable { value: Value, reason: String },
 
     #[error("Invalid argument for '{operation}' - '{value:?}', reason: {reason}")]
-    InvalidArgument { value: Value, operation: String, reason: String },
+    InvalidArgument {
+        value: Value,
+        operation: String,
+        reason: String,
+    },
 
     #[error("Invalid variable mapping - {0} is not an object.")]
     InvalidVarMap(Value),
@@ -25,8 +31,5 @@ pub enum Error {
     UnexpectedError(String),
 
     #[error("Wrong argument count - expected: {expected:?}, actual: {actual:?}")]
-    WrongArgumentCount {
-        expected: std::ops::Range<usize>,
-        actual: usize,
-    },
+    WrongArgumentCount { expected: NumParams, actual: usize },
 }
