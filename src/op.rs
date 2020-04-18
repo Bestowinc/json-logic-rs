@@ -103,6 +103,18 @@ pub const OPERATOR_MAP: phf::Map<&'static str, Operator> = phf_map! {
         operator: op_lt,
         num_params: NumParams::Variadic(2..4),
     },
+    // Note: this is actually an _expansion_ on the specification and the
+    // reference implementation. The spec states that < and <= can be used
+    // for 2-3 arguments, with 3 arguments doing a "between" style test,
+    // e.g. `1 < 2 < 3 == true`. However, this isn't explicitly supported
+    // for > and >=, and the reference implementation simply ignores any
+    // third value for these operators. This to me validates the principle
+    // of least surprise, so we do support those operations.
+    ">" => Operator {
+        symbol: ">",
+        operator: op_gt,
+        num_params: NumParams::Variadic(2..4),
+    },
     "<=" => Operator {
         symbol: "<=",
         operator: op_lte,
@@ -295,6 +307,16 @@ fn op_lte(items: &Vec<&Value>) -> Result<Value, Error> {
     } else {
         return Ok(Value::Bool(
             js_op::abstract_lte(items[0], items[1]) && js_op::abstract_lte(items[1], items[2]),
+        ));
+    }
+}
+
+fn op_gt(items: &Vec<&Value>) -> Result<Value, Error> {
+    if items.len() == 2 {
+        return Ok(Value::Bool(js_op::abstract_gt(items[0], items[1])));
+    } else {
+        return Ok(Value::Bool(
+            js_op::abstract_gt(items[0], items[1]) && js_op::abstract_gt(items[1], items[2]),
         ));
     }
 }

@@ -383,6 +383,22 @@ mod jsonlogic_tests {
         ]
     }
 
+    fn gt_cases() -> Vec<(Value, Value, Result<Value, ()>)> {
+        vec![
+            (json!({">": [1, 2]}), json!({}), Ok(json!(false))),
+            (json!({">": [3, 2]}), json!({}), Ok(json!(true))),
+            (
+                json!({">": [1, {"var": "foo"}]}),
+                json!({"foo": 5}),
+                Ok(json!(false)),
+            ),
+            (json!({">": [1, 2, 3]}), json!({}), Ok(json!(false))),
+            (json!({">": [3, 2, 3]}), json!({}), Ok(json!(false))),
+            (json!({">": [1, 2, 1]}), json!({}), Ok(json!(false))),
+            (json!({">": [3, 2, 1]}), json!({}), Ok(json!(true))),
+        ]
+    }
+
     fn plus_cases() -> Vec<(Value, Value, Result<Value, ()>)> {
         vec![
             (json!({"+": []}), json!({}), Ok(json!(0.0))),
@@ -423,6 +439,43 @@ mod jsonlogic_tests {
             assert_eq!(result.unwrap(), exp.unwrap());
         } else {
             result.unwrap_err();
+        }
+    }
+
+    fn replace_operator(
+        old_op: &'static str,
+        new_op: &'static str,
+        (op, data, exp): (Value, Value, Result<Value, ()>),
+    ) -> (Value, Value, Result<Value, ()>) {
+        (
+            match op {
+                Value::Object(obj) => json!({new_op: obj.get(old_op).unwrap()}),
+                _ => panic!(),
+            },
+            data,
+            exp,
+        )
+    }
+
+    fn flip_boolean_exp(
+        (op, data, exp): (Value, Value, Result<Value, ()>),
+    ) -> (Value, Value, Result<Value, ()>) {
+        (
+            op,
+            data,
+            match exp {
+                Err(_) => exp,
+                Ok(Value::Bool(exp)) => Ok(Value::Bool(!exp)),
+                _ => panic!(),
+            },
+        )
+    }
+
+    fn only_boolean(wanted: bool, (_, _, exp): &(Value, Value, Result<Value, ()>)) -> bool {
+        match exp {
+            Err(_) => false,
+            Ok(Value::Bool(exp)) => *exp == wanted,
+            _ => panic!("unexpected type of expectation"),
         }
     }
 
@@ -490,36 +543,20 @@ mod jsonlogic_tests {
     fn test_lte_op() {
         lt_cases()
             .into_iter()
-            .map(|(op, data, exp)| {
-                (
-                    match op {
-                        Value::Object(obj) => json!({"<=": obj.get("<").unwrap()}),
-                        _ => panic!("bad operator"),
-                    },
-                    data,
-                    exp,
-                )
-            })
+            .map(|case| replace_operator("<", "<=", case))
             .for_each(assert_jsonlogic);
         abstract_eq_cases()
             .into_iter()
             // Only get cases that are equal, since we don't know whether
             // non-equality cases were lt or gt or what.
-            .filter(|(_, _, exp)| match exp {
-                Ok(Value::Bool(exp)) => *exp,
-                _ => false,
-            })
-            .map(|(op, data, exp)| {
-                (
-                    match op {
-                        Value::Object(obj) => json!({"<=": obj.get("==").unwrap()}),
-                        _ => panic!("bad operator"),
-                    },
-                    data,
-                    exp,
-                )
-            })
+            .filter(|case| only_boolean(true, case))
+            .map(|case| replace_operator("==", "<=", case))
             .for_each(assert_jsonlogic);
+    }
+
+    #[test]
+    fn test_gt_op() {
+        gt_cases().into_iter().for_each(assert_jsonlogic);
     }
 
     #[test]
@@ -537,25 +574,8 @@ mod jsonlogic_tests {
         // just assert the opposite for all the bang cases
         bang_cases()
             .into_iter()
-            .map(|(op, data, exp)| {
-                (
-                    match op {
-                        Value::Object(obj) => {
-                            let args = obj.get("!").unwrap();
-                            json!({ "!!": args })
-                        }
-                        _ => panic!("op not operator"),
-                    },
-                    data,
-                    match exp {
-                        Err(_) => exp,
-                        Ok(exp) => match exp {
-                            Value::Bool(exp) => Ok(Value::Bool(!exp)),
-                            _ => panic!("unexpected expected"),
-                        },
-                    },
-                )
-            })
+            .map(|case| replace_operator("!", "!!", case))
+            .map(flip_boolean_exp)
             .for_each(assert_jsonlogic)
     }
 }
