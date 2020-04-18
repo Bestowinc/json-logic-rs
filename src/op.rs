@@ -114,16 +114,28 @@ pub const OPERATOR_MAP: phf::Map<&'static str, Operator> = phf_map! {
             )
             .map(Value::Number),
         num_params: NumParams::Any,
-    }
+    },
+    // Note: the ! and !! behavior conforms to the specification, but not the
+    // reference implementation. The specification states: "Note: unary
+    // operators can also take a single, non array argument." However,
+    // if a non-unary array of arguments is passed to `!` or `!!` in the
+    // reference implementation, it treats them as though they were a unary
+    // array argument. I have chosen to conform to the spec because it leads
+    // to less surprising behavior. I also think that the idea of taking
+    // non-array unary arguments is ridiculous, particularly given that
+    // the homepage of jsonlogic _also_ states that a "Virtue" of jsonlogic
+    // is that it is "Consistent. `{"operator" : ["values" ... ]}` Always"
+    "!" => Operator {
+        symbol: "!",
+        operator: |items| Ok(Value::Bool(!truthy(items[0]))),
+        num_params: NumParams::Unary,
+    },
 };
 
 pub const LAZY_OPERATOR_MAP: phf::Map<&'static str, LazyOperator> = phf_map! {
     "if" => LazyOperator {
         symbol: "if",
         operator: op_if,
-        // note this is a practical limit more than theoretical one. The spec
-        // doesn't say anything about not supporting more than 4.2 billion
-        // arguments, but we're drawing a line in the sand.
         num_params: NumParams::AtLeast(3),
     },
     "or" => LazyOperator {

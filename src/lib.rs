@@ -483,6 +483,62 @@ mod jsonlogic_tests {
         ]
     }
 
+
+    fn bang_cases() -> Vec<(Value, Value, Result<Value, ()>)> {
+        vec![
+            (
+                json!( {"!": []} ),
+                json!({}),
+                Err(())
+            ),
+            (
+                json!( {"!": [1, 2]} ),
+                json!({}),
+                Err(())
+            ),
+            (
+                json!({"!": [true]}),
+                json!({}),
+                Ok(json!(false))
+            ),
+            (
+                json!({"!": [1]}),
+                json!({}),
+                Ok(json!(false))
+            ),
+            (
+                json!({"!": [0]}),
+                json!({}),
+                Ok(json!(true))
+            ),
+            (
+                json!({"!": [[]]}),
+                json!({}),
+                Ok(json!(true))
+            ),
+            (
+                json!({"!": [{}]}),
+                json!({}),
+                Ok(json!(false))
+            ),
+            (
+                json!({"!": [""]}),
+                json!({}),
+                Ok(json!(true))
+            ),
+            (
+                json!({"!": ["foo"]}),
+                json!({}),
+                Ok(json!(false))
+            ),
+            (
+                json!({"!": true}),
+                json!({}),
+                Ok(json!(false))
+            ),
+        ]
+    }
+
     fn assert_jsonlogic((op, data, exp): (Value, Value, Result<Value, ()>)) -> () {
         println!("Running rule: {:?} with data: {:?}", op, data);
         let result = jsonlogic(&op, &data);
@@ -558,5 +614,10 @@ mod jsonlogic_tests {
     #[test]
     fn test_plus_op() {
         plus_cases().into_iter().for_each(assert_jsonlogic)
+    }
+
+    #[test]
+    fn test_bang_op() {
+        bang_cases().into_iter().for_each(assert_jsonlogic)
     }
 }
