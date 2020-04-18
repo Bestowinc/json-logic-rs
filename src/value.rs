@@ -34,9 +34,9 @@ impl<'a> Parsed<'a> {
             )))
     }
 
-    pub fn from_values(values: &'a Vec<Value>) -> Result<Vec<Self>, Error> {
+    pub fn from_values(values: Vec<&'a Value>) -> Result<Vec<Self>, Error> {
         values
-            .iter()
+            .into_iter()
             .map(Self::from_value)
             .collect::<Result<Vec<Self>, Error>>()
     }

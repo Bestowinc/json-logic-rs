@@ -303,16 +303,16 @@ impl<'a> Parser<'a> for LazyOperation<'a> {
             _ => return Ok(None),
         };
 
-        // If arguments are not an array, they're treated as a unary
-        // function.
+        // If args value is not an array, and the operator is unary,
+        // the value is treated as a unary argument array.
         let args = match val {
             Value::Array(args) => args.to_vec(),
             _ => match op.num_params {
                 NumParams::Unary => vec![val.clone()],
                 _ => {
-                    return Err(Error::WrongArgumentCount {
-                        expected: op.num_params.clone(),
-                        actual: 1,
+                    return Err(Error::InvalidOperation {
+                        key: key.clone(),
+                        reason: "Arguments to non-unary operations must be arrays".into()
                     })
                 }
             },
@@ -378,15 +378,20 @@ impl<'a> Parser<'a> for Operation<'a> {
             _ => return Ok(None),
         };
 
-        // Arguments must be an Array. Anything else is an error.
+        // If args value is not an array, and the operator is unary,
+        // the value is treated as a unary argument array.
         let args = match val {
-            Value::Array(args) => args,
-            _ => {
-                return Err(Error::InvalidOperation {
-                    key: key.into(),
-                    reason: "Values for operator keys must be arrays".into(),
-                })
+            Value::Array(args) => args.iter().collect::<Vec<&Value>>(),
+            _ => match op.num_params {
+                    NumParams::Unary => vec![val],
+                    _ => {
+                        return Err(Error::InvalidOperation {
+                        key: key.into(),
+                        reason: "Arguments for non-unary operator must be arrays".into(),
+                    })
+                }
             }
+
         };
 
         op.num_params.check_len(&args.len())?;
