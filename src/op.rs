@@ -38,6 +38,16 @@ impl NumParams {
             }),
         }
     }
+    fn can_accept_unary(&self) -> bool {
+        match self {
+            Self::None => false,
+            Self::Any => true,
+            Self::Unary => true,
+            Self::AtLeast(num) => num >= &1,
+            Self::Exactly(num) => num == &1,
+            Self::Variadic(range) => range.contains(&1),
+        }
+    }
 }
 
 pub struct Operator {
@@ -156,6 +166,18 @@ pub const OPERATOR_MAP: phf::Map<&'static str, Operator> = phf_map! {
             )
             .map(Value::Number),
         num_params: NumParams::Any,
+    },
+    "*" => Operator {
+        symbol: "*",
+        operator: |items| js_op::parse_float_mul(items)
+            .map(Number::from_f64)
+            .and_then(|opt| opt.ok_or(
+                Error::UnexpectedError(
+                    "Could not convert sum into a JSON number".into())
+                )
+            )
+            .map(Value::Number),
+        num_params: NumParams::AtLeast(1),
     },
     "-" => Operator {
         symbol: "-",
@@ -418,15 +440,9 @@ impl<'a> Parser<'a> for LazyOperation<'a> {
         // the value is treated as a unary argument array.
         let args = match val {
             Value::Array(args) => args.to_vec(),
-            _ => match op.num_params {
-                NumParams::Unary => vec![val.clone()],
-                NumParams::Variadic(ref range) => match range.contains(&1) {
-                    true => vec![val.clone()],
-                    false => return err_for_non_unary()
-                },
-                _ => {
-                    return err_for_non_unary()
-                }
+            _ => match op.num_params.can_accept_unary() {
+                true => vec![val.clone()],
+                false => return err_for_non_unary(),
             },
         };
 
@@ -501,15 +517,9 @@ impl<'a> Parser<'a> for Operation<'a> {
         // the value is treated as a unary argument array.
         let args = match val {
             Value::Array(args) => args.iter().collect::<Vec<&Value>>(),
-            _ => match op.num_params {
-                NumParams::Unary => vec![val],
-                NumParams::Variadic(ref range) => match range.contains(&1) {
-                    true => vec![val],
-                    false => return err_for_non_unary()
-                },
-                _ => {
-                    return err_for_non_unary()
-                }
+            _ => match op.num_params.can_accept_unary() {
+                true => vec![val],
+                false => return err_for_non_unary(),
             },
         };
 
