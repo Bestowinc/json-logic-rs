@@ -416,6 +416,15 @@ mod jsonlogic_tests {
         ]
     }
 
+    fn minus_cases() -> Vec<(Value, Value, Result<Value, ()>)> {
+        vec![
+            (json!({"-": "5"}), json!({}), Ok(json!(-5.0))),
+            (json!({"-": [2]}), json!({}), Ok(json!(-2.0))),
+            (json!({"-": [2, 2]}), json!({}), Ok(json!(0.0))),
+            (json!({"-": ["9", [3]]}), json!({}), Ok(json!(6.0))),
+        ]
+    }
+
     fn max_cases() -> Vec<(Value, Value, Result<Value, ()>)> {
         vec![
             (
@@ -628,6 +637,11 @@ mod jsonlogic_tests {
     #[test]
     fn test_plus_op() {
         plus_cases().into_iter().for_each(assert_jsonlogic)
+    }
+
+    #[test]
+    fn test_minus_op() {
+        minus_cases().into_iter().for_each(assert_jsonlogic)
     }
 
     #[test]
