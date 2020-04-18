@@ -2,7 +2,10 @@
 
 use serde_json::{Number, Value};
 use std::f64;
+use std::ops::Add;
 use std::str::FromStr;
+
+use crate::error::Error;
 
 // numeric characters according to parseFloat
 const NUMERICS: &'static [char] = &[
@@ -431,6 +434,38 @@ pub fn abstract_plus(first: &Value, second: &Value) -> Value {
     let second_string = to_string(second);
 
     Value::String(first_string.chars().chain(second_string.chars()).collect())
+}
+
+/// Add values, parsing to floats first.
+///
+/// The JSONLogic reference implementation uses the JS `parseFloat` operation
+/// on the parameters, which behaves quite differently from the normal JS
+/// numeric conversion with `Number(val)`. While the latter uses the
+/// `toPrimitive` method on the base object Prototype, the former first
+/// converts any incoming value to a string, and then tries to parse it
+/// as a float. The upshot is that things that normally parse fine into
+/// numbers in JS, like bools and null, convert to NaN, because you can't
+/// make "false" into a number.
+///
+/// The JSONLogic reference implementation deals with any values that
+/// evaluate to NaN by returning null. We instead will return an error,
+/// the behavior for non-numeric inputs is not specified in the spec,
+/// and returning errors seems like a more reasonable course of action
+/// than returning null.
+pub fn parse_float_add(vals: &Vec<&Value>) -> Result<f64, Error> {
+    let parsed_vals: Vec<f64> = vals
+        .into_iter()
+        .map(|v| (v, v)) // keep an extra reference around to make the error message
+        .map(|(v0, v1)| (parse_float(v0), v1))
+        .map(|(opt, v)| {
+            opt.ok_or(Error::InvalidArgument {
+                value: (*v).clone(),
+                operation: "+".into(),
+                reason: "Argument could not be converted to a float".into(),
+            })
+        })
+        .collect::<Result<Vec<f64>, Error>>()?;
+    Ok(parsed_vals.iter().fold(0.0, f64::add))
 }
 
 /// Try to parse a string as a float, javascript style
