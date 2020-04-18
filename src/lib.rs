@@ -368,6 +368,31 @@ mod jsonlogic_tests {
         ]
     }
 
+    fn map_cases() -> Vec<(Value, Value, Result<Value, ()>)> {
+        vec![
+            (
+                json!({"map": [[1, 2, 3], {"*": [{"var": ""}, 2]}]}),
+                json!(null),
+                Ok(json!([2.0, 4.0, 6.0]))
+            ),
+            (
+                json!({"map": [{"var": "vals"}, {"*": [{"var": ""}, 2]}]}),
+                json!({"vals": [1, 2, 3]}),
+                Ok(json!([2.0, 4.0, 6.0]))
+            ),
+            (
+                json!({"map": [{"var": ""}, {"*": [{"var": ""}, 2]}]}),
+                json!([1, 2, 3]),
+                Ok(json!([2.0, 4.0, 6.0]))
+            ),
+            (
+                json!({"map": [[true, 2, 0, [], {}], {"!!": [{"var": ""}]}]}),
+                json!(null),
+                Ok(json!([true, true, false, false, true]))
+            ),
+        ]
+    }
+
     fn lt_cases() -> Vec<(Value, Value, Result<Value, ()>)> {
         vec![
             (json!({"<": [1, 2]}), json!({}), Ok(json!(true))),
@@ -629,6 +654,11 @@ mod jsonlogic_tests {
     #[test]
     fn test_and_op() {
         and_cases().into_iter().for_each(assert_jsonlogic)
+    }
+
+    #[test]
+    fn test_map_op() {
+        map_cases().into_iter().for_each(assert_jsonlogic)
     }
 
     #[test]

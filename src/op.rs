@@ -250,6 +250,11 @@ pub const LAZY_OPERATOR_MAP: phf::Map<&'static str, LazyOperator> = phf_map! {
         operator: op_and,
         num_params: NumParams::AtLeast(1),
     },
+    "map" => LazyOperator {
+        symbol: "map",
+        operator: op_map,
+        num_params: NumParams::Exactly(2),
+    }
 };
 
 /// Implement the "if" operator
@@ -369,6 +374,37 @@ fn op_and(data: &Value, args: &Vec<&Value>) -> Result<Value, Error> {
     }
 }
 
+
+/// Map an operation onto values
+fn op_map(data: &Value, args: &Vec<&Value>) -> Result<Value, Error> {
+    let (items, expression) = (args[0], args[1]);
+
+    let _parsed = Parsed::from_value(items)?;
+    let evaluated_items = _parsed.evaluate(data)?;
+
+    let values: Vec<&Value> = match evaluated_items {
+        Evaluated::New(Value::Array(ref vals)) => vals.iter().collect(),
+        Evaluated::Raw(Value::Array(vals)) => vals.iter().collect(),
+        _ => {
+            return Err(Error::InvalidArgument {
+                value: args[0].clone(),
+                operation: "map".into(),
+                reason: format!(
+                    "First argument to map must evaluate to an array. Got {:?}",
+                    evaluated_items
+                ),
+            })
+        }
+    };
+
+    let parsed_expression = Parsed::from_value(expression)?;
+
+    values.iter()
+        .map(|v| parsed_expression.evaluate(v).map(Value::from))
+        .collect::<Result<Vec<Value>, Error>>()
+        .map(Value::Array)
+}
+
 fn compare<F>(func: F, items: &Vec<&Value>) -> Result<Value, Error>
 where
     F: Fn(&Value, &Value) -> bool,
@@ -410,9 +446,10 @@ fn op_minus(items: &Vec<&Value>) -> Result<Value, Error> {
         js_op::abstract_minus(items[0], items[1])?
     };
     Number::from_f64(value)
-        .ok_or(Error::UnexpectedError(
-            format!("Could not make JSON number from result {:?}", value)
-        ))
+        .ok_or(Error::UnexpectedError(format!(
+            "Could not make JSON number from result {:?}",
+            value
+        )))
         .map(Value::Number)
 }
 
@@ -454,9 +491,9 @@ impl<'a> Parser<'a> for LazyOperation<'a> {
         };
 
         let err_for_non_unary = || {
-            Err(Error::InvalidOperation{
+            Err(Error::InvalidOperation {
                 key: key.clone(),
-                reason: "Arguments to non-unary operations must be arrays".into()
+                reason: "Arguments to non-unary operations must be arrays".into(),
             })
         };
 
@@ -531,9 +568,9 @@ impl<'a> Parser<'a> for Operation<'a> {
         };
 
         let err_for_non_unary = || {
-            Err(Error::InvalidOperation{
+            Err(Error::InvalidOperation {
                 key: key.clone(),
-                reason: "Arguments to non-unary operations must be arrays".into()
+                reason: "Arguments to non-unary operations must be arrays".into(),
             })
         };
 
