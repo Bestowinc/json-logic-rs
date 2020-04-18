@@ -2,7 +2,7 @@
 //!
 
 use phf::phf_map;
-use serde_json::{Map, Value};
+use serde_json::{Map, Number, Value};
 use std::fmt;
 
 use crate::error::Error;
@@ -97,6 +97,23 @@ pub const OPERATOR_MAP: phf::Map<&'static str, Operator> = phf_map! {
         symbol: "!==",
         operator: |items| Ok(Value::Bool(js_op::strict_ne(items[0], items[1]))),
         num_params: Some(2..3)},
+    "<" => Operator {
+        symbol: "<",
+        operator: op_lt,
+        num_params: Some(2..4),
+    },
+    "+" => Operator {
+        symbol: "+",
+        operator: |items| js_op::parse_float_add(items)
+            .map(Number::from_f64)
+            .and_then(|opt| opt.ok_or(
+                Error::UnexpectedError(
+                    "Could not convert sum into a JSON number".into())
+                )
+            )
+            .map(Value::Number),
+        num_params: None,
+    }
 };
 
 pub const LAZY_OPERATOR_MAP: phf::Map<&'static str, LazyOperator> = phf_map! {
@@ -234,6 +251,17 @@ fn op_and(data: &Value, args: &Vec<&Value>) -> Result<Value, Error> {
         _ => Err(Error::UnexpectedError(
             "And operation had no values to operate on".into(),
         )),
+    }
+}
+
+/// Do < for either 2 or 3 values
+fn op_lt(items: &Vec<&Value>) -> Result<Value, Error> {
+    if items.len() == 2 {
+        return Ok(Value::Bool(js_op::abstract_lt(items[0], items[1])));
+    } else {
+        return Ok(Value::Bool(
+            js_op::abstract_lt(items[0], items[1]) && js_op::abstract_lt(items[1], items[2]),
+        ));
     }
 }
 
@@ -379,7 +407,7 @@ impl<'a> Parser<'a> for Operation<'a> {
         let arguments = self
             .arguments
             .iter()
-            .map(|value| value.evaluate(data).map(|evaluated| Value::from(evaluated)))
+            .map(|value| value.evaluate(data).map(Value::from))
             .collect::<Result<Vec<Value>, Error>>()?;
         self.operator
             .execute(&arguments.iter().collect())
