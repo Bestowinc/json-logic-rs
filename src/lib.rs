@@ -560,6 +560,21 @@ mod jsonlogic_tests {
     }
 
     #[test]
+    fn test_gte_op() {
+        gt_cases()
+            .into_iter()
+            .map(|case| replace_operator(">", ">=", case))
+            .for_each(assert_jsonlogic);
+        abstract_eq_cases()
+            .into_iter()
+            // Only get cases that are equal, since we don't know whether
+            // non-equality cases were lt or gt or what.
+            .filter(|case| only_boolean(true, case))
+            .map(|case| replace_operator("==", ">=", case))
+            .for_each(assert_jsonlogic);
+    }
+
+    #[test]
     fn test_plus_op() {
         plus_cases().into_iter().for_each(assert_jsonlogic)
     }

@@ -103,6 +103,11 @@ pub const OPERATOR_MAP: phf::Map<&'static str, Operator> = phf_map! {
         operator: op_lt,
         num_params: NumParams::Variadic(2..4),
     },
+    "<=" => Operator {
+        symbol: "<=",
+        operator: op_lte,
+        num_params: NumParams::Variadic(2..4),
+    },
     // Note: this is actually an _expansion_ on the specification and the
     // reference implementation. The spec states that < and <= can be used
     // for 2-3 arguments, with 3 arguments doing a "between" style test,
@@ -115,9 +120,9 @@ pub const OPERATOR_MAP: phf::Map<&'static str, Operator> = phf_map! {
         operator: op_gt,
         num_params: NumParams::Variadic(2..4),
     },
-    "<=" => Operator {
-        symbol: "<=",
-        operator: op_lte,
+    ">=" => Operator {
+        symbol: ">=",
+        operator: op_gte,
         num_params: NumParams::Variadic(2..4),
     },
     "+" => Operator {
@@ -289,36 +294,36 @@ fn op_and(data: &Value, args: &Vec<&Value>) -> Result<Value, Error> {
     }
 }
 
+fn compare<F>(func: F, items: &Vec<&Value>) -> Result<Value, Error>
+    where F: Fn(&Value, &Value) -> bool
+{
+    if items.len() == 2 {
+        Ok(Value::Bool(func(items[0], items[1])))
+    } else {
+        Ok(Value::Bool(
+            func(items[0], items[1]) && func(items[1], items[2])
+        ))
+    }
+}
+
 /// Do < for either 2 or 3 values
 fn op_lt(items: &Vec<&Value>) -> Result<Value, Error> {
-    if items.len() == 2 {
-        return Ok(Value::Bool(js_op::abstract_lt(items[0], items[1])));
-    } else {
-        return Ok(Value::Bool(
-            js_op::abstract_lt(items[0], items[1]) && js_op::abstract_lt(items[1], items[2]),
-        ));
-    }
+    compare(js_op::abstract_lt, items)
 }
 
 /// Do <= for either 2 or 3 values
 fn op_lte(items: &Vec<&Value>) -> Result<Value, Error> {
-    if items.len() == 2 {
-        return Ok(Value::Bool(js_op::abstract_lte(items[0], items[1])));
-    } else {
-        return Ok(Value::Bool(
-            js_op::abstract_lte(items[0], items[1]) && js_op::abstract_lte(items[1], items[2]),
-        ));
-    }
+    compare(js_op::abstract_lte, items)
 }
 
+/// Do > for either 2 or 3 values
 fn op_gt(items: &Vec<&Value>) -> Result<Value, Error> {
-    if items.len() == 2 {
-        return Ok(Value::Bool(js_op::abstract_gt(items[0], items[1])));
-    } else {
-        return Ok(Value::Bool(
-            js_op::abstract_gt(items[0], items[1]) && js_op::abstract_gt(items[1], items[2]),
-        ));
-    }
+    compare(js_op::abstract_gt, items)
+}
+
+/// Do >= for either 2 or 3 values
+fn op_gte(items: &Vec<&Value>) -> Result<Value, Error> {
+    compare(js_op::abstract_gte, items)
 }
 
 /// An operation that doesn't do any recursive parsing or evaluation.
