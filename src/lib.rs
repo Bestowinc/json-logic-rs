@@ -734,11 +734,6 @@ mod jsonlogic_tests {
     }
 
     #[test]
-    fn test_no_op() {
-        no_op_cases().into_iter().for_each(assert_jsonlogic)
-    }
-
-    #[test]
     fn test_abstract_eq_op() {
         abstract_eq_cases().into_iter().for_each(assert_jsonlogic)
     }
