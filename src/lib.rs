@@ -18,21 +18,30 @@ trait Parser<'a>: Sized + Into<Value> {
     fn evaluate(&self, data: &'a Value) -> Result<Evaluated, Error>;
 }
 
-
 pub mod javascript_iface {
     use serde_json::Value;
     use wasm_bindgen::prelude::*;
 
+    fn to_serde_value(js_value: JsValue) -> Result<Value, JsValue> {
+        // If we're passed a string, try to parse it as JSON.
+        if js_value.is_string() {
+            serde_json::from_str(&js_value.as_string().unwrap())
+                .map_err(|err| format!("{:?}", err))
+                .map_err(JsValue::from)
+        } else {
+        // If we're passed anything else, convert it directly to a serde Value.
+            js_value
+                .into_serde::<Value>()
+                .map_err(|err| format!("{:?}", err))
+                .map_err(JsValue::from)
+        }
+    }
+
     #[wasm_bindgen]
     pub fn jsonlogic(value: JsValue, data: JsValue) -> Result<JsValue, JsValue> {
-        let value_json = value
-            .into_serde::<Value>()
-            .map_err(|err| format!("{:?}", err))
-            .map_err(JsValue::from)?;
-        let data_json = data
-            .into_serde::<Value>()
-            .map_err(|err| format!("{:?}", err))
-            .map_err(JsValue::from)?;
+        let value_json = to_serde_value(value)?;
+        let data_json = to_serde_value(data)?;
+
         let res = crate::jsonlogic(&value_json, &data_json)
             .map_err(|err| format!("{:?}", err))
             .map_err(JsValue::from)?;
@@ -717,6 +726,11 @@ mod jsonlogic_tests {
             Ok(Value::Bool(exp)) => *exp == wanted,
             _ => panic!("unexpected type of expectation"),
         }
+    }
+
+    #[test]
+    fn test_no_op() {
+        no_op_cases().into_iter().for_each(assert_jsonlogic)
     }
 
     #[test]
