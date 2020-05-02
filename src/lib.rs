@@ -1,3 +1,4 @@
+use serde_json;
 use serde_json::Value;
 
 mod data;
@@ -15,6 +16,31 @@ const NULL: Value = Value::Null;
 trait Parser<'a>: Sized + Into<Value> {
     fn from_value(value: &'a Value) -> Result<Option<Self>, Error>;
     fn evaluate(&self, data: &'a Value) -> Result<Evaluated, Error>;
+}
+
+
+pub mod javascript_iface {
+    use serde_json::Value;
+    use wasm_bindgen::prelude::*;
+
+    #[wasm_bindgen]
+    pub fn jsonlogic(value: JsValue, data: JsValue) -> Result<JsValue, JsValue> {
+        let value_json = value
+            .into_serde::<Value>()
+            .map_err(|err| format!("{:?}", err))
+            .map_err(JsValue::from)?;
+        let data_json = data
+            .into_serde::<Value>()
+            .map_err(|err| format!("{:?}", err))
+            .map_err(JsValue::from)?;
+        let res = crate::jsonlogic(&value_json, &data_json)
+            .map_err(|err| format!("{:?}", err))
+            .map_err(JsValue::from)?;
+
+        JsValue::from_serde(&res)
+            .map_err(|err| format!("{:?}", err))
+            .map_err(JsValue::from)
+    }
 }
 
 /// Run JSONLogic for the given operation and data.
