@@ -2,7 +2,6 @@
 
 use serde_json::{Number, Value};
 use std::f64;
-use std::ops::Add;
 use std::str::FromStr;
 
 use crate::error::Error;
@@ -71,6 +70,7 @@ enum Primitive {
     Number(f64),
 }
 
+#[allow(dead_code)]
 enum PrimitiveHint {
     String,
     Number,

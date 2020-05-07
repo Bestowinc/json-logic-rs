@@ -9,6 +9,11 @@ edition = "2018"
 [lib]
 crate-type = ["cdylib"]
 
+[features]
+default = []
+python = ["cpython"]
+javascript = ["wasm-bindgen"]
+
 [dependencies]
 phf = { version = "~0.8.0", features = ["macros"] }
 serde_json = "~1.0.41"
@@ -17,3 +22,9 @@ thiserror = "~1.0.11"
 [dependencies.wasm-bindgen]
 version = "~0.2.62"
 features = ["serde-serialize"]
+optional = true
+
+[dependencies.cpython]
+version = "0.5"
+features = ["extension-module"]
+optional = true
