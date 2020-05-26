@@ -694,6 +694,8 @@ mod jsonlogic_tests {
         ]
     }
 
+    // TODO write "in" tests
+
     fn bang_cases() -> Vec<(Value, Value, Result<Value, ()>)> {
         vec![
             (json!( {"!": []} ), json!({}), Err(())),

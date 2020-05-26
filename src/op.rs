@@ -550,6 +550,39 @@ fn op_minus(items: &Vec<&Value>) -> Result<Value, Error> {
         .map(Value::Number)
 }
 
+/// Perform containment checks with "in"
+// TODO tie operator into global operator map, test.
+fn op_in(items: &Vec<&Value>) -> Result<Value, Error> {
+    let needle = items[0];
+    let haystack = items[1];
+
+    match haystack {
+        Value::Array(possibles) => {
+            Ok(Value::Bool(possibles.contains(needle)))
+        },
+        // NOTE: the reference implementation treats single-item arrays
+        // as the needle for a string haystack as strings. We are NOT
+        // duplicating that behavior, because it is undefined and
+        // unintuitive.
+        Value::String(haystack_string) => {
+            let needle_string = match needle {
+                Value::String(needle_string) => needle_string,
+                _ => { return Ok(Value::Bool(false) )}
+            };
+            Ok(Value::Bool(haystack_string.contains(needle_string)))
+        },
+        _ => {
+            Err(
+                Error::InvalidArgument {
+                    value: haystack.clone(),
+                    operation: "in".into(),
+                    reason: "Second argument must be an array or a string".into(),
+                }
+            )
+        }
+    }
+}
+
 /// An operation that doesn't do any recursive parsing or evaluation.
 ///
 /// Any operator functions used must handle parsing of values themselves.
