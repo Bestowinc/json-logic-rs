@@ -18,7 +18,7 @@ trait Parser<'a>: Sized + Into<Value> {
     fn evaluate(&self, data: &'a Value) -> Result<Evaluated, Error>;
 }
 
-#[cfg(feature="javascript")]
+#[cfg(feature = "javascript")]
 pub mod javascript_iface {
     use serde_json::Value;
     use wasm_bindgen::prelude::*;
@@ -53,22 +53,24 @@ pub mod javascript_iface {
     }
 }
 
-#[cfg(feature="python")]
+#[cfg(feature = "python")]
 pub mod python_iface {
-    use cpython::{PyErr, PyResult, Python, py_module_initializer, py_fn};
-    use cpython::exc::{ValueError};
+    use cpython::exc::ValueError;
+    use cpython::{py_fn, py_module_initializer, PyErr, PyResult, Python};
 
-    py_module_initializer!(jsonlogic, |py, m| {
+    py_module_initializer!(jsonlogic_rs, |py, m| {
         m.add(py, "__doc__", "Python bindings for json-logic-rs")?;
-        m.add(py, "jsonlogic", py_fn!(py, jsonlogic_py(value: &str, data: &str)))?;
+        m.add(
+            py,
+            "jsonlogic",
+            py_fn!(py, jsonlogic_py(value: &str, data: &str)),
+        )?;
         Ok(())
     });
 
     fn jsonlogic(value: &str, data: &str) -> Result<String, String> {
-        let value_json = serde_json::from_str(value)
-            .map_err(|err| format!("{:?}", err))?;
-        let data_json = serde_json::from_str(data)
-            .map_err(|err| format!("{:?}", err))?;
+        let value_json = serde_json::from_str(value).map_err(|err| format!("{:?}", err))?;
+        let data_json = serde_json::from_str(data).map_err(|err| format!("{:?}", err))?;
 
         crate::jsonlogic(&value_json, &data_json)
             .map_err(|err| format!("{:?}", err))
@@ -76,10 +78,8 @@ pub mod python_iface {
     }
 
     fn jsonlogic_py(py: Python, value: &str, data: &str) -> PyResult<String> {
-        jsonlogic(value, data)
-            .map_err(|err| PyErr::new::<ValueError, _>(py, err))
+        jsonlogic(value, data).map_err(|err| PyErr::new::<ValueError, _>(py, err))
     }
-
 }
 
 /// Run JSONLogic for the given operation and data.
