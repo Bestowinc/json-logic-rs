@@ -13,7 +13,7 @@ module.exports = {
         new HtmlWebpackPlugin(),
         new WasmPackPlugin({
             crateDirectory: path.resolve(__dirname, ".."),
-            extraArgs: "-- --features javascript"
+            extraArgs: "--out-dir jsonlogic -- --features javascript"
         }),
     ],
     mode: 'development'
