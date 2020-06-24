@@ -694,8 +694,6 @@ mod jsonlogic_tests {
         ]
     }
 
-    // TODO write "in" tests
-
     fn bang_cases() -> Vec<(Value, Value, Result<Value, ()>)> {
         vec![
             (json!( {"!": []} ), json!({}), Err(())),
@@ -708,6 +706,56 @@ mod jsonlogic_tests {
             (json!({"!": [""]}), json!({}), Ok(json!(true))),
             (json!({"!": ["foo"]}), json!({}), Ok(json!(false))),
             (json!({"!": true}), json!({}), Ok(json!(false))),
+        ]
+    }
+
+    fn in_cases() -> Vec<(Value, Value, Result<Value, ()>)> {
+        vec![
+            (json!( {"in": []} ), json!({}), Err(())),
+            (json!( {"in": [1, [], 1]} ), json!({}), Err(())),
+            (json!( {"in": [1, "foo"]} ), json!({}), Err(())),
+            (json!( {"in": [1, 1]} ), json!({}), Err(())),
+            (json!( {"in": [1, [1, 2]]} ), json!({}), Ok(json!(true))),
+            (json!( {"in": [1, [0, 2]]} ), json!({}), Ok(json!(false))),
+            (json!( {"in": ["f", "foo"]} ), json!({}), Ok(json!(true))),
+            (json!( {"in": ["f", "bar"]} ), json!({}), Ok(json!(false))),
+            (
+                json!( {"in": [null, [1, null]]} ),
+                json!({}),
+                Ok(json!(true)),
+            ),
+            (json!( {"in": [null, [1, 2]]} ), json!({}), Ok(json!(false))),
+            (
+                json!( {"in": [true, [true, 2]]} ),
+                json!({}),
+                Ok(json!(true)),
+            ),
+            (json!( {"in": [true, [1, 2]]} ), json!({}), Ok(json!(false))),
+            (
+                json!( {"in": [[1, 2], [[1, 2], 2]]} ),
+                json!({}),
+                Ok(json!(true)),
+            ),
+            (
+                json!( {"in": [[], [[1, 2], 2]]} ),
+                json!({}),
+                Ok(json!(false)),
+            ),
+            (
+                json!( {"in": [{"a": 1}, [{"a": 1}, 2]]} ),
+                json!({}),
+                Ok(json!(true)),
+            ),
+            (
+                json!( {"in": [{"a": 1}, [{"a": 2}, 2]]} ),
+                json!({}),
+                Ok(json!(false)),
+            ),
+            (
+                json!( {"in": [{"a": 1}, [{"a": 1, "b": 2}, 2]]} ),
+                json!({}),
+                Ok(json!(false)),
+            ),
         ]
     }
 
@@ -920,5 +968,10 @@ mod jsonlogic_tests {
             .map(|case| replace_operator("!", "!!", case))
             .map(flip_boolean_exp)
             .for_each(assert_jsonlogic)
+    }
+
+    #[test]
+    fn test_in_op() {
+        in_cases().into_iter().for_each(assert_jsonlogic)
     }
 }

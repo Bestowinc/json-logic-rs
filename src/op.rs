@@ -232,6 +232,11 @@ pub const OPERATOR_MAP: phf::Map<&'static str, Operator> = phf_map! {
             .map(Value::Number),
         num_params: NumParams::AtLeast(1),
     },
+    "in" => Operator {
+        symbol: "in",
+        operator: op_in,
+        num_params: NumParams::Exactly(2)
+    }
 };
 
 pub const LAZY_OPERATOR_MAP: phf::Map<&'static str, LazyOperator> = phf_map! {
@@ -551,35 +556,45 @@ fn op_minus(items: &Vec<&Value>) -> Result<Value, Error> {
 }
 
 /// Perform containment checks with "in"
-// TODO tie operator into global operator map, test.
 fn op_in(items: &Vec<&Value>) -> Result<Value, Error> {
     let needle = items[0];
     let haystack = items[1];
 
     match haystack {
-        Value::Array(possibles) => {
-            Ok(Value::Bool(possibles.contains(needle)))
-        },
-        // NOTE: the reference implementation treats single-item arrays
-        // as the needle for a string haystack as strings. We are NOT
-        // duplicating that behavior, because it is undefined and
-        // unintuitive.
+        // Note: our containment check for array values is actually a bit
+        // more robust than JS. This by default does array equality (e.g.
+        // `[[1,2], [3,4]].contains([1,2]) == true`), as well as object
+        // equality (e.g. `[{"a": "b"}].contains({"a": "b"}) == true`).
+        // Given that anyone relying on this behavior in the existing jsonlogic
+        // implementation is relying on broken, undefined behavior, it seems
+        // okay to update that behavior to work in a more intuitive way.
+        Value::Array(possibles) => Ok(Value::Bool(possibles.contains(needle))),
         Value::String(haystack_string) => {
-            let needle_string = match needle {
-                Value::String(needle_string) => needle_string,
-                _ => { return Ok(Value::Bool(false) )}
-            };
+            // Note: the reference implementation uses the regular old
+            // String.prototype.indexOf() function to check for containment,
+            // but that does JS type coercion, leading to crazy things like
+            // `"foo[object Object]".indexOf({}) === 3`. Since the MDN docs
+            // _explicitly_ say that the argument to indexOf should be a string,
+            // we're going to take the same stance here, and throw an error
+            // if the needle is a non-string for a haystack that's a string.
+            let needle_string =
+                match needle {
+                    Value::String(needle_string) => needle_string,
+                    _ => return Err(Error::InvalidArgument {
+                        value: needle.clone(),
+                        operation: "in".into(),
+                        reason:
+                            "If second argument is a string, first argument must also be a string."
+                                .into(),
+                    }),
+                };
             Ok(Value::Bool(haystack_string.contains(needle_string)))
-        },
-        _ => {
-            Err(
-                Error::InvalidArgument {
-                    value: haystack.clone(),
-                    operation: "in".into(),
-                    reason: "Second argument must be an array or a string".into(),
-                }
-            )
         }
+        _ => Err(Error::InvalidArgument {
+            value: haystack.clone(),
+            operation: "in".into(),
+            reason: "Second argument must be an array or a string".into(),
+        }),
     }
 }
 
