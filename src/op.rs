@@ -279,7 +279,12 @@ pub const LAZY_OPERATOR_MAP: phf::Map<&'static str, LazyOperator> = phf_map! {
         symbol: "some",
         operator: op_some,
         num_params: NumParams::Exactly(2),
-    }
+    },
+    "none" => LazyOperator {
+        symbol: "none",
+        operator: op_none,
+        num_params: NumParams::Exactly(2),
+    },
 };
 
 /// Implement the "if" operator
@@ -636,6 +641,15 @@ fn op_some(data: &Value, args: &Vec<&Value>) -> Result<Value, Error> {
     })?;
 
     Ok(Value::Bool(result))
+}
+
+fn op_none(data: &Value, args: &Vec<&Value>) -> Result<Value, Error> {
+    op_some(data, args).and_then(|had_some| match had_some {
+        Value::Bool(res) => Ok(Value::Bool(!res)),
+        _ => Err(Error::UnexpectedError(
+            "Unexpected return type from op_some".into(),
+        )),
+    })
 }
 
 fn compare<F>(func: F, items: &Vec<&Value>) -> Result<Value, Error>

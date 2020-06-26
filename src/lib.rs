@@ -733,6 +733,88 @@ mod jsonlogic_tests {
         ]
     }
 
+    fn none_cases() -> Vec<(Value, Value, Result<Value, ()>)> {
+        vec![
+            // Invalid first arguments
+            (json!({"none": [1, 1]}), json!({}), Err(())),
+            (json!({"none": [null, 1]}), json!({}), Err(())),
+            (json!({"none": [{}, 1]}), json!({}), Err(())),
+            (json!({"none": [false, 1]}), json!({}), Err(())),
+            // Empty array/string
+            (json!({"none": [[], 1]}), json!({}), Ok(json!(true))),
+            (json!({"none": ["", 1]}), json!({}), Ok(json!(true))),
+            // Constant predicate
+            (json!({"none": [[1, 2], 1]}), json!({}), Ok(json!(false))),
+            (json!({"none": [[1, 2], 0]}), json!({}), Ok(json!(true))),
+            // Simple predicate
+            (
+                json!({"none": [[-5, 2], {">": [{"var": ""}, 0]}]}),
+                json!({}),
+                Ok(json!(false)),
+            ),
+            (
+                json!({"none": [[-3, 1, 2, -1], {">": [{"var": ""}, 0]}]}),
+                json!({}),
+                Ok(json!(false)),
+            ),
+            (
+                json!({"none": ["aaaa", {"===": [{"var": ""}, "a"]}]}),
+                json!({}),
+                Ok(json!(false)),
+            ),
+            (
+                json!({"none": ["aabaa", {"===": [{"var": ""}, "a"]}]}),
+                json!({}),
+                Ok(json!(false)),
+            ),
+            (
+                json!({"none": ["cdefg", {"===": [{"var": ""}, "a"]}]}),
+                json!({}),
+                Ok(json!(true)),
+            ),
+            // Expression in array
+            (
+                json!({"none": [[-6, {"+": [1, 1]}], {">": [{"var": ""}, 0]}]}),
+                json!({}),
+                Ok(json!(false)),
+            ),
+            (
+                json!({"none": [[-5, {"+": [-2, 1]}], {">": [{"var": ""}, 0]}]}),
+                json!({}),
+                Ok(json!(true)),
+            ),
+            // Validate short-circuit
+            (
+                // The equality expression is invalid and would return an
+                // Err if parsed, b/c it has an invalid number of arguments.
+                // Since the value before it validates the predicate, though,
+                // we should never attempt to evaluate it.
+                json!({"none": [[1, {"==": []}], {">": [{"var": ""}, 0]}]}),
+                json!({}),
+                Ok(json!(false)),
+            ),
+            (
+                // Same as above, but put the error before the invalidating
+                // value just to make sure our hypothesis is correct re:
+                // getting an error
+                json!({"none": [[-51, {"==": []}, -1], {">": [{"var": ""}, 0]}]}),
+                json!({}),
+                Err(()),
+            ),
+            // Parse data in array
+            (
+                json!({"none": [[-4, {"var": "foo"}], {">": [{"var": ""}, 0]}]}),
+                json!({"foo": 1}),
+                Ok(json!(false)),
+            ),
+            (
+                json!({"none": [[-4, {"var": "foo"}], {">": [{"var": ""}, 0]}]}),
+                json!({"foo": -5}),
+                Ok(json!(true)),
+            ),
+        ]
+    }
+
     fn lt_cases() -> Vec<(Value, Value, Result<Value, ()>)> {
         vec![
             (json!({"<": [1, 2]}), json!({}), Ok(json!(true))),
@@ -1045,6 +1127,11 @@ mod jsonlogic_tests {
     #[test]
     fn test_some_op() {
         some_cases().into_iter().for_each(assert_jsonlogic)
+    }
+
+    #[test]
+    fn test_none_op() {
+        none_cases().into_iter().for_each(assert_jsonlogic)
     }
 
     #[test]
