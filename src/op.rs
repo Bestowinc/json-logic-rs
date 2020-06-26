@@ -232,11 +232,16 @@ pub const OPERATOR_MAP: phf::Map<&'static str, Operator> = phf_map! {
             .map(Value::Number),
         num_params: NumParams::AtLeast(1),
     },
+    "merge" => Operator {
+        symbol: "merge",
+        operator: op_merge,
+        num_params: NumParams::Any,
+    },
     "in" => Operator {
         symbol: "in",
         operator: op_in,
-        num_params: NumParams::Exactly(2)
-    }
+        num_params: NumParams::Exactly(2),
+    },
 };
 
 pub const LAZY_OPERATOR_MAP: phf::Map<&'static str, LazyOperator> = phf_map! {
@@ -650,6 +655,23 @@ fn op_none(data: &Value, args: &Vec<&Value>) -> Result<Value, Error> {
             "Unexpected return type from op_some".into(),
         )),
     })
+}
+
+/// Merge one to n arrays.
+fn op_merge(items: &Vec<&Value>) -> Result<Value, Error> {
+    let rv_vec: Vec<Value> = Vec::new();
+    Ok(Value::Array(
+        items
+            .into_iter()
+            .map(|item| match item {
+                Value::Array(i_vals) => i_vals.clone(),
+                _ => vec![(**item).clone()],
+            })
+            .fold(rv_vec, |mut acc, i| {
+                i.into_iter().for_each(|val| acc.push(val));
+                acc
+            }),
+    ))
 }
 
 fn compare<F>(func: F, items: &Vec<&Value>) -> Result<Value, Error>

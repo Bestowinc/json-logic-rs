@@ -815,6 +815,43 @@ mod jsonlogic_tests {
         ]
     }
 
+    fn merge_cases() -> Vec<(Value, Value, Result<Value, ()>)> {
+        vec![
+            (json!({"merge": []}), json!({}), Ok(json!([]))),
+            (json!({"merge": [1]}), json!({}), Ok(json!([1]))),
+            (json!({"merge": [1, 2]}), json!({}), Ok(json!([1, 2]))),
+            (
+                json!({"merge": [[1, 2], 2]}),
+                json!({}),
+                Ok(json!([1, 2, 2])),
+            ),
+            (json!({"merge": [[1], [2]]}), json!({}), Ok(json!([1, 2]))),
+            (json!({"merge": [1, [2]]}), json!({}), Ok(json!([1, 2]))),
+            (
+                json!({"merge": [1, [2, [3, 4]]]}),
+                json!({}),
+                Ok(json!([1, 2, [3, 4]])),
+            ),
+            (
+                json!({"merge": [{"var": "foo"}, [2]]}),
+                json!({"foo": 1}),
+                Ok(json!([1, 2])),
+            ),
+            (json!({"merge": [[], [2]]}), json!(null), Ok(json!([2]))),
+            (
+                json!({"merge": [[[]], [2]]}),
+                json!(null),
+                Ok(json!([[], 2])),
+            ),
+            (json!({"merge": [{}, [2]]}), json!(null), Ok(json!([{}, 2]))),
+            (
+                json!({"merge": [{}, [2], 3, false]}),
+                json!(null),
+                Ok(json!([{}, 2, 3, false])),
+            ),
+        ]
+    }
+
     fn lt_cases() -> Vec<(Value, Value, Result<Value, ()>)> {
         vec![
             (json!({"<": [1, 2]}), json!({}), Ok(json!(true))),
@@ -1132,6 +1169,11 @@ mod jsonlogic_tests {
     #[test]
     fn test_none_op() {
         none_cases().into_iter().for_each(assert_jsonlogic)
+    }
+
+    #[test]
+    fn test_merge_op() {
+        merge_cases().into_iter().for_each(assert_jsonlogic)
     }
 
     #[test]
