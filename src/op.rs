@@ -527,11 +527,11 @@ fn op_reduce(data: &Value, args: &Vec<&Value>) -> Result<Value, Error> {
         })
 }
 
-// Return whether all members of an array or string satisfy a predicate.
-//
-// The predicate does not need to return true or false explicitly. Its
-// return is evaluated using the "truthy" definition specified in the
-// jsonlogic spec.
+/// Return whether all members of an array or string satisfy a predicate.
+///
+/// The predicate does not need to return true or false explicitly. Its
+/// return is evaluated using the "truthy" definition specified in the
+/// jsonlogic spec.
 fn op_all(data: &Value, args: &Vec<&Value>) -> Result<Value, Error> {
     let (first_arg, second_arg) = (args[0], args[1]);
 
@@ -590,6 +590,11 @@ fn op_all(data: &Value, args: &Vec<&Value>) -> Result<Value, Error> {
     Ok(Value::Bool(result))
 }
 
+/// Return whether some members of an array or string satisfy a predicate.
+///
+/// The predicate does not need to return true or false explicitly. Its
+/// return is evaluated using the "truthy" definition specified in the
+/// jsonlogic spec.
 fn op_some(data: &Value, args: &Vec<&Value>) -> Result<Value, Error> {
     let (first_arg, second_arg) = (args[0], args[1]);
 
@@ -648,6 +653,11 @@ fn op_some(data: &Value, args: &Vec<&Value>) -> Result<Value, Error> {
     Ok(Value::Bool(result))
 }
 
+/// Return whether no members of an array or string satisfy a predicate.
+///
+/// The predicate does not need to return true or false explicitly. Its
+/// return is evaluated using the "truthy" definition specified in the
+/// jsonlogic spec.
 fn op_none(data: &Value, args: &Vec<&Value>) -> Result<Value, Error> {
     op_some(data, args).and_then(|had_some| match had_some {
         Value::Bool(res) => Ok(Value::Bool(!res)),
@@ -657,21 +667,24 @@ fn op_none(data: &Value, args: &Vec<&Value>) -> Result<Value, Error> {
     })
 }
 
-/// Merge one to n arrays.
+/// Merge one to n arrays, flattening them by one level.
+///
+/// Values that are not arrays are (effectively) converted to arrays
+/// before flattening.
 fn op_merge(items: &Vec<&Value>) -> Result<Value, Error> {
     let rv_vec: Vec<Value> = Vec::new();
-    Ok(Value::Array(
-        items
-            .into_iter()
-            .map(|item| match item {
-                Value::Array(i_vals) => i_vals.clone(),
-                _ => vec![(**item).clone()],
-            })
-            .fold(rv_vec, |mut acc, i| {
-                i.into_iter().for_each(|val| acc.push(val));
-                acc
-            }),
-    ))
+    Ok(Value::Array(items.into_iter().fold(
+        rv_vec,
+        |mut acc, i| {
+            match i {
+                Value::Array(i_vals) => {
+                    i_vals.into_iter().for_each(|val| acc.push((*val).clone()));
+                }
+                _ => acc.push((**i).clone()),
+            };
+            acc
+        },
+    )))
 }
 
 fn compare<F>(func: F, items: &Vec<&Value>) -> Result<Value, Error>
