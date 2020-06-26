@@ -275,6 +275,11 @@ pub const LAZY_OPERATOR_MAP: phf::Map<&'static str, LazyOperator> = phf_map! {
         operator: op_all,
         num_params: NumParams::Exactly(2),
     },
+    "some" => LazyOperator {
+        symbol: "some",
+        operator: op_some,
+        num_params: NumParams::Exactly(2),
+    }
 };
 
 /// Implement the "if" operator
@@ -541,7 +546,7 @@ fn op_all(data: &Value, args: &Vec<&Value>) -> Result<Value, Error> {
             return Err(Error::InvalidArgument {
                 value: first_arg.clone(),
                 operation: "all".into(),
-                reason: "First argument to all must be an array".into(),
+                reason: "First argument to all must be an array or a string".into(),
             })
         }
     };
@@ -562,6 +567,64 @@ fn op_all(data: &Value, args: &Vec<&Value>) -> Result<Value, Error> {
             // "Short-circuit": return false if the previous eval was false
             if !res {
                 return Ok(false);
+            };
+            let _parsed_item = Parsed::from_value(i)?;
+            // Evaluate each item as we go, in case we can short-circuit
+            let evaluated_item = _parsed_item.evaluate(data)?;
+            Ok(truthy_from_evaluated(
+                &predicate.evaluate(&evaluated_item.into())?,
+            ))
+        })
+    })?;
+
+    Ok(Value::Bool(result))
+}
+
+fn op_some(data: &Value, args: &Vec<&Value>) -> Result<Value, Error> {
+    let (first_arg, second_arg) = (args[0], args[1]);
+
+    // The first argument must be an array of values or a string of chars
+    // We won't bother parsing them yet because we can short-circuit
+    // this function if any of them fail to match the predicate
+    let string_items: Vec<Value>;
+    // ^ we init this outside the loop so that the borrow checker knows it's
+    //   safe to return a reference to it (to match our reference to items)
+    //   rather than a value.
+    let items = match first_arg {
+        Value::Array(items) => items,
+        Value::String(string) => {
+            string_items = string
+                .chars()
+                .into_iter()
+                .map(|c| Value::String(c.to_string()))
+                .collect();
+            &string_items
+        }
+        _ => {
+            return Err(Error::InvalidArgument {
+                value: first_arg.clone(),
+                operation: "all".into(),
+                reason: "First argument to all must be an array or a string".into(),
+            })
+        }
+    };
+
+    // Special-case the empty array, since it for some reason is specified
+    // to return false.
+    if items.len() == 0 {
+        return Ok(Value::Bool(false));
+    }
+
+    // Note we _expect_ the predicate to be an operator, but it doesn't
+    // necessarily have to be. all([1, 2, 3], 1) is a valid operation,
+    // returning 1 for each of the items and thus evaluating to true.
+    let predicate = Parsed::from_value(second_arg)?;
+
+    let result = items.into_iter().fold(Ok(false), |acc, i| {
+        acc.and_then(|res| {
+            // "Short-circuit": return false if the previous eval was false
+            if res {
+                return Ok(true);
             };
             let _parsed_item = Parsed::from_value(i)?;
             // Evaluate each item as we go, in case we can short-circuit

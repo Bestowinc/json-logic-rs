@@ -651,6 +651,88 @@ mod jsonlogic_tests {
         ]
     }
 
+    fn some_cases() -> Vec<(Value, Value, Result<Value, ()>)> {
+        vec![
+            // Invalid first arguments
+            (json!({"some": [1, 1]}), json!({}), Err(())),
+            (json!({"some": [null, 1]}), json!({}), Err(())),
+            (json!({"some": [{}, 1]}), json!({}), Err(())),
+            (json!({"some": [false, 1]}), json!({}), Err(())),
+            // Empty array/string
+            (json!({"some": [[], 1]}), json!({}), Ok(json!(false))),
+            (json!({"some": ["", 1]}), json!({}), Ok(json!(false))),
+            // Constant predicate
+            (json!({"some": [[1, 2], 1]}), json!({}), Ok(json!(true))),
+            (json!({"some": [[1, 2], 0]}), json!({}), Ok(json!(false))),
+            // Simple predicate
+            (
+                json!({"some": [[-5, 2], {">": [{"var": ""}, 0]}]}),
+                json!({}),
+                Ok(json!(true)),
+            ),
+            (
+                json!({"some": [[-3, 1, 2, -1], {">": [{"var": ""}, 0]}]}),
+                json!({}),
+                Ok(json!(true)),
+            ),
+            (
+                json!({"some": ["aaaa", {"===": [{"var": ""}, "a"]}]}),
+                json!({}),
+                Ok(json!(true)),
+            ),
+            (
+                json!({"some": ["aabaa", {"===": [{"var": ""}, "a"]}]}),
+                json!({}),
+                Ok(json!(true)),
+            ),
+            (
+                json!({"some": ["cdefg", {"===": [{"var": ""}, "a"]}]}),
+                json!({}),
+                Ok(json!(false)),
+            ),
+            // Expression in array
+            (
+                json!({"some": [[-6, {"+": [1, 1]}], {">": [{"var": ""}, 0]}]}),
+                json!({}),
+                Ok(json!(true)),
+            ),
+            (
+                json!({"some": [[-5, {"+": [-2, 1]}], {">": [{"var": ""}, 0]}]}),
+                json!({}),
+                Ok(json!(false)),
+            ),
+            // Validate short-circuit
+            (
+                // The equality expression is invalid and would return an
+                // Err if parsed, b/c it has an invalid number of arguments.
+                // Since the value before it validates the predicate, though,
+                // we should never attempt to evaluate it.
+                json!({"some": [[1, {"==": []}], {">": [{"var": ""}, 0]}]}),
+                json!({}),
+                Ok(json!(true)),
+            ),
+            (
+                // Same as above, but put the error before the invalidating
+                // value just to make sure our hypothesis is correct re:
+                // getting an error
+                json!({"some": [[-51, {"==": []}, -1], {">": [{"var": ""}, 0]}]}),
+                json!({}),
+                Err(()),
+            ),
+            // Parse data in array
+            (
+                json!({"some": [[-4, {"var": "foo"}], {">": [{"var": ""}, 0]}]}),
+                json!({"foo": 1}),
+                Ok(json!(true)),
+            ),
+            (
+                json!({"some": [[-4, {"var": "foo"}], {">": [{"var": ""}, 0]}]}),
+                json!({"foo": -5}),
+                Ok(json!(false)),
+            ),
+        ]
+    }
+
     fn lt_cases() -> Vec<(Value, Value, Result<Value, ()>)> {
         vec![
             (json!({"<": [1, 2]}), json!({}), Ok(json!(true))),
@@ -958,6 +1040,11 @@ mod jsonlogic_tests {
     #[test]
     fn test_all_op() {
         all_cases().into_iter().for_each(assert_jsonlogic)
+    }
+
+    #[test]
+    fn test_some_op() {
+        some_cases().into_iter().for_each(assert_jsonlogic)
     }
 
     #[test]
