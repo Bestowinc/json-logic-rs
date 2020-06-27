@@ -14,14 +14,13 @@
                     "--no-run",
                     "--lib",
                     "--package=jsonlogic"
-                ],
-                "filter": {
-                    "name": "jsonlogic",
-                    "kind": "lib"
-                }
+                ]
             },
             "args": [],
-            "cwd": "${workspaceFolder}"
+            "cwd": "${workspaceFolder}",
+            "sourceLanguages": [
+                "rust"
+            ]
         }
     ]
 }
