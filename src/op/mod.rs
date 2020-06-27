@@ -1,5 +1,13 @@
 //! Operators
 //!
+//! This module contains the global operator map, which defines the available
+//! JsonLogic operations. Note that some "operations", notably data-related
+//! operations like "var" and "missing", are not included here, because they are
+//! implemented as parsers rather than operators.
+
+// TODO: it's possible that "missing", "var", et al. could be implemented
+// as operators. They were originally done differently because there wasn't
+// yet a LazyOperator concept.
 
 use phf::phf_map;
 use serde_json::{Map, Number, Value};
@@ -12,6 +20,7 @@ use crate::{js_op, Parser};
 mod array;
 mod logic;
 mod numeric;
+mod string;
 
 pub const OPERATOR_MAP: phf::Map<&'static str, Operator> = phf_map! {
     "==" => Operator {
@@ -163,6 +172,11 @@ pub const OPERATOR_MAP: phf::Map<&'static str, Operator> = phf_map! {
         symbol: "in",
         operator: array::in_,
         num_params: NumParams::Exactly(2),
+    },
+    "cat" => Operator {
+        symbol: "cat",
+        operator: string::cat,
+        num_params: NumParams::Any,
     },
 };
 

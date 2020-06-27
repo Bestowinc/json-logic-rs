@@ -852,6 +852,17 @@ mod jsonlogic_tests {
         ]
     }
 
+    fn cat_cases() -> Vec<(Value, Value, Result<Value, ()>)> {
+        vec![
+            (json!({"cat": []}), json!({}), Ok(json!(""))),
+            (json!({"cat": [1]}), json!({}), Err(())),
+            (json!({"cat": ["a"]}), json!({}), Ok(json!("a"))),
+            (json!({"cat": ["a", "b"]}), json!({}), Ok(json!("ab"))),
+            (json!({"cat": ["a", "b", "c"]}), json!({}), Ok(json!("abc"))),
+            (json!({"cat": ["a", "b", 1]}), json!({}), Err(())),
+        ]
+    }
+
     fn lt_cases() -> Vec<(Value, Value, Result<Value, ()>)> {
         vec![
             (json!({"<": [1, 2]}), json!({}), Ok(json!(true))),
@@ -1174,6 +1185,11 @@ mod jsonlogic_tests {
     #[test]
     fn test_merge_op() {
         merge_cases().into_iter().for_each(assert_jsonlogic)
+    }
+
+    #[test]
+    fn test_cat_op() {
+        cat_cases().into_iter().for_each(assert_jsonlogic)
     }
 
     #[test]

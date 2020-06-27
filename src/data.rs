@@ -1,5 +1,8 @@
 //! Data functions and operators
-//!
+
+// TODO: it's possible that "missing", "var", et al. could be implemented
+// as operators. They were originally done as parsers because there wasn't
+// yet a LazyOperator concept.
 
 use crate::error::Error;
 use crate::value::Evaluated;
