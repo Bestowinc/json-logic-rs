@@ -178,6 +178,11 @@ pub const OPERATOR_MAP: phf::Map<&'static str, Operator> = phf_map! {
         operator: string::cat,
         num_params: NumParams::Any,
     },
+    "substr" => Operator {
+        symbol: "substr",
+        operator: string::substr,
+        num_params: NumParams::Variadic(2..4)
+    },
 };
 
 pub const LAZY_OPERATOR_MAP: phf::Map<&'static str, LazyOperator> = phf_map! {
@@ -235,7 +240,7 @@ pub enum NumParams {
     Unary,
     Exactly(usize),
     AtLeast(usize),
-    Variadic(std::ops::Range<usize>),
+    Variadic(std::ops::Range<usize>), // [inclusive, exclusive)
 }
 impl NumParams {
     fn is_valid_len(&self, len: &usize) -> bool {

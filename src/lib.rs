@@ -863,6 +863,83 @@ mod jsonlogic_tests {
         ]
     }
 
+    fn substr_cases() -> Vec<(Value, Value, Result<Value, ()>)> {
+        vec![
+            // Wrong number of arguments
+            (json!({"substr": []}), json!({}), Err(())),
+            (json!({"substr": ["foo"]}), json!({}), Err(())),
+            (json!({"substr": ["foo", 1, 2, 3]}), json!({}), Err(())),
+            // Wrong argument types
+            (json!({"substr": [12, 1]}), json!({}), Err(())),
+            (json!({"substr": ["foo", "12"]}), json!({}), Err(())),
+            // Non-negative indices
+            (json!({"substr": ["foo", 0]}), json!({}), Ok(json!("foo"))),
+            (json!({"substr": ["foo", 1]}), json!({}), Ok(json!("oo"))),
+            (json!({"substr": ["foo", 2]}), json!({}), Ok(json!("o"))),
+            // Negative indices
+            (json!({"substr": ["foo", -1]}), json!({}), Ok(json!("o"))),
+            (json!({"substr": ["foo", -2]}), json!({}), Ok(json!("oo"))),
+            (json!({"substr": ["foo", -3]}), json!({}), Ok(json!("foo"))),
+            // Out-of-bounds indices
+            (json!({"substr": ["foo", 3]}), json!({}), Ok(json!(""))),
+            (json!({"substr": ["foo", 20]}), json!({}), Ok(json!(""))),
+            (json!({"substr": ["foo", -4]}), json!({}), Ok(json!("foo"))),
+            // Non-negative Limits
+            (json!({"substr": ["foo", 0, 1]}), json!({}), Ok(json!("f"))),
+            (
+                json!({"substr": ["foo", 0, 3]}),
+                json!({}),
+                Ok(json!("foo")),
+            ),
+            (json!({"substr": ["foo", 0, 0]}), json!({}), Ok(json!(""))),
+            (json!({"substr": ["foo", 1, 1]}), json!({}), Ok(json!("o"))),
+            // Negative Limits
+            (
+                json!({"substr": ["foo", 0, -1]}),
+                json!({}),
+                Ok(json!("fo")),
+            ),
+            (json!({"substr": ["foo", 0, -2]}), json!({}), Ok(json!("f"))),
+            (json!({"substr": ["foo", 0, -3]}), json!({}), Ok(json!(""))),
+            // Out-of-bounds limits
+            (
+                json!({"substr": ["foo", 0, 10]}),
+                json!({}),
+                Ok(json!("foo")),
+            ),
+            (json!({"substr": ["foo", 0, -10]}), json!({}), Ok(json!(""))),
+            // Negative indices with negative limits
+            (
+                json!({"substr": ["foo", -3, -2]}),
+                json!({}),
+                Ok(json!("f")),
+            ),
+            // Negative indices with positive limits
+            (
+                json!({"substr": ["foo", -3, 2]}),
+                json!({}),
+                Ok(json!("fo")),
+            ),
+            // Out-of-bounds indices with out-of-bounds limits
+            (json!({"substr": ["foo", 10, 10]}), json!({}), Ok(json!(""))),
+            (
+                json!({"substr": ["foo", 10, -10]}),
+                json!({}),
+                Ok(json!("")),
+            ),
+            (
+                json!({"substr": ["foo", -10, 10]}),
+                json!({}),
+                Ok(json!("foo")),
+            ),
+            (
+                json!({"substr": ["foo", -10, -10]}),
+                json!({}),
+                Ok(json!("")),
+            ),
+        ]
+    }
+
     fn lt_cases() -> Vec<(Value, Value, Result<Value, ()>)> {
         vec![
             (json!({"<": [1, 2]}), json!({}), Ok(json!(true))),
@@ -1190,6 +1267,11 @@ mod jsonlogic_tests {
     #[test]
     fn test_cat_op() {
         cat_cases().into_iter().for_each(assert_jsonlogic)
+    }
+
+    #[test]
+    fn test_substr_op() {
+        substr_cases().into_iter().for_each(assert_jsonlogic)
     }
 
     #[test]
