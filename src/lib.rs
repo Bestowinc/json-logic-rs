@@ -940,6 +940,17 @@ mod jsonlogic_tests {
         ]
     }
 
+    fn log_cases() -> Vec<(Value, Value, Result<Value, ()>)> {
+        vec![
+            // Invalid number of arguments
+            (json!({"log": []}), json!({}), Err(())),
+            (json!({"log": [1, 2]}), json!({}), Err(())),
+            // Correct number of arguments
+            (json!({"log": [1]}), json!({}), Ok(json!(1))),
+            (json!({"log": 1}), json!({}), Ok(json!(1))),
+        ]
+    }
+
     fn lt_cases() -> Vec<(Value, Value, Result<Value, ()>)> {
         vec![
             (json!({"<": [1, 2]}), json!({}), Ok(json!(true))),
@@ -1272,6 +1283,11 @@ mod jsonlogic_tests {
     #[test]
     fn test_substr_op() {
         substr_cases().into_iter().for_each(assert_jsonlogic)
+    }
+
+    #[test]
+    fn test_log_op() {
+        log_cases().into_iter().for_each(assert_jsonlogic)
     }
 
     #[test]

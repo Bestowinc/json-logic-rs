@@ -18,6 +18,7 @@ use crate::value::{Evaluated, Parsed};
 use crate::{js_op, Parser};
 
 mod array;
+mod impure;
 mod logic;
 mod numeric;
 mod string;
@@ -181,7 +182,12 @@ pub const OPERATOR_MAP: phf::Map<&'static str, Operator> = phf_map! {
     "substr" => Operator {
         symbol: "substr",
         operator: string::substr,
-        num_params: NumParams::Variadic(2..4)
+        num_params: NumParams::Variadic(2..4),
+    },
+    "log" => Operator {
+        symbol: "log",
+        operator: impure::log,
+        num_params: NumParams::Unary,
     },
 };
 

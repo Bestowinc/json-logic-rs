@@ -1,11 +1,11 @@
 //! String Operations
 
-use crate::NULL;
 use serde_json::Value;
 use std::cmp;
 use std::convert::TryInto;
 
 use crate::error::Error;
+use crate::NULL;
 
 /// Concatenate strings.
 ///
