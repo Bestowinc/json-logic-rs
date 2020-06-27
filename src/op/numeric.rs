@@ -19,27 +19,27 @@ where
 }
 
 /// Do < for either 2 or 3 values
-pub fn op_lt(items: &Vec<&Value>) -> Result<Value, Error> {
+pub fn lt(items: &Vec<&Value>) -> Result<Value, Error> {
     compare(js_op::abstract_lt, items)
 }
 
 /// Do <= for either 2 or 3 values
-pub fn op_lte(items: &Vec<&Value>) -> Result<Value, Error> {
+pub fn lte(items: &Vec<&Value>) -> Result<Value, Error> {
     compare(js_op::abstract_lte, items)
 }
 
 /// Do > for either 2 or 3 values
-pub fn op_gt(items: &Vec<&Value>) -> Result<Value, Error> {
+pub fn gt(items: &Vec<&Value>) -> Result<Value, Error> {
     compare(js_op::abstract_gt, items)
 }
 
 /// Do >= for either 2 or 3 values
-pub fn op_gte(items: &Vec<&Value>) -> Result<Value, Error> {
+pub fn gte(items: &Vec<&Value>) -> Result<Value, Error> {
     compare(js_op::abstract_gte, items)
 }
 
 /// Perform subtraction or convert a number to a negative
-pub fn op_minus(items: &Vec<&Value>) -> Result<Value, Error> {
+pub fn minus(items: &Vec<&Value>) -> Result<Value, Error> {
     let value = if items.len() == 1 {
         js_op::to_negative(items[0])?
     } else {

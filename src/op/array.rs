@@ -10,7 +10,7 @@ use crate::op::logic;
 use crate::value::{Evaluated, Parsed};
 
 /// Map an operation onto values
-pub fn op_map(data: &Value, args: &Vec<&Value>) -> Result<Value, Error> {
+pub fn map(data: &Value, args: &Vec<&Value>) -> Result<Value, Error> {
     let (items, expression) = (args[0], args[1]);
 
     let _parsed = Parsed::from_value(items)?;
@@ -41,7 +41,7 @@ pub fn op_map(data: &Value, args: &Vec<&Value>) -> Result<Value, Error> {
 }
 
 /// Filter values by some predicate
-pub fn op_filter(data: &Value, args: &Vec<&Value>) -> Result<Value, Error> {
+pub fn filter(data: &Value, args: &Vec<&Value>) -> Result<Value, Error> {
     let (items, expression) = (args[0], args[1]);
 
     let _parsed = Parsed::from_value(items)?;
@@ -87,7 +87,7 @@ pub fn op_filter(data: &Value, args: &Vec<&Value>) -> Result<Value, Error> {
 /// Note this differs from the reference implementation of jsonlogic
 /// (but not the spec), in that it evaluates the initializer as a
 /// jsonlogic expression rather than a raw value.
-pub fn op_reduce(data: &Value, args: &Vec<&Value>) -> Result<Value, Error> {
+pub fn reduce(data: &Value, args: &Vec<&Value>) -> Result<Value, Error> {
     let (items, expression, initializer) = (args[0], args[1], args[2]);
 
     let _parsed_items = Parsed::from_value(items)?;
@@ -132,7 +132,7 @@ pub fn op_reduce(data: &Value, args: &Vec<&Value>) -> Result<Value, Error> {
 /// The predicate does not need to return true or false explicitly. Its
 /// return is evaluated using the "truthy" definition specified in the
 /// jsonlogic spec.
-pub fn op_all(data: &Value, args: &Vec<&Value>) -> Result<Value, Error> {
+pub fn all(data: &Value, args: &Vec<&Value>) -> Result<Value, Error> {
     let (first_arg, second_arg) = (args[0], args[1]);
 
     // The first argument must be an array of values or a string of chars
@@ -195,7 +195,7 @@ pub fn op_all(data: &Value, args: &Vec<&Value>) -> Result<Value, Error> {
 /// The predicate does not need to return true or false explicitly. Its
 /// return is evaluated using the "truthy" definition specified in the
 /// jsonlogic spec.
-pub fn op_some(data: &Value, args: &Vec<&Value>) -> Result<Value, Error> {
+pub fn some(data: &Value, args: &Vec<&Value>) -> Result<Value, Error> {
     let (first_arg, second_arg) = (args[0], args[1]);
 
     // The first argument must be an array of values or a string of chars
@@ -258,8 +258,8 @@ pub fn op_some(data: &Value, args: &Vec<&Value>) -> Result<Value, Error> {
 /// The predicate does not need to return true or false explicitly. Its
 /// return is evaluated using the "truthy" definition specified in the
 /// jsonlogic spec.
-pub fn op_none(data: &Value, args: &Vec<&Value>) -> Result<Value, Error> {
-    op_some(data, args).and_then(|had_some| match had_some {
+pub fn none(data: &Value, args: &Vec<&Value>) -> Result<Value, Error> {
+    some(data, args).and_then(|had_some| match had_some {
         Value::Bool(res) => Ok(Value::Bool(!res)),
         _ => Err(Error::UnexpectedError(
             "Unexpected return type from op_some".into(),
@@ -271,7 +271,7 @@ pub fn op_none(data: &Value, args: &Vec<&Value>) -> Result<Value, Error> {
 ///
 /// Values that are not arrays are (effectively) converted to arrays
 /// before flattening.
-pub fn op_merge(items: &Vec<&Value>) -> Result<Value, Error> {
+pub fn merge(items: &Vec<&Value>) -> Result<Value, Error> {
     let rv_vec: Vec<Value> = Vec::new();
     Ok(Value::Array(items.into_iter().fold(
         rv_vec,
@@ -290,7 +290,7 @@ pub fn op_merge(items: &Vec<&Value>) -> Result<Value, Error> {
 /// Perform containment checks with "in"
 // TODO: make this a lazy operator, since we don't need to parse things
 // later on in the list if we find something that matches early.
-pub fn op_in(items: &Vec<&Value>) -> Result<Value, Error> {
+pub fn in_(items: &Vec<&Value>) -> Result<Value, Error> {
     let needle = items[0];
     let haystack = items[1];
 

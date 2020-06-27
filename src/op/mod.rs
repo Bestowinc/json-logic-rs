@@ -52,12 +52,12 @@ pub const OPERATOR_MAP: phf::Map<&'static str, Operator> = phf_map! {
     },
     "<" => Operator {
         symbol: "<",
-        operator: numeric::op_lt,
+        operator: numeric::lt,
         num_params: NumParams::Variadic(2..4),
     },
     "<=" => Operator {
         symbol: "<=",
-        operator: numeric::op_lte,
+        operator: numeric::lte,
         num_params: NumParams::Variadic(2..4),
     },
     // Note: this is actually an _expansion_ on the specification and the
@@ -65,16 +65,16 @@ pub const OPERATOR_MAP: phf::Map<&'static str, Operator> = phf_map! {
     // for 2-3 arguments, with 3 arguments doing a "between" style test,
     // e.g. `1 < 2 < 3 == true`. However, this isn't explicitly supported
     // for > and >=, and the reference implementation simply ignores any
-    // third value for these operators. This to me validates the principle
+    // third value for these operators. This to me violates the principle
     // of least surprise, so we do support those operations.
     ">" => Operator {
         symbol: ">",
-        operator: numeric::op_gt,
+        operator: numeric::gt,
         num_params: NumParams::Variadic(2..4),
     },
     ">=" => Operator {
         symbol: ">=",
-        operator: numeric::op_gte,
+        operator: numeric::gte,
         num_params: NumParams::Variadic(2..4),
     },
     "+" => Operator {
@@ -91,7 +91,7 @@ pub const OPERATOR_MAP: phf::Map<&'static str, Operator> = phf_map! {
     },
     "-" => Operator {
         symbol: "-",
-        operator: numeric::op_minus,
+        operator: numeric::minus,
         num_params: NumParams::Variadic(1..3),
     },
     "*" => Operator {
@@ -156,12 +156,12 @@ pub const OPERATOR_MAP: phf::Map<&'static str, Operator> = phf_map! {
     },
     "merge" => Operator {
         symbol: "merge",
-        operator: array::op_merge,
+        operator: array::merge,
         num_params: NumParams::Any,
     },
     "in" => Operator {
         symbol: "in",
-        operator: array::op_in,
+        operator: array::in_,
         num_params: NumParams::Exactly(2),
     },
 };
@@ -169,47 +169,47 @@ pub const OPERATOR_MAP: phf::Map<&'static str, Operator> = phf_map! {
 pub const LAZY_OPERATOR_MAP: phf::Map<&'static str, LazyOperator> = phf_map! {
     "if" => LazyOperator {
         symbol: "if",
-        operator: logic::op_if,
+        operator: logic::if_,
         num_params: NumParams::AtLeast(3),
     },
     "or" => LazyOperator {
         symbol: "or",
-        operator: logic::op_or,
+        operator: logic::or,
         num_params: NumParams::AtLeast(1),
     },
     "and" => LazyOperator {
         symbol: "and",
-        operator: logic::op_and,
+        operator: logic::and,
         num_params: NumParams::AtLeast(1),
     },
     "map" => LazyOperator {
         symbol: "map",
-        operator: array::op_map,
+        operator: array::map,
         num_params: NumParams::Exactly(2),
     },
     "filter" => LazyOperator {
         symbol: "filter",
-        operator: array::op_filter,
+        operator: array::filter,
         num_params: NumParams::Exactly(2),
     },
     "reduce" => LazyOperator {
         symbol: "reduce",
-        operator: array::op_reduce,
+        operator: array::reduce,
         num_params: NumParams::Exactly(3),
     },
     "all" => LazyOperator {
         symbol: "all",
-        operator: array::op_all,
+        operator: array::all,
         num_params: NumParams::Exactly(2),
     },
     "some" => LazyOperator {
         symbol: "some",
-        operator: array::op_some,
+        operator: array::some,
         num_params: NumParams::Exactly(2),
     },
     "none" => LazyOperator {
         symbol: "none",
-        operator: array::op_none,
+        operator: array::none,
         num_params: NumParams::Exactly(2),
     },
 };

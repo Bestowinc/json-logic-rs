@@ -12,7 +12,7 @@ use crate::NULL;
 /// However, it can lso work like:
 ///     [condition, true, condition2, true2, false2]
 ///     for an if/elseif/else type of operation
-pub fn op_if(data: &Value, args: &Vec<&Value>) -> Result<Value, Error> {
+pub fn if_(data: &Value, args: &Vec<&Value>) -> Result<Value, Error> {
     args.into_iter()
         .enumerate()
         .fold(Ok((NULL, false, false)), |last_res, (i, val)| {
@@ -51,7 +51,7 @@ pub fn op_if(data: &Value, args: &Vec<&Value>) -> Result<Value, Error> {
 }
 
 /// Perform short-circuiting or evaluation
-pub fn op_or(data: &Value, args: &Vec<&Value>) -> Result<Value, Error> {
+pub fn or(data: &Value, args: &Vec<&Value>) -> Result<Value, Error> {
     enum OrResult {
         Uninitialized,
         Truthy(Value),
@@ -88,7 +88,7 @@ pub fn op_or(data: &Value, args: &Vec<&Value>) -> Result<Value, Error> {
 }
 
 /// Perform short-circuiting and evaluation
-pub fn op_and(data: &Value, args: &Vec<&Value>) -> Result<Value, Error> {
+pub fn and(data: &Value, args: &Vec<&Value>) -> Result<Value, Error> {
     enum AndResult {
         Uninitialized,
         Falsey(Value),
