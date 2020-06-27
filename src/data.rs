@@ -378,7 +378,7 @@ fn keys_from_val<'a>(val: &'a Value) -> Result<Vec<KeyType<'a>>, Error> {
                             Value::Number(_) => acc,
                             _ => Err(Error::InvalidOperation{
                                 key: "missing".into(),
-                                reason: format!("All 'missing' parameter must be of the same type. Expected Number, got {:?}.", each)
+                                reason: format!("All 'missing' parameters must be of the same type. Expected Number, got {:?}.", each)
                             })
                         }
                     })?;
