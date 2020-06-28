@@ -150,21 +150,33 @@ pub fn all(data: &Value, args: &Vec<&Value>) -> Result<Value, Error> {
     let (first_arg, second_arg) = (args[0], args[1]);
 
     // The first argument must be an array of values or a string of chars
-    // We won't bother parsing them yet because we can short-circuit
-    // this function if any of them fail to match the predicate
-    let string_items: Vec<Value>;
-    // ^ we init this outside the loop so that the borrow checker knows it's
-    //   safe to return a reference to it (to match our reference to items)
-    //   rather than a value.
-    let items = match first_arg {
+    // We won't bother parsing yet if the value is anything other than
+    // an object, because we can short-circuit this function if any of
+    // the items fail to match the predicate. However, we will parse
+    // if it's an object, in case it evaluates to a string or array, which
+    // we will then pass on
+
+    let _new_item: Value;
+    let potentially_evaled_first_arg = match first_arg {
+        Value::Object(_) => {
+            let parsed = Parsed::from_value(first_arg)?;
+            let evaluated = parsed.evaluate(data)?;
+            _new_item = evaluated.into();
+            &_new_item
+        }
+        _ => first_arg,
+    };
+
+    let _new_arr: Vec<Value>;
+    let items = match potentially_evaled_first_arg {
         Value::Array(items) => items,
         Value::String(string) => {
-            string_items = string
+            _new_arr = string
                 .chars()
                 .into_iter()
                 .map(|c| Value::String(c.to_string()))
                 .collect();
-            &string_items
+            &_new_arr
         }
         _ => {
             return Err(Error::InvalidArgument {
@@ -213,21 +225,33 @@ pub fn some(data: &Value, args: &Vec<&Value>) -> Result<Value, Error> {
     let (first_arg, second_arg) = (args[0], args[1]);
 
     // The first argument must be an array of values or a string of chars
-    // We won't bother parsing them yet because we can short-circuit
-    // this function if any of them fail to match the predicate
-    let string_items: Vec<Value>;
-    // ^ we init this outside the loop so that the borrow checker knows it's
-    //   safe to return a reference to it (to match our reference to items)
-    //   rather than a value.
-    let items = match first_arg {
+    // We won't bother parsing yet if the value is anything other than
+    // an object, because we can short-circuit this function if any of
+    // the items fail to match the predicate. However, we will parse
+    // if it's an object, in case it evaluates to a string or array, which
+    // we will then pass on
+
+    let _new_item: Value;
+    let potentially_evaled_first_arg = match first_arg {
+        Value::Object(_) => {
+            let parsed = Parsed::from_value(first_arg)?;
+            let evaluated = parsed.evaluate(data)?;
+            _new_item = evaluated.into();
+            &_new_item
+        }
+        _ => first_arg,
+    };
+
+    let _new_arr: Vec<Value>;
+    let items = match potentially_evaled_first_arg {
         Value::Array(items) => items,
         Value::String(string) => {
-            string_items = string
+            _new_arr = string
                 .chars()
                 .into_iter()
                 .map(|c| Value::String(c.to_string()))
                 .collect();
-            &string_items
+            &_new_arr
         }
         _ => {
             return Err(Error::InvalidArgument {
