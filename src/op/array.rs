@@ -19,6 +19,10 @@ pub fn map(data: &Value, args: &Vec<&Value>) -> Result<Value, Error> {
     let values: Vec<&Value> = match evaluated_items {
         Evaluated::New(Value::Array(ref vals)) => vals.iter().collect(),
         Evaluated::Raw(Value::Array(vals)) => vals.iter().collect(),
+        // null is treated as an empty array in the reference tests,
+        // for whatever reason
+        Evaluated::New(Value::Null) => vec![],
+        Evaluated::Raw(Value::Null) => vec![],
         _ => {
             return Err(Error::InvalidArgument {
                 value: args[0].clone(),
@@ -49,7 +53,13 @@ pub fn filter(data: &Value, args: &Vec<&Value>) -> Result<Value, Error> {
 
     let values: Vec<Value> = match evaluated_items {
         Evaluated::New(Value::Array(vals)) => vals,
-        Evaluated::Raw(Value::Array(vals)) => vals.into_iter().map(|v| v.clone()).collect(),
+        Evaluated::Raw(Value::Array(vals)) => {
+            vals.into_iter().map(|v| v.clone()).collect()
+        }
+        // null is treated as an empty array in the reference tests,
+        // for whatever reason
+        Evaluated::New(Value::Null) => vec![],
+        Evaluated::Raw(Value::Null) => vec![],
         _ => {
             return Err(Error::InvalidArgument {
                 value: args[0].clone(),
@@ -99,6 +109,10 @@ pub fn reduce(data: &Value, args: &Vec<&Value>) -> Result<Value, Error> {
     let values: Vec<Value> = match evaluated_items {
         Evaluated::New(Value::Array(vals)) => vals,
         Evaluated::Raw(Value::Array(vals)) => vals.iter().map(|v| v.clone()).collect(),
+        // null is treated as an empty array in the reference tests,
+        // for whatever reason
+        Evaluated::New(Value::Null) => vec![],
+        Evaluated::Raw(Value::Null) => vec![],
         _ => {
             return Err(Error::InvalidArgument {
                 value: args[0].clone(),
