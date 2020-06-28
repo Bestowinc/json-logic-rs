@@ -91,10 +91,7 @@ pub fn var(data: &Value, args: &Vec<&Value>) -> Result<Value, Error> {
         return Ok(data.clone());
     };
 
-    // The key may be a json-logic expression, so we'll evaluate it.
-    let _key_arg: Parsed = Parsed::from_value(args[0])?;
-    let key = KeyType::try_from(_key_arg.evaluate(data)?)?;
-
+    let key = args[0].try_into()?;
     let val = get_key(data, key);
 
     Ok(val.unwrap_or(if arg_count < 2 {
@@ -108,11 +105,29 @@ pub fn var(data: &Value, args: &Vec<&Value>) -> Result<Value, Error> {
 /// Check for keys that are missing from the data
 pub fn missing(data: &Value, args: &Vec<&Value>) -> Result<Value, Error> {
     let mut missing_keys: Vec<Value> = Vec::new();
-    args.into_iter().fold(Ok(()), |had_error, arg| {
+
+    // This bit of insanity is because for some reason the reference
+    // implementation is tested to do this, i.e. if missing is passed
+    // multiple args and the first arg is an array, _that_ array is
+    // treated as the only argument.
+    let inner_vec: Vec<&Value>;
+    let adjusted_args = if args.len() > 0 {
+        match args[0] {
+            Value::Array(vals) => {
+                inner_vec = vals.iter().collect();
+                &inner_vec
+            }
+            _ => args,
+        }
+    } else {
+        args
+    };
+
+    adjusted_args.into_iter().fold(Ok(()), |had_error, arg| {
         had_error?;
-        let _parsed_arg = Parsed::from_value(arg)?;
-        let evaluated = _parsed_arg.evaluate(data)?;
-        let key: KeyType = evaluated.try_into()?;
+        // let _parsed_arg = Parsed::from_value(arg)?;
+        // let evaluated = _parsed_arg.evaluate(data)?;
+        let key: KeyType = (*arg).try_into()?;
         match key {
             KeyType::Null => Ok(()),
             _ => {
