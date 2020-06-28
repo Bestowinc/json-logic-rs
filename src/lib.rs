@@ -69,8 +69,10 @@ pub mod python_iface {
     });
 
     fn jsonlogic(value: &str, data: &str) -> Result<String, String> {
-        let value_json = serde_json::from_str(value).map_err(|err| format!("{:?}", err))?;
-        let data_json = serde_json::from_str(data).map_err(|err| format!("{:?}", err))?;
+        let value_json =
+            serde_json::from_str(value).map_err(|err| format!("{:?}", err))?;
+        let data_json =
+            serde_json::from_str(data).map_err(|err| format!("{:?}", err))?;
 
         crate::jsonlogic(&value_json, &data_json)
             .map_err(|err| format!("{:?}", err))
@@ -438,7 +440,7 @@ mod jsonlogic_tests {
             (
                 json!({"map": [[1, 2, 3], {"*": [{"var": ""}, 2]}]}),
                 json!(null),
-                Ok(json!([2.0, 4.0, 6.0])),
+                Ok(json!([2, 4, 6])),
             ),
             (
                 json!({"map": [[], {"*": [{"var": ""}, 2]}]}),
@@ -448,12 +450,12 @@ mod jsonlogic_tests {
             (
                 json!({"map": [{"var": "vals"}, {"*": [{"var": ""}, 2]}]}),
                 json!({"vals": [1, 2, 3]}),
-                Ok(json!([2.0, 4.0, 6.0])),
+                Ok(json!([2, 4, 6])),
             ),
             (
                 json!({"map": [{"var": ""}, {"*": [{"var": ""}, 2]}]}),
                 json!([1, 2, 3]),
-                Ok(json!([2.0, 4.0, 6.0])),
+                Ok(json!([2, 4, 6])),
             ),
             (
                 json!({"map": [[true, 2, 0, [], {}], {"!!": [{"var": ""}]}]}),
@@ -519,7 +521,7 @@ mod jsonlogic_tests {
                     ]}
                 ),
                 json!(null),
-                Ok(json!(15.0)),
+                Ok(json!(15)),
             ),
             (
                 json!(
@@ -530,7 +532,7 @@ mod jsonlogic_tests {
                     ]}
                 ),
                 json!({"vals": [1, 2, 3, 4, 5]}),
-                Ok(json!(15.0)),
+                Ok(json!(15)),
             ),
             (
                 json!(
@@ -541,7 +543,7 @@ mod jsonlogic_tests {
                     ]}
                 ),
                 json!({"vals": [1, 2, 3, 4, 5], "init": 0}),
-                Ok(json!(15.0)),
+                Ok(json!(15)),
             ),
             (
                 json!(
@@ -855,11 +857,11 @@ mod jsonlogic_tests {
     fn cat_cases() -> Vec<(Value, Value, Result<Value, ()>)> {
         vec![
             (json!({"cat": []}), json!({}), Ok(json!(""))),
-            (json!({"cat": [1]}), json!({}), Err(())),
+            (json!({"cat": [1]}), json!({}), Ok(json!("1"))),
             (json!({"cat": ["a"]}), json!({}), Ok(json!("a"))),
             (json!({"cat": ["a", "b"]}), json!({}), Ok(json!("ab"))),
             (json!({"cat": ["a", "b", "c"]}), json!({}), Ok(json!("abc"))),
-            (json!({"cat": ["a", "b", 1]}), json!({}), Err(())),
+            (json!({"cat": ["a", "b", 1]}), json!({}), Ok(json!("ab1"))),
         ]
     }
 
@@ -984,49 +986,49 @@ mod jsonlogic_tests {
 
     fn plus_cases() -> Vec<(Value, Value, Result<Value, ()>)> {
         vec![
-            (json!({"+": []}), json!({}), Ok(json!(0.0))),
-            (json!({"+": [1]}), json!({}), Ok(json!(1.0))),
-            (json!({"+": ["1"]}), json!({}), Ok(json!(1.0))),
-            (json!({"+": [1, 1]}), json!({}), Ok(json!(2.0))),
-            (json!({"+": [1, 1, 1]}), json!({}), Ok(json!(3.0))),
+            (json!({"+": []}), json!({}), Ok(json!(0))),
+            (json!({"+": [1]}), json!({}), Ok(json!(1))),
+            (json!({"+": ["1"]}), json!({}), Ok(json!(1))),
+            (json!({"+": [1, 1]}), json!({}), Ok(json!(2))),
+            (json!({"+": [1, 1, 1]}), json!({}), Ok(json!(3))),
             (json!({"+": [1, 1, false]}), json!({}), Err(())),
-            (json!({"+": [1, 1, "1"]}), json!({}), Ok(json!(3.0))),
+            (json!({"+": [1, 1, "1"]}), json!({}), Ok(json!(3))),
             (
                 json!({"+": [1, 1, "123abc"]}), // WHY???
                 json!({}),
-                Ok(json!(125.0)),
+                Ok(json!(125)),
             ),
         ]
     }
 
     fn minus_cases() -> Vec<(Value, Value, Result<Value, ()>)> {
         vec![
-            (json!({"-": "5"}), json!({}), Ok(json!(-5.0))),
-            (json!({"-": [2]}), json!({}), Ok(json!(-2.0))),
-            (json!({"-": [2, 2]}), json!({}), Ok(json!(0.0))),
-            (json!({"-": ["9", [3]]}), json!({}), Ok(json!(6.0))),
+            (json!({"-": "5"}), json!({}), Ok(json!(-5))),
+            (json!({"-": [2]}), json!({}), Ok(json!(-2))),
+            (json!({"-": [2, 2]}), json!({}), Ok(json!(0))),
+            (json!({"-": ["9", [3]]}), json!({}), Ok(json!(6))),
         ]
     }
 
     fn multiplication_cases() -> Vec<(Value, Value, Result<Value, ()>)> {
         vec![
-            (json!({"*": 1}), json!({}), Ok(json!(1.0))),
-            (json!({"*": [1]}), json!({}), Ok(json!(1.0))),
-            (json!({"*": [1, 2]}), json!({}), Ok(json!(2.0))),
-            (json!({"*": [0, 2]}), json!({}), Ok(json!(0.0))),
-            (json!({"*": [1, 2, 3]}), json!({}), Ok(json!(6.0))),
-            (json!({"*": [1, 2, "3"]}), json!({}), Ok(json!(6.0))),
-            (json!({"*": [1, "2abc", "3"]}), json!({}), Ok(json!(6.0))),
+            (json!({"*": 1}), json!({}), Ok(json!(1))),
+            (json!({"*": [1]}), json!({}), Ok(json!(1))),
+            (json!({"*": [1, 2]}), json!({}), Ok(json!(2))),
+            (json!({"*": [0, 2]}), json!({}), Ok(json!(0))),
+            (json!({"*": [1, 2, 3]}), json!({}), Ok(json!(6))),
+            (json!({"*": [1, 2, "3"]}), json!({}), Ok(json!(6))),
+            (json!({"*": [1, "2abc", "3"]}), json!({}), Ok(json!(6))),
             (json!({"*": []}), json!({}), Err(())),
         ]
     }
 
     fn division_cases() -> Vec<(Value, Value, Result<Value, ()>)> {
         vec![
-            (json!({"/": [2, 1]}), json!({}), Ok(json!(2.0))),
+            (json!({"/": [2, 1]}), json!({}), Ok(json!(2))),
             (json!({"/": [1, 2]}), json!({}), Ok(json!(0.5))),
             (json!({"/": [1, "2"]}), json!({}), Ok(json!(0.5))),
-            (json!({"/": [12, "-2"]}), json!({}), Ok(json!(-6.0))),
+            (json!({"/": [12, "-2"]}), json!({}), Ok(json!(-6))),
             (json!({"/": []}), json!({}), Err(())),
             (json!({"/": [5]}), json!({}), Err(())),
             (json!({"/": [5, 2, 1]}), json!({}), Err(())),
@@ -1035,10 +1037,10 @@ mod jsonlogic_tests {
 
     fn modulo_cases() -> Vec<(Value, Value, Result<Value, ()>)> {
         vec![
-            (json!({"%": [2, 1]}), json!({}), Ok(json!(0.0))),
-            (json!({"%": [1, 2]}), json!({}), Ok(json!(1.0))),
-            (json!({"%": [1, "2"]}), json!({}), Ok(json!(1.0))),
-            (json!({"%": [12, "-2"]}), json!({}), Ok(json!(0.0))),
+            (json!({"%": [2, 1]}), json!({}), Ok(json!(0))),
+            (json!({"%": [1, 2]}), json!({}), Ok(json!(1))),
+            (json!({"%": [1, "2"]}), json!({}), Ok(json!(1))),
+            (json!({"%": [12, "-2"]}), json!({}), Ok(json!(0))),
             (json!({"%": []}), json!({}), Err(())),
             (json!({"%": [5]}), json!({}), Err(())),
             (json!({"%": [5, 2, 1]}), json!({}), Err(())),
@@ -1047,26 +1049,22 @@ mod jsonlogic_tests {
 
     fn max_cases() -> Vec<(Value, Value, Result<Value, ()>)> {
         vec![
-            (json!({"max": [1, 2, 3]}), json!({}), Ok(json!(3.0))),
-            (json!({"max": [false, -1, 2]}), json!({}), Ok(json!(2.0))),
-            (json!({"max": [0, -1, true]}), json!({}), Ok(json!(1.0))),
-            (
-                json!({"max": [0, -1, true, [3]]}),
-                json!({}),
-                Ok(json!(3.0)),
-            ),
+            (json!({"max": [1, 2, 3]}), json!({}), Ok(json!(3))),
+            (json!({"max": [false, -1, 2]}), json!({}), Ok(json!(2))),
+            (json!({"max": [0, -1, true]}), json!({}), Ok(json!(1))),
+            (json!({"max": [0, -1, true, [3]]}), json!({}), Ok(json!(3))),
         ]
     }
 
     fn min_cases() -> Vec<(Value, Value, Result<Value, ()>)> {
         vec![
-            (json!({"min": [1, 2, 3]}), json!({}), Ok(json!(1.0))),
-            (json!({"min": [false, 1, 2]}), json!({}), Ok(json!(0.0))),
-            (json!({"min": [0, -1, true]}), json!({}), Ok(json!(-1.0))),
+            (json!({"min": [1, 2, 3]}), json!({}), Ok(json!(1))),
+            (json!({"min": [false, 1, 2]}), json!({}), Ok(json!(0))),
+            (json!({"min": [0, -1, true]}), json!({}), Ok(json!(-1))),
             (
                 json!({"min": [0, [-1], true, [3]]}),
                 json!({}),
-                Ok(json!(-1.0)),
+                Ok(json!(-1)),
             ),
         ]
     }
@@ -1177,7 +1175,10 @@ mod jsonlogic_tests {
         )
     }
 
-    fn only_boolean(wanted: bool, (_, _, exp): &(Value, Value, Result<Value, ()>)) -> bool {
+    fn only_boolean(
+        wanted: bool,
+        (_, _, exp): &(Value, Value, Result<Value, ()>),
+    ) -> bool {
         match exp {
             Err(_) => false,
             Ok(Value::Bool(exp)) => *exp == wanted,

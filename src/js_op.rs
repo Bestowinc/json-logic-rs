@@ -15,7 +15,7 @@ const NUMERICS: &'static [char] = &[
 // - there are too many tests in docstrings
 // - the docstrings are too sarcastic about JS equality
 
-fn to_string(value: &Value) -> String {
+pub fn to_string(value: &Value) -> String {
     match value {
         Value::Object(_) => String::from("[object Object]"),
         Value::Bool(val) => val.to_string(),
@@ -56,7 +56,7 @@ fn to_primitive_number(value: &Value) -> Option<f64> {
     }
 }
 
-fn str_to_number<S: AsRef<str>>(string: S) -> Option<f64> {
+pub fn str_to_number<S: AsRef<str>>(string: S) -> Option<f64> {
     let s = string.as_ref();
     if s == "" {
         Some(0.0)
@@ -90,7 +90,7 @@ fn to_primitive(value: &Value, hint: PrimitiveHint) -> Primitive {
 ///
 /// Should be pretty much equivalent to calling Number(value) in JS,
 /// returning None where that would return NaN.
-fn to_number(value: &Value) -> Option<f64> {
+pub fn to_number(value: &Value) -> Option<f64> {
     match to_primitive(value, PrimitiveHint::Number) {
         Primitive::Number(num) => Some(num),
         Primitive::String(string) => str_to_number(string),
@@ -556,7 +556,6 @@ pub fn parse_float_mul(vals: &Vec<&Value>) -> Result<f64, Error> {
         })
 }
 
-
 /// Do minus
 pub fn abstract_minus(first: &Value, second: &Value) -> Result<f64, Error> {
     let first_num = to_number(first);
@@ -579,7 +578,6 @@ pub fn abstract_minus(first: &Value, second: &Value) -> Result<f64, Error> {
 
     Ok(first_num.unwrap() - second_num.unwrap())
 }
-
 
 /// Do division
 pub fn abstract_div(first: &Value, second: &Value) -> Result<f64, Error> {
@@ -604,7 +602,6 @@ pub fn abstract_div(first: &Value, second: &Value) -> Result<f64, Error> {
     Ok(first_num.unwrap() / second_num.unwrap())
 }
 
-
 /// Do modulo
 pub fn abstract_mod(first: &Value, second: &Value) -> Result<f64, Error> {
     let first_num = to_number(first);
@@ -627,7 +624,6 @@ pub fn abstract_mod(first: &Value, second: &Value) -> Result<f64, Error> {
 
     Ok(first_num.unwrap() % second_num.unwrap())
 }
-
 
 /// Attempt to convert a value to a negative number
 pub fn to_negative(val: &Value) -> Result<f64, Error> {
@@ -1128,7 +1124,6 @@ mod test_abstract_max {
     }
 }
 
-
 #[cfg(test)]
 mod test_abstract_min {
     use super::*;
@@ -1162,7 +1157,6 @@ mod test_abstract_min {
         })
     }
 }
-
 
 #[cfg(test)]
 mod test_abstract_minus {
@@ -1311,4 +1305,3 @@ mod test_parse_float {
             .for_each(|(input, exp)| assert_eq!(parse_float(&input), exp));
     }
 }
-

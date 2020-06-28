@@ -13,15 +13,37 @@ use crate::NULL;
 ///     [condition, true, condition2, true2, false2]
 ///     for an if/elseif/else type of operation
 pub fn if_(data: &Value, args: &Vec<&Value>) -> Result<Value, Error> {
+    // Special case incorrect arguments. These are not defined in the
+    // specification, but they are defined in the test cases.
+    match args.len() {
+        0 => {
+            return Ok(NULL);
+        }
+        // It's not totally clear to me why this would be the behavior,
+        // rather than returning NULL regardless of how the single argument
+        // evaluates, but this is I can gather is the expected behavior
+        // from the tests.
+        1 => {
+            let parsed = Parsed::from_value(args[0])?;
+            let evaluated = parsed.evaluate(&data)?;
+            return Ok(evaluated.into());
+        }
+        _ => {}
+    }
+
     args.into_iter()
         .enumerate()
+        // Our accumulator is:
+        //  - last conditional evaluation value,
+        //  - whether that evaluation is truthy,
+        //  - whether we know we should return without further evaluation
         .fold(Ok((NULL, false, false)), |last_res, (i, val)| {
             let (last_eval, was_truthy, should_return) = last_res?;
             // We hit a final value already
             if should_return {
                 Ok((last_eval, was_truthy, should_return))
             }
-            // Potential false-value, initial evaluation, else-if clause
+            // Potential false-value, initial evaluation, or else-if clause
             else if i % 2 == 0 {
                 let parsed = Parsed::from_value(val)?;
                 let eval = parsed.evaluate(data)?;
@@ -31,7 +53,7 @@ pub fn if_(data: &Value, args: &Vec<&Value>) -> Result<Value, Error> {
                 };
                 // We're not sure we're the return value, so don't
                 // force a return.
-                Ok((Value::from(eval), is_truthy, false))
+                Ok((eval.into(), is_truthy, false))
             }
             // We're a possible true-value
             else {
@@ -42,8 +64,9 @@ pub fn if_(data: &Value, args: &Vec<&Value>) -> Result<Value, Error> {
                     let t_eval = parsed.evaluate(data)?;
                     Ok((Value::from(t_eval), true, true))
                 } else {
-                    // Ignore ourselves
-                    Ok((last_eval, was_truthy, should_return))
+                    // Return a null for the last eval to handle cases
+                    // where there is an incorrect number of arguments.
+                    Ok((NULL, was_truthy, should_return))
                 }
             }
         })
@@ -58,25 +81,25 @@ pub fn or(data: &Value, args: &Vec<&Value>) -> Result<Value, Error> {
         Current(Value),
     }
 
-    let eval = args
-        .into_iter()
-        .fold(Ok(OrResult::Uninitialized), |last_res, current| {
-            let last_eval = last_res?;
+    let eval =
+        args.into_iter()
+            .fold(Ok(OrResult::Uninitialized), |last_res, current| {
+                let last_eval = last_res?;
 
-            // if we've found a truthy value, don't evaluate anything else
-            if let OrResult::Truthy(_) = last_eval {
-                return Ok(last_eval);
-            }
+                // if we've found a truthy value, don't evaluate anything else
+                if let OrResult::Truthy(_) = last_eval {
+                    return Ok(last_eval);
+                }
 
-            let parsed = Parsed::from_value(current)?;
-            let evaluated = parsed.evaluate(data)?;
+                let parsed = Parsed::from_value(current)?;
+                let evaluated = parsed.evaluate(data)?;
 
-            if truthy_from_evaluated(&evaluated) {
-                return Ok(OrResult::Truthy(evaluated.into()));
-            }
+                if truthy_from_evaluated(&evaluated) {
+                    return Ok(OrResult::Truthy(evaluated.into()));
+                }
 
-            Ok(OrResult::Current(evaluated.into()))
-        })?;
+                Ok(OrResult::Current(evaluated.into()))
+            })?;
 
     match eval {
         OrResult::Truthy(v) => Ok(v),
@@ -95,24 +118,24 @@ pub fn and(data: &Value, args: &Vec<&Value>) -> Result<Value, Error> {
         Current(Value),
     }
 
-    let eval = args
-        .into_iter()
-        .fold(Ok(AndResult::Uninitialized), |last_res, current| {
-            let last_eval = last_res?;
+    let eval =
+        args.into_iter()
+            .fold(Ok(AndResult::Uninitialized), |last_res, current| {
+                let last_eval = last_res?;
 
-            if let AndResult::Falsey(_) = last_eval {
-                return Ok(last_eval);
-            }
+                if let AndResult::Falsey(_) = last_eval {
+                    return Ok(last_eval);
+                }
 
-            let parsed = Parsed::from_value(current)?;
-            let evaluated = parsed.evaluate(data)?;
+                let parsed = Parsed::from_value(current)?;
+                let evaluated = parsed.evaluate(data)?;
 
-            if !truthy_from_evaluated(&evaluated) {
-                return Ok(AndResult::Falsey(evaluated.into()));
-            }
+                if !truthy_from_evaluated(&evaluated) {
+                    return Ok(AndResult::Falsey(evaluated.into()));
+                }
 
-            Ok(AndResult::Current(evaluated.into()))
-        })?;
+                Ok(AndResult::Current(evaluated.into()))
+            })?;
 
     match eval {
         AndResult::Falsey(v) => Ok(v),

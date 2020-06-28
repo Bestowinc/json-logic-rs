@@ -1,9 +1,10 @@
 //! Numeric Operations
 
-use serde_json::{Number, Value};
+use serde_json::Value;
 
 use crate::error::Error;
 use crate::js_op;
+use crate::value::to_number_value;
 
 fn compare<F>(func: F, items: &Vec<&Value>) -> Result<Value, Error>
 where
@@ -45,10 +46,5 @@ pub fn minus(items: &Vec<&Value>) -> Result<Value, Error> {
     } else {
         js_op::abstract_minus(items[0], items[1])?
     };
-    Number::from_f64(value)
-        .ok_or(Error::UnexpectedError(format!(
-            "Could not make JSON number from result {:?}",
-            value
-        )))
-        .map(Value::Number)
+    to_number_value(value)
 }

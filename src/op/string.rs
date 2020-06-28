@@ -5,6 +5,7 @@ use std::cmp;
 use std::convert::TryInto;
 
 use crate::error::Error;
+use crate::js_op;
 use crate::NULL;
 
 /// Concatenate strings.
@@ -19,16 +20,12 @@ pub fn cat(items: &Vec<&Value>) -> Result<Value, Error> {
     items
         .into_iter()
         .map(|i| match i {
-            Value::String(i_string) => Ok(i_string),
-            _ => Err(Error::InvalidArgument {
-                value: (**i).clone(),
-                operation: "cat".into(),
-                reason: "All arguments to `cat` must be strings".into(),
-            }),
+            Value::String(i_string) => Ok(i_string.clone()),
+            _ => Ok(js_op::to_string(i)),
         })
         .fold(Ok(&mut rv), |acc: Result<&mut String, Error>, i| {
             let rv = acc?;
-            rv.push_str(i?);
+            rv.push_str(&i?);
             Ok(rv)
         })?;
     Ok(Value::String(rv))

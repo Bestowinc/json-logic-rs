@@ -4,11 +4,12 @@
 // as operators. They were originally done as parsers because there wasn't
 // yet a LazyOperator concept.
 
-use crate::error::Error;
-use crate::value::Evaluated;
-use crate::{Parser, NULL};
 use serde_json::{Map, Number, Value};
 use std::convert::{From, TryFrom};
+
+use crate::error::Error;
+use crate::value::Evaluated;
+use crate::Parser;
 
 #[derive(Debug)]
 pub enum KeyType<'a> {
@@ -159,163 +160,39 @@ impl<'a> From<MissingSome<'a>> for Value {
     }
 }
 
-#[derive(Debug)]
-pub struct Variable<'a> {
-    value: &'a Value,
-}
-impl<'a> Parser<'a> for Variable<'a> {
-    fn from_value(value: &'a Value) -> Result<Option<Self>, Error> {
-        match value {
-            Value::Object(map) => {
-                if map.len() != 1 {
-                    return Ok(None);
-                };
-                match map.get("var") {
-                    Some(var) => match var {
-                        Value::String(_) => Ok(Some(Variable { value: var })),
-                        Value::Number(_) => Ok(Some(Variable { value: var })),
-                        Value::Array(arr) => match arr.len() {
-                            0..=2 => Ok(Some(Variable { value: var })),
-                            _ => Err(Error::InvalidVariable {
-                                value: value.clone(),
-                                reason: "Array variables must be of len 0..2 inclusive".into(),
-                            }),
-                        },
-                        _ => Err(Error::InvalidVariable {
-                            value: value.clone(),
-                            reason: "Variables must be strings, integers, or arrays".into(),
-                        }),
-                    },
-                    None => Ok(None),
-                }
-            }
-            _ => Ok(None),
-        }
-    }
-
-    fn evaluate(&self, data: &'a Value) -> Result<Evaluated, Error> {
-        // if self.name == "" { return data };
-        match self.value {
-            Value::Null => Ok(Evaluated::Raw(data)),
-            Value::String(var_name) => self.interpolate_string_var(data, var_name).map(Evaluated::Raw),
-            Value::Number(idx) => self.interpolate_numeric_var(data, idx).map(Evaluated::Raw),
-            Value::Array(var) => self.interpolate_array_var(data, var).map(Evaluated::Raw),
-            _ => Err(Error::InvalidVariable{
-                value: self.value.clone(),
-                reason: "Unsupported variable type. Variables must be strings, integers, arrays, or null.".into()
-            })
-        }
-    }
-}
-impl<'a> Variable<'a> {
-    fn get_default(&self) -> &'a Value {
-        match self.value {
-            Value::Array(val) => val.get(1).unwrap_or(&NULL),
-            _ => &NULL,
-        }
-    }
-
-    fn interpolate_array_var(
-        &self,
-        data: &'a Value,
-        var: &'a Vec<Value>,
-    ) -> Result<&'a Value, Error> {
-        let len = var.len();
-        match len {
-            0 => Ok(data),
-            1 | 2 => match &var[0] {
-                Value::String(var_name) => self.interpolate_string_var(data, &var_name),
-                Value::Number(var_idx) => self.interpolate_numeric_var(data, &var_idx),
-                _ => Err(Error::InvalidVariable {
-                    value: Value::Array(var.clone()),
-                    reason: "Variables must be strings or integers".into(),
-                }),
-            },
-            _ => Err(Error::InvalidVariable {
-                value: Value::Array(var.clone()),
-                reason: format!("Array variables must be of len 1 or 2, not {}", len),
-            }),
-        }
-    }
-
-    fn interpolate_numeric_var(
-        &self,
-        data: &'a Value,
-        idx: &'a Number,
-    ) -> Result<&'a Value, Error> {
-        let default = self.get_default();
-        match data {
-            Value::Array(val) => {
-                idx
-                    // Option<u64>
-                    .as_u64()
-                    // Option<Result<usize, Error>>
-                    .map(|i| {
-                        usize::try_from(i).map_err(|e| Error::InvalidVariable {
-                            value: Value::Number(idx.clone()),
-                            reason: format!(
-                                "Could not convert value to a system-sized integer: {:?}",
-                                e
-                            ),
-                        })
-                    })
-                    // Option<Result<Value, Error>>
-                    .map(|res| res.map(|i| val.get(i).unwrap_or(default)))
-                    // Result<Value, Error>
-                    .unwrap_or(Ok(default))
-            }
-            _ => Err(Error::InvalidVariable {
-                value: Value::Number(idx.clone()),
-                reason: "Cannot access non-array data with an index variable".into(),
-            }),
-        }
-    }
-
-    fn interpolate_string_var(
-        &self,
-        data: &'a Value,
-        var_name: &'a String,
-    ) -> Result<&'a Value, Error> {
-        if var_name == "" {
-            return Ok(data);
-        };
-        let key = KeyType::String(var_name);
-        get_key(data, &key).map(|v| v.unwrap_or(self.get_default()))
-    }
-}
-impl<'a> From<Variable<'a>> for Value {
-    fn from(var: Variable) -> Self {
-        let mut map = Map::with_capacity(1);
-        map.insert("var".into(), var.value.clone());
-        Value::Object(map)
-    }
-}
-
 fn get_key<'a>(data: &'a Value, key: &KeyType) -> Result<Option<&'a Value>, Error> {
+    if let Value::Null = data {
+        return Ok(None);
+    };
     match key {
         KeyType::String(key) => {
             match data {
-                Value::Object(_) => key.split(".").fold(Ok(Some(data)), |acc, i| match acc? {
-                    // If a previous key was not found, just send the None on through
-                    None => Ok(None),
-                    // If the current value is an object, try to get the value
-                    Some(Value::Object(map)) => Ok(map.get(i)),
-                    // If the current value is an array, we need an integer
-                    // index. If integer conversion fails, return an error.
-                    Some(Value::Array(arr)) => {
-                        i.parse::<usize>()
+                Value::Object(_) | Value::Array(_) => {
+                    key.split(".").fold(Ok(Some(data)), |acc, i| match acc? {
+                        // If a previous key was not found, just send the None on through
+                        None => Ok(None),
+                        // If the current value is an object, try to get the value
+                        Some(Value::Object(map)) => Ok(map.get(i)),
+                        // If the current value is an array, we need an integer
+                        // index. If integer conversion fails, return an error.
+                        Some(Value::Array(arr)) => i
+                            .parse::<usize>()
                             .map(|i| arr.get(i))
                             .map_err(|_| Error::InvalidVariable {
                                 value: Value::String(String::from(*key)),
-                                reason: "Cannot access array data with non-integer key".into(),
-                            })
-                    }
-                    _ => Ok(None),
-                }),
-                // We can only get string values off of objects. Anything else is an error.
+                                reason: "Cannot access array data with non-integer key"
+                                    .into(),
+                            }),
+                        _ => Ok(None),
+                    })
+                }
+                // We can only get string values off of objects or arrays. Anything else is an error.
                 _ => Err(Error::InvalidData {
                     value: data.clone(),
-                    reason: format!("Cannot get string key '{:?}' from non-object data", key),
+                    reason: format!(
+                        "Cannot get string key '{:?}' from non-object data",
+                        key
+                    ),
                 }),
             }
         }
@@ -345,7 +222,8 @@ fn get_key<'a>(data: &'a Value, key: &KeyType) -> Result<Option<&'a Value>, Erro
                 }
                 _ => Err(Error::InvalidVariable {
                     value: Value::Number((*idx).clone()),
-                    reason: "Cannot access non-array data with an index variable".into(),
+                    reason: "Cannot access non-array data with an index variable"
+                        .into(),
                 }),
             }
         }
@@ -398,7 +276,8 @@ fn keys_from_val<'a>(val: &'a Value) -> Result<Vec<KeyType<'a>>, Error> {
                     Value::String(key) => Ok(KeyType::String(key)),
                     Value::Number(idx) => Ok(KeyType::Number(idx)),
                     _ => Err(Error::UnexpectedError(
-                        "Some keys were not strings or numbers even after validation".into(),
+                        "Some keys were not strings or numbers even after validation"
+                            .into(),
                     )),
                 })
                 .collect()

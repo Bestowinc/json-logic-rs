@@ -17,6 +17,9 @@ pub enum Error {
     #[error("Invalid variable - '{value:?}', reason: {reason:?}")]
     InvalidVariable { value: Value, reason: String },
 
+    #[error("Invalid variable key - '{value:?}', reason: {reason:?}")]
+    InvalidVariableKey { value: Value, reason: String },
+
     #[error("Invalid argument for '{operation}' - '{value:?}', reason: {reason}")]
     InvalidArgument {
         value: Value,

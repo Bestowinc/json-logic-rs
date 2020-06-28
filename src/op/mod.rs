@@ -10,14 +10,16 @@
 // yet a LazyOperator concept.
 
 use phf::phf_map;
-use serde_json::{Map, Number, Value};
+use serde_json::{Map, Value};
 use std::fmt;
 
 use crate::error::Error;
+use crate::value::to_number_value;
 use crate::value::{Evaluated, Parsed};
 use crate::{js_op, Parser};
 
 mod array;
+mod data;
 mod impure;
 mod logic;
 mod numeric;
@@ -89,14 +91,7 @@ pub const OPERATOR_MAP: phf::Map<&'static str, Operator> = phf_map! {
     },
     "+" => Operator {
         symbol: "+",
-        operator: |items| js_op::parse_float_add(items)
-            .map(Number::from_f64)
-            .and_then(|opt| opt.ok_or(
-                Error::UnexpectedError(
-                    "Could not convert sum into a JSON number".into())
-                )
-            )
-            .map(Value::Number),
+        operator: |items| js_op::parse_float_add(items).and_then(to_number_value),
         num_params: NumParams::Any,
     },
     "-" => Operator {
@@ -106,62 +101,31 @@ pub const OPERATOR_MAP: phf::Map<&'static str, Operator> = phf_map! {
     },
     "*" => Operator {
         symbol: "*",
-        operator: |items| js_op::parse_float_mul(items)
-            .map(Number::from_f64)
-            .and_then(|opt| opt.ok_or(
-                Error::UnexpectedError(
-                    "Could not convert sum into a JSON number".into())
-                )
-            )
-            .map(Value::Number),
+        operator: |items| js_op::parse_float_mul(items).and_then(to_number_value),
         num_params: NumParams::AtLeast(1),
     },
     "/" => Operator {
         symbol: "/",
         operator: |items| js_op::abstract_div(items[0], items[1])
-            .map(Number::from_f64)
-            .and_then(|opt| opt.ok_or(
-                Error::UnexpectedError(
-                    "Could not convert dividend into a JSON number".into())
-                )
-            )
-            .map(Value::Number),
+            .and_then(to_number_value),
         num_params: NumParams::Exactly(2),
     },
     "%" => Operator {
         symbol: "%",
         operator: |items| js_op::abstract_mod(items[0], items[1])
-            .map(Number::from_f64)
-            .and_then(|opt| opt.ok_or(
-                Error::UnexpectedError(
-                    "Could not convert modulo into a JSON number".into())
-                )
-            )
-            .map(Value::Number),
+            .and_then(to_number_value),
         num_params: NumParams::Exactly(2),
     },
     "max" => Operator {
         symbol: "max",
         operator: |items| js_op::abstract_max(items)
-            .map(Number::from_f64)
-            .and_then(|opt| opt.ok_or(
-                Error::UnexpectedError(
-                    "Could not convert max result into JSON number.".into()
-                )
-            ))
-            .map(Value::Number),
+            .and_then(to_number_value),
         num_params: NumParams::AtLeast(1),
     },
     "min" => Operator {
         symbol: "min",
         operator: |items| js_op::abstract_min(items)
-            .map(Number::from_f64)
-            .and_then(|opt| opt.ok_or(
-                Error::UnexpectedError(
-                    "Could not convert min result into JSON number.".into()
-                )
-            ))
-            .map(Value::Number),
+            .and_then(to_number_value),
         num_params: NumParams::AtLeast(1),
     },
     "merge" => Operator {
@@ -192,10 +156,23 @@ pub const OPERATOR_MAP: phf::Map<&'static str, Operator> = phf_map! {
 };
 
 pub const LAZY_OPERATOR_MAP: phf::Map<&'static str, LazyOperator> = phf_map! {
+    // Data operators
+    "var" => LazyOperator {
+        symbol: "var",
+        operator: data::var,
+        num_params: NumParams::Variadic(0..3)
+    },
     "if" => LazyOperator {
         symbol: "if",
         operator: logic::if_,
-        num_params: NumParams::AtLeast(3),
+        num_params: NumParams::Any,
+    },
+    // Note this operator isn't defined in the specification, but is
+    // present in the tests as what looks like an alias for "if".
+    "?:" => LazyOperator {
+        symbol: "?:",
+        operator: logic::if_,
+        num_params: NumParams::Any,
     },
     "or" => LazyOperator {
         symbol: "or",
