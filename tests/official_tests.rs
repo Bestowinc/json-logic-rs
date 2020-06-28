@@ -4,6 +4,7 @@ use std::fs::File;
 use std::io::prelude::*;
 use std::path::Path;
 
+use reqwest;
 use serde_json;
 use serde_json::Value;
 
@@ -15,7 +16,9 @@ struct TestCase {
     result: Value,
 }
 
-fn load_tests() -> Vec<TestCase> {
+const TEST_URL: &'static str = "http://jsonlogic.com/tests.json";
+
+fn load_file_json() -> Value {
     let mut file = File::open(Path::join(
         Path::new(file!()).parent().unwrap(),
         "data/tests.json",
@@ -23,7 +26,12 @@ fn load_tests() -> Vec<TestCase> {
     .unwrap();
     let mut contents = String::new();
     file.read_to_string(&mut contents).unwrap();
-    let cases = match serde_json::from_str(&contents).unwrap() {
+    serde_json::from_str(&contents).unwrap()
+}
+
+fn load_tests() -> Vec<TestCase> {
+    let loaded_json = load_file_json();
+    let cases = match loaded_json {
         Value::Array(cases) => cases,
         _ => panic!("cases aren't array"),
     };
@@ -39,6 +47,21 @@ fn load_tests() -> Vec<TestCase> {
             _ => panic!("case can't be destructured!"),
         })
         .collect()
+}
+
+#[test]
+fn check_test_file() {
+    let resp_res = reqwest::blocking::get(TEST_URL).unwrap().text();
+    let resp = match resp_res {
+        Ok(r) => r,
+        Err(e) => {
+            println!("Failed to get new version of test JSON: {:?}", e);
+            return ();
+        }
+    };
+    let http_json: Value = serde_json::from_str(&resp).unwrap();
+    let file_json = load_file_json();
+    assert_eq!(http_json, file_json);
 }
 
 #[test]
