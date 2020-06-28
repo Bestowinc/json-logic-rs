@@ -49,38 +49,6 @@ impl From<Raw<'_>> for Value {
 }
 
 #[derive(Debug)]
-pub struct Missing<'a> {
-    values: Vec<KeyType<'a>>,
-}
-impl<'a> Parser<'a> for Missing<'a> {
-    fn from_value(value: &'a Value) -> Result<Option<Self>, Error> {
-        match value {
-            Value::Object(obj) => {
-                if let Some(val) = obj.get("missing") {
-                    let keys = keys_from_val(val)?;
-                    Ok(Some(Missing { values: keys }))
-                } else {
-                    Ok(None)
-                }
-            }
-            _ => Ok(None),
-        }
-    }
-
-    fn evaluate(&self, data: &Value) -> Result<Evaluated, Error> {
-        let missing_keys = missing_keys(data, &self.values)?;
-        Ok(Evaluated::New(Value::Array(missing_keys)))
-    }
-}
-impl From<Missing<'_>> for Value {
-    fn from(missing: Missing) -> Self {
-        let mut map = Map::with_capacity(1);
-        map.insert("missing".into(), Value::from(missing.values));
-        Self::Object(map)
-    }
-}
-
-#[derive(Debug)]
 pub struct MissingSome<'a> {
     minimum: u64,
     keys: Vec<KeyType<'a>>,

@@ -1,7 +1,7 @@
 use serde_json::{Number, Value};
 
 use crate::error::Error;
-use crate::op::{LazyOperation, Operation};
+use crate::op::{DataOperation, LazyOperation, Operation};
 use crate::{data, Parser};
 
 /// A Parsed JSON value
@@ -14,18 +14,18 @@ use crate::{data, Parser};
 pub enum Parsed<'a> {
     Operation(Operation<'a>),
     LazyOperation(LazyOperation<'a>),
+    DataOperation(DataOperation<'a>),
     Raw(data::Raw<'a>),
-    Missing(data::Missing<'a>),
     MissingSome(data::MissingSome<'a>),
 }
 impl<'a> Parsed<'a> {
     /// Recursively parse a value
     pub fn from_value(value: &'a Value) -> Result<Self, Error> {
-        data::Missing::from_value(value)?
-            .map(Self::Missing)
-            .or(data::MissingSome::from_value(value)?.map(Self::MissingSome))
+        data::MissingSome::from_value(value)?
+            .map(Self::MissingSome)
             .or(Operation::from_value(value)?.map(Self::Operation))
             .or(LazyOperation::from_value(value)?.map(Self::LazyOperation))
+            .or(DataOperation::from_value(value)?.map(Self::DataOperation))
             .or(data::Raw::from_value(value)?.map(Self::Raw))
             .ok_or(Error::UnexpectedError(format!(
                 "Failed to parse Value {:?}",
@@ -44,8 +44,8 @@ impl<'a> Parsed<'a> {
         match self {
             Self::Operation(op) => op.evaluate(data),
             Self::LazyOperation(op) => op.evaluate(data),
+            Self::DataOperation(op) => op.evaluate(data),
             Self::Raw(val) => val.evaluate(data),
-            Self::Missing(missing) => missing.evaluate(data),
             Self::MissingSome(missing) => missing.evaluate(data),
         }
     }
@@ -55,8 +55,8 @@ impl From<Parsed<'_>> for Value {
         match item {
             Parsed::Operation(op) => Value::from(op),
             Parsed::LazyOperation(op) => Value::from(op),
+            Parsed::DataOperation(op) => Value::from(op),
             Parsed::Raw(raw) => Value::from(raw),
-            Parsed::Missing(missing) => Value::from(missing),
             Parsed::MissingSome(missing) => Value::from(missing),
         }
     }

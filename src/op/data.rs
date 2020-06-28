@@ -105,6 +105,28 @@ pub fn var(data: &Value, args: &Vec<&Value>) -> Result<Value, Error> {
     }))
 }
 
+/// Check for keys that are missing from the data
+pub fn missing(data: &Value, args: &Vec<&Value>) -> Result<Value, Error> {
+    let mut missing_keys: Vec<Value> = Vec::new();
+    args.into_iter().fold(Ok(()), |had_error, arg| {
+        had_error?;
+        let _parsed_arg = Parsed::from_value(arg)?;
+        let evaluated = _parsed_arg.evaluate(data)?;
+        let key: KeyType = evaluated.try_into()?;
+        match key {
+            KeyType::Null => Ok(()),
+            _ => {
+                let val = get_key(data, key);
+                if val.is_none() {
+                    missing_keys.push((*arg).clone());
+                };
+                Ok(())
+            }
+        }
+    })?;
+    Ok(Value::Array(missing_keys))
+}
+
 fn get_key(data: &Value, key: KeyType) -> Option<Value> {
     match key {
         // If the key is null, we return the data, always, even if there

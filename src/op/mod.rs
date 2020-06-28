@@ -155,13 +155,21 @@ pub const OPERATOR_MAP: phf::Map<&'static str, Operator> = phf_map! {
     },
 };
 
-pub const LAZY_OPERATOR_MAP: phf::Map<&'static str, LazyOperator> = phf_map! {
-    // Data operators
-    "var" => LazyOperator {
+pub const DATA_OPERATOR_MAP: phf::Map<&'static str, DataOperator> = phf_map! {
+    "var" => DataOperator {
         symbol: "var",
         operator: data::var,
         num_params: NumParams::Variadic(0..3)
     },
+    "missing" => DataOperator {
+        symbol: "missing",
+        operator: data::missing,
+        num_params: NumParams::Any,
+    },
+};
+
+pub const LAZY_OPERATOR_MAP: phf::Map<&'static str, LazyOperator> = phf_map! {
+    // Logical operators
     "if" => LazyOperator {
         symbol: "if",
         operator: logic::if_,
@@ -257,6 +265,10 @@ impl NumParams {
     }
 }
 
+trait CommonOperator {
+    fn param_info(&self) -> &NumParams;
+}
+
 pub struct Operator {
     symbol: &'static str,
     operator: OperatorFn,
@@ -265,6 +277,11 @@ pub struct Operator {
 impl Operator {
     pub fn execute(&self, items: &Vec<&Value>) -> Result<Value, Error> {
         (self.operator)(items)
+    }
+}
+impl CommonOperator for Operator {
+    fn param_info(&self) -> &NumParams {
+        &self.num_params
     }
 }
 impl fmt::Debug for Operator {
@@ -286,7 +303,41 @@ impl LazyOperator {
         (self.operator)(data, items)
     }
 }
+impl CommonOperator for LazyOperator {
+    fn param_info(&self) -> &NumParams {
+        &self.num_params
+    }
+}
 impl fmt::Debug for LazyOperator {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("Operator")
+            .field("symbol", &self.symbol)
+            .field("operator", &"<operator fn>")
+            .finish()
+    }
+}
+
+/// An operator that operates on passed in data.
+///
+/// Data operators' arguments can be lazily evaluated, but unlike
+/// regular operators, they still need access to data even after the
+/// evaluation of their arguments.
+pub struct DataOperator {
+    symbol: &'static str,
+    operator: DataOperatorFn,
+    num_params: NumParams,
+}
+impl DataOperator {
+    pub fn execute(&self, data: &Value, items: &Vec<&Value>) -> Result<Value, Error> {
+        (self.operator)(data, items)
+    }
+}
+impl CommonOperator for DataOperator {
+    fn param_info(&self) -> &NumParams {
+        &self.num_params
+    }
+}
+impl fmt::Debug for DataOperator {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.debug_struct("Operator")
             .field("symbol", &self.symbol)
@@ -297,6 +348,7 @@ impl fmt::Debug for LazyOperator {
 
 type OperatorFn = fn(&Vec<&Value>) -> Result<Value, Error>;
 type LazyOperatorFn = fn(&Value, &Vec<&Value>) -> Result<Value, Error>;
+type DataOperatorFn = fn(&Value, &Vec<&Value>) -> Result<Value, Error>;
 
 /// An operation that doesn't do any recursive parsing or evaluation.
 ///
@@ -308,56 +360,15 @@ pub struct LazyOperation<'a> {
 }
 impl<'a> Parser<'a> for LazyOperation<'a> {
     fn from_value(value: &'a Value) -> Result<Option<Self>, Error> {
-        // We can only be an operation if we're an object
-        let obj = match value {
-            Value::Object(obj) => obj,
-            _ => return Ok(None),
-        };
-        // With just one key.
-        if obj.len() != 1 {
-            return Ok(None);
-        };
-
-        // We've already validated the length to be one, so any error
-        // here is super unexpected.
-        let key = obj.keys().next().ok_or(Error::UnexpectedError(format!(
-            "could not get first key from len(1) object: {:?}",
-            obj
-        )))?;
-        let val = obj.get(key).ok_or(Error::UnexpectedError(format!(
-            "could not get value for key '{}' from len(1) object: {:?}",
-            key, obj
-        )))?;
-
-        // See if the key is an operator. If it's not, return None.
-        let op = match LAZY_OPERATOR_MAP.get(key.as_str()) {
-            Some(op) => op,
-            _ => return Ok(None),
-        };
-
-        let err_for_non_unary = || {
-            Err(Error::InvalidOperation {
-                key: key.clone(),
-                reason: "Arguments to non-unary operations must be arrays".into(),
+        op_from_map(&LAZY_OPERATOR_MAP, value).and_then(|opt| {
+            opt.map(|op| {
+                Ok(LazyOperation {
+                    operator: op.op,
+                    arguments: op.args.into_iter().map(|v| v.clone()).collect(),
+                })
             })
-        };
-
-        // If args value is not an array, and the operator is unary,
-        // the value is treated as a unary argument array.
-        let args = match val {
-            Value::Array(args) => args.to_vec(),
-            _ => match op.num_params.can_accept_unary() {
-                true => vec![val.clone()],
-                false => return err_for_non_unary(),
-            },
-        };
-
-        op.num_params.check_len(&args.len())?;
-
-        Ok(Some(LazyOperation {
-            operator: op,
-            arguments: args,
-        }))
+            .transpose()
+        })
     }
 
     fn evaluate(&self, data: &'a Value) -> Result<Evaluated, Error> {
@@ -385,56 +396,15 @@ pub struct Operation<'a> {
 }
 impl<'a> Parser<'a> for Operation<'a> {
     fn from_value(value: &'a Value) -> Result<Option<Self>, Error> {
-        // We can only be an operation if we're an object
-        let obj = match value {
-            Value::Object(obj) => obj,
-            _ => return Ok(None),
-        };
-        // With just one key.
-        if obj.len() != 1 {
-            return Ok(None);
-        };
-
-        // We've already validated the length to be one, so any error
-        // here is super unexpected.
-        let key = obj.keys().next().ok_or(Error::UnexpectedError(format!(
-            "could not get first key from len(1) object: {:?}",
-            obj
-        )))?;
-        let val = obj.get(key).ok_or(Error::UnexpectedError(format!(
-            "could not get value for key '{}' from len(1) object: {:?}",
-            key, obj
-        )))?;
-
-        // See if the key is an operator. If it's not, return None.
-        let op = match OPERATOR_MAP.get(key.as_str()) {
-            Some(op) => op,
-            _ => return Ok(None),
-        };
-
-        let err_for_non_unary = || {
-            Err(Error::InvalidOperation {
-                key: key.clone(),
-                reason: "Arguments to non-unary operations must be arrays".into(),
+        op_from_map(&OPERATOR_MAP, value).and_then(|opt| {
+            opt.map(|op| {
+                Ok(Operation {
+                    operator: op.op,
+                    arguments: Parsed::from_values(op.args)?,
+                })
             })
-        };
-
-        // If args value is not an array, and the operator is unary,
-        // the value is treated as a unary argument array.
-        let args = match val {
-            Value::Array(args) => args.iter().collect::<Vec<&Value>>(),
-            _ => match op.num_params.can_accept_unary() {
-                true => vec![val],
-                false => return err_for_non_unary(),
-            },
-        };
-
-        op.num_params.check_len(&args.len())?;
-
-        Ok(Some(Operation {
-            operator: op,
-            arguments: Parsed::from_values(args)?,
-        }))
+            .transpose()
+        })
     }
 
     /// Evaluate the operation after recursively evaluating any nested operations
@@ -461,6 +431,107 @@ impl From<Operation<'_>> for Value {
         rv.insert(op.operator.symbol.into(), Value::Array(values));
         Value::Object(rv)
     }
+}
+
+#[derive(Debug)]
+pub struct DataOperation<'a> {
+    operator: &'a DataOperator,
+    arguments: Vec<Parsed<'a>>,
+}
+impl<'a> Parser<'a> for DataOperation<'a> {
+    fn from_value(value: &'a Value) -> Result<Option<Self>, Error> {
+        op_from_map(&DATA_OPERATOR_MAP, value).and_then(|opt| {
+            opt.map(|op| {
+                Ok(DataOperation {
+                    operator: op.op,
+                    arguments: Parsed::from_values(op.args)?,
+                })
+            })
+            .transpose()
+        })
+    }
+
+    /// Evaluate the operation after recursively evaluating any nested operations
+    fn evaluate(&self, data: &'a Value) -> Result<Evaluated, Error> {
+        let arguments = self
+            .arguments
+            .iter()
+            .map(|value| value.evaluate(data).map(Value::from))
+            .collect::<Result<Vec<Value>, Error>>()?;
+        self.operator
+            .execute(data, &arguments.iter().collect())
+            .map(Evaluated::New)
+    }
+}
+impl From<DataOperation<'_>> for Value {
+    fn from(op: DataOperation) -> Value {
+        let mut rv = Map::with_capacity(1);
+        let values = op
+            .arguments
+            .into_iter()
+            .map(Value::from)
+            .collect::<Vec<Value>>();
+        rv.insert(op.operator.symbol.into(), Value::Array(values));
+        Value::Object(rv)
+    }
+}
+
+struct OpArgs<'a, 'b, T> {
+    op: &'a T,
+    args: Vec<&'b Value>,
+}
+
+fn op_from_map<'a, 'b, T: CommonOperator>(
+    map: &'a phf::Map<&'static str, T>,
+    value: &'b Value,
+) -> Result<Option<OpArgs<'a, 'b, T>>, Error> {
+    let obj = match value {
+        Value::Object(obj) => obj,
+        _ => return Ok(None),
+    };
+    // With just one key.
+    if obj.len() != 1 {
+        return Ok(None);
+    };
+
+    // We've already validated the length to be one, so any error
+    // here is super unexpected.
+    let key = obj.keys().next().ok_or(Error::UnexpectedError(format!(
+        "could not get first key from len(1) object: {:?}",
+        obj
+    )))?;
+    let val = obj.get(key).ok_or(Error::UnexpectedError(format!(
+        "could not get value for key '{}' from len(1) object: {:?}",
+        key, obj
+    )))?;
+
+    // See if the key is an operator. If it's not, return None.
+    let op = match map.get(key.as_str()) {
+        Some(op) => op,
+        _ => return Ok(None),
+    };
+
+    let err_for_non_unary = || {
+        Err(Error::InvalidOperation {
+            key: key.clone(),
+            reason: "Arguments to non-unary operations must be arrays".into(),
+        })
+    };
+
+    let param_info = op.param_info();
+    // If args value is not an array, and the operator is unary,
+    // the value is treated as a unary argument array.
+    let args = match val {
+        Value::Array(args) => args.iter().collect::<Vec<&Value>>(),
+        _ => match param_info.can_accept_unary() {
+            true => vec![val],
+            false => return err_for_non_unary(),
+        },
+    };
+
+    param_info.check_len(&args.len())?;
+
+    Ok(Some(OpArgs { op, args }))
 }
 
 #[cfg(test)]
