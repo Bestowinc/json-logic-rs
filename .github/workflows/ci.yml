@@ -25,14 +25,9 @@ jobs:
           echo "::set-output name=date::$(/bin/date -u '+%Y%m')"
         shell: bash
 
-      # Cache `cargo install` built binaries
-      - name: "Cache Built Binaries"
-        id: "cache-binaries"
-        uses: "actions/cache@v2"
-        with:
-          path: "~/.cargo/bin"
-          # In theory, this should rebuild binaries once a month
-          key: "${{ runner.os }}-cargo-binaries-${{steps.get-date.outputs.date}}"
+      # Generate the lockfile
+      - name: "Generate Cargo Lockfile"
+        run: "cargo generate-lockfile"
 
       # Cache build dependencies
       - name: "Cache Build Fragments"
@@ -45,6 +40,15 @@ jobs:
             target
           # Rebuild whenever the cargo lock file changes
           key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+
+      # Cache `cargo install` built binaries
+      - name: "Cache Built Binaries"
+        id: "cache-binaries"
+        uses: "actions/cache@v2"
+        with:
+          path: "~/.cargo/bin"
+          # In theory, this should rebuild binaries once a month
+          key: "${{ runner.os }}-cargo-binaries-${{steps.get-date.outputs.date}}"
 
       # Ensure we're all set up
       - name: "Perform Setup"
