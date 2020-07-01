@@ -140,6 +140,75 @@ pub fn missing(data: &Value, args: &Vec<&Value>) -> Result<Value, Error> {
     Ok(Value::Array(missing_keys))
 }
 
+/// Check whether a minimum threshold of keys are present in the data
+///
+/// Note that I think this function is confusingly named. `missing_fewer_than`
+/// might be better, something like `contains_at_least`. It checks to see how
+/// many of the specified keys are present in the data. If there are equal
+/// to or more than the threshold value _present_ in the data, an empty
+/// array is returned. Otherwise, an array containing all missing keys
+/// is returned.
+pub fn missing_some(data: &Value, args: &Vec<&Value>) -> Result<Value, Error> {
+    let (threshold_arg, keys_arg) = (args[0], args[1]);
+
+    let threshold = match threshold_arg {
+        Value::Number(n) => n.as_u64(),
+        _ => None,
+    }
+    .ok_or(Error::InvalidArgument {
+        value: threshold_arg.clone(),
+        operation: "missing_some".into(),
+        reason: "missing_some threshold must be a valid, positive integer".into(),
+    })?;
+
+    let keys = match keys_arg {
+        Value::Array(keys) => Ok(keys),
+        _ => Err(Error::InvalidArgument {
+            value: keys_arg.clone(),
+            operation: "missig_some".into(),
+            reason: "missing_some keys must be an array".into(),
+        }),
+    }?;
+
+    let mut missing_keys: Vec<Value> = Vec::new();
+    let present_count = keys.into_iter().fold(Ok(0 as u64), |last, key| {
+        // Don't bother evaluating once we've met the threshold.
+        let prev_present_count = last?;
+        if prev_present_count >= threshold {
+            return Ok(prev_present_count);
+        };
+
+        let parsed_key: KeyType = key.try_into()?;
+        let current_present_count = match parsed_key {
+            // In the reference implementation, I believe null actually is
+            // buggy. Since usually, getting "null" as a var against the
+            // data returns the whole data, "null" in a `missing_some`
+            // list of keys _automatically_ counts as a present key, regardless
+            // of what keys are in the data. This behavior is neither in the
+            // specification nor the tests, so I'm going to SKIP null keys,
+            // since they aren't valid Object or Array keys in JSON.
+            KeyType::Null => prev_present_count,
+            _ => {
+                if get_key(data, parsed_key).is_none() && !missing_keys.contains(key) {
+                    missing_keys.push((*key).clone());
+                    prev_present_count
+                } else {
+                    prev_present_count + 1
+                }
+            }
+        };
+        Ok(current_present_count)
+    })?;
+
+    let met_threshold = present_count >= threshold;
+
+    if met_threshold {
+        Ok(Value::Array(vec![]))
+    } else {
+        Ok(Value::Array(missing_keys))
+    }
+}
+
 fn get_key(data: &Value, key: KeyType) -> Option<Value> {
     match key {
         // If the key is null, we return the data, always, even if there
