@@ -16,13 +16,10 @@ pub enum Parsed<'a> {
     LazyOperation(LazyOperation<'a>),
     DataOperation(DataOperation<'a>),
     Raw(Raw<'a>),
-    // MissingSome(data::MissingSome<'a>),
 }
 impl<'a> Parsed<'a> {
     /// Recursively parse a value
     pub fn from_value(value: &'a Value) -> Result<Self, Error> {
-        // data::MissingSome::from_value(value)?
-        // .map(Self::MissingSome)
         Operation::from_value(value)?
             .map(Self::Operation)
             // .or(Operation::from_value(value)?.map(Self::Operation))
@@ -48,7 +45,6 @@ impl<'a> Parsed<'a> {
             Self::LazyOperation(op) => op.evaluate(data),
             Self::DataOperation(op) => op.evaluate(data),
             Self::Raw(val) => val.evaluate(data),
-            // Self::MissingSome(missing) => missing.evaluate(data),
         }
     }
 }
@@ -59,7 +55,6 @@ impl From<Parsed<'_>> for Value {
             Parsed::LazyOperation(op) => Value::from(op),
             Parsed::DataOperation(op) => Value::from(op),
             Parsed::Raw(raw) => Value::from(raw),
-            // Parsed::MissingSome(missing) => Value::from(missing),
         }
     }
 }
