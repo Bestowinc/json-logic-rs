@@ -49,6 +49,7 @@ fn load_tests() -> Vec<TestCase> {
         .collect()
 }
 
+#[cfg(not(feature = "wasm"))]
 #[test]
 fn check_test_file() {
     let resp_res = reqwest::blocking::get(TEST_URL).unwrap().text();

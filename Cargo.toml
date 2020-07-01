@@ -12,7 +12,7 @@ crate-type = ["cdylib", "lib"]
 [features]
 default = []
 python = ["cpython"]
-javascript = ["wasm-bindgen"]
+wasm = ["wasm-bindgen"]
 
 [dependencies]
 phf = { version = "~0.8.0", features = ["macros"] }
