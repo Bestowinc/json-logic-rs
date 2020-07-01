@@ -5,19 +5,22 @@
 build:
 	cargo build --release
 
-build-js:
-	cargo clean
-	rm -rf ./js/jsonlogic && wasm-pack build --target bundler --out-dir js/jsonlogic --out-name index --release -- --features javascript
+build-wasm:
+	cargo clean -p jsonlogic
+	rm -rf ./js && wasm-pack build --target nodejs --out-dir js --out-name index --release -- --features wasm
+
+debug-wasm:
+	rm -rf ./js && wasm-pack build --target nodejs --out-dir js --out-name index --debug -- --features wasm
 
 run-js:
 	cd js && npm run-script serve
 
 build-py:
-	cargo clean
+	cargo clean -p jsonlogic
 	cd py && source ./venv/bin/activate && python ./setup.py bdist_wheel
 
 develop-py:
-	cargo clean
+	cargo clean -p jsonlogic
 	cd py && source ./venv/bin/activate && python ./setup.py develop
 
 setup:

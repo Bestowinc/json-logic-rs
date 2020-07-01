@@ -18,37 +18,41 @@ trait Parser<'a>: Sized + Into<Value> {
     fn evaluate(&self, data: &'a Value) -> Result<Evaluated, Error>;
 }
 
-#[cfg(feature = "javascript")]
+#[cfg(feature = "wasm")]
 pub mod javascript_iface {
     use serde_json::Value;
     use wasm_bindgen::prelude::*;
 
     fn to_serde_value(js_value: JsValue) -> Result<Value, JsValue> {
-        // If we're passed a string, try to parse it as JSON.
+        // If we're passed a string, try to parse it as JSON. If we fail,
+        // we will just return a Value::String, since that's a valid thing
+        // to pass in to JSONLogic.
+        // js_value
         if js_value.is_string() {
-            serde_json::from_str(&js_value.as_string().unwrap())
-                .map_err(|err| format!("{:?}", err))
-                .map_err(JsValue::from)
+            let js_string = js_value.as_string().expect(
+                "Could not convert value to string, even though it was checked to be a string."
+            );
+            serde_json::from_str(&js_string).or(Ok(Value::String(js_string)))
         } else {
             // If we're passed anything else, convert it directly to a serde Value.
             js_value
                 .into_serde::<Value>()
-                .map_err(|err| format!("{:?}", err))
+                .map_err(|err| format!("{}", err))
                 .map_err(JsValue::from)
         }
     }
 
     #[wasm_bindgen]
-    pub fn jsonlogic(value: JsValue, data: JsValue) -> Result<JsValue, JsValue> {
+    pub fn apply(value: JsValue, data: JsValue) -> Result<JsValue, JsValue> {
         let value_json = to_serde_value(value)?;
         let data_json = to_serde_value(data)?;
 
         let res = crate::jsonlogic(&value_json, &data_json)
-            .map_err(|err| format!("{:?}", err))
+            .map_err(|err| format!("{}", err))
             .map_err(JsValue::from)?;
 
         JsValue::from_serde(&res)
-            .map_err(|err| format!("{:?}", err))
+            .map_err(|err| format!("{}", err))
             .map_err(JsValue::from)
     }
 }
@@ -70,12 +74,11 @@ pub mod python_iface {
 
     fn jsonlogic(value: &str, data: &str) -> Result<String, String> {
         let value_json =
-            serde_json::from_str(value).map_err(|err| format!("{:?}", err))?;
-        let data_json =
-            serde_json::from_str(data).map_err(|err| format!("{:?}", err))?;
+            serde_json::from_str(value).map_err(|err| format!("{}", err))?;
+        let data_json = serde_json::from_str(data).map_err(|err| format!("{}", err))?;
 
         crate::jsonlogic(&value_json, &data_json)
-            .map_err(|err| format!("{:?}", err))
+            .map_err(|err| format!("{}", err))
             .map(|res| res.to_string())
     }
 
