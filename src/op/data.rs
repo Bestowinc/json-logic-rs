@@ -125,8 +125,6 @@ pub fn missing(data: &Value, args: &Vec<&Value>) -> Result<Value, Error> {
 
     adjusted_args.into_iter().fold(Ok(()), |had_error, arg| {
         had_error?;
-        // let _parsed_arg = Parsed::from_value(arg)?;
-        // let evaluated = _parsed_arg.evaluate(data)?;
         let key: KeyType = (*arg).try_into()?;
         match key {
             KeyType::Null => Ok(()),
