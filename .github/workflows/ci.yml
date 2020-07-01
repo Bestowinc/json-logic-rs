@@ -11,5 +11,7 @@ jobs:
     steps:
       - uses: "actions/checkout@v2"
       - uses: "actions/setup-node@v1"
-      - name: "Run Cargo Tests"
-        run: "cargo test --all-features"
+      - name: "Perform Setup"
+        run: "make setup"
+      - name: "Run Tests"
+        run: "make test"

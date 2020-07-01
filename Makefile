@@ -25,7 +25,6 @@ develop-py:
 
 setup:
 	cargo install wasm-pack
-	python3 -m venv py/venv
 
 test:
-	cargo test
+	cargo test --all-features
