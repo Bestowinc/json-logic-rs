@@ -142,8 +142,8 @@ pub fn missing(data: &Value, args: &Vec<&Value>) -> Result<Value, Error> {
 
 /// Check whether a minimum threshold of keys are present in the data
 ///
-/// Note that I think this function is confusingly named. `missing_fewer_than`
-/// might be better, something like `contains_at_least`. It checks to see how
+/// Note that I think this function is confusingly named. `contains_at_least`
+/// might be better, or something like that. Regardless, it checks to see how
 /// many of the specified keys are present in the data. If there are equal
 /// to or more than the threshold value _present_ in the data, an empty
 /// array is returned. Otherwise, an array containing all missing keys
