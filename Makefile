@@ -24,8 +24,7 @@ develop-py:
 	cd py && source ./venv/bin/activate && python ./setup.py develop
 
 setup:
-	cargo install wasm-pack
-	python3 -m venv py/venv
+	wasm-pack --version > /dev/null 2>&1 || cargo install wasm-pack
 
 test:
-	cargo test
+	cargo test --all-features

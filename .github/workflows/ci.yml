@@ -1,0 +1,59 @@
+name: "Continuous Integration"
+on: [push]
+
+jobs:
+  test:
+    name: "Test"
+    strategy:
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+    runs-on: "${{ matrix.os }}"
+    steps:
+      # Check out the code
+      - uses: "actions/checkout@v2"
+
+      # We need node for some integration tests
+      - uses: "actions/setup-node@v1"
+
+      # Set the current month and year (used for cache key)
+      - name: "Get Date"
+        id: get-date
+        # Outputs e.g. "202007"
+        # tbh I have yet to find the docs where this output format is
+        # defined, but I copied this from the official cache action's README.
+        run: |
+          echo "::set-output name=date::$(/bin/date -u '+%Y%m')"
+        shell: bash
+
+      # Generate the lockfile
+      - name: "Generate Cargo Lockfile"
+        run: "cargo generate-lockfile"
+
+      # Cache build dependencies
+      - name: "Cache Build Fragments"
+        id: "cache-build-fragments"
+        uses: "actions/cache@v2"
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            target
+          # Rebuild whenever the cargo lock file changes
+          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+
+      # Cache `cargo install` built binaries
+      - name: "Cache Built Binaries"
+        id: "cache-binaries"
+        uses: "actions/cache@v2"
+        with:
+          path: "~/.cargo/bin"
+          # In theory, this should rebuild binaries once a month
+          key: "${{ runner.os }}-cargo-binaries-${{steps.get-date.outputs.date}}"
+
+      # Ensure we're all set up
+      - name: "Perform Setup"
+        run: "make setup"
+
+      # Run the tests
+      - name: "Run Tests"
+        run: "make test"
