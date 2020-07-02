@@ -8,10 +8,14 @@
 //! Note that the actual tests are found in `test_wasm.js`. This file
 //! just serves as a runner.
 
+#[cfg(feature = "wasm")]
 use std::path::Path;
+#[cfg(feature = "wasm")]
 use std::process::Command;
+#[cfg(feature = "wasm")]
 use std::str;
 
+#[cfg(feature = "wasm")]
 fn build_node_pkg() {
     // Build the node pkg
     let res = Command::new("make")

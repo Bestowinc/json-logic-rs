@@ -166,6 +166,11 @@ pub const DATA_OPERATOR_MAP: phf::Map<&'static str, DataOperator> = phf_map! {
         operator: data::missing,
         num_params: NumParams::Any,
     },
+    "missing_some" => DataOperator {
+        symbol: "missing_some",
+        operator: data::missing_some,
+        num_params: NumParams::Exactly(2),
+    },
 };
 
 pub const LAZY_OPERATOR_MAP: phf::Map<&'static str, LazyOperator> = phf_map! {

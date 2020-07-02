@@ -2,7 +2,7 @@ use serde_json::{Number, Value};
 
 use crate::error::Error;
 use crate::op::{DataOperation, LazyOperation, Operation};
-use crate::{data, Parser};
+use crate::Parser;
 
 /// A Parsed JSON value
 ///
@@ -15,18 +15,17 @@ pub enum Parsed<'a> {
     Operation(Operation<'a>),
     LazyOperation(LazyOperation<'a>),
     DataOperation(DataOperation<'a>),
-    Raw(data::Raw<'a>),
-    MissingSome(data::MissingSome<'a>),
+    Raw(Raw<'a>),
 }
 impl<'a> Parsed<'a> {
     /// Recursively parse a value
     pub fn from_value(value: &'a Value) -> Result<Self, Error> {
-        data::MissingSome::from_value(value)?
-            .map(Self::MissingSome)
-            .or(Operation::from_value(value)?.map(Self::Operation))
+        Operation::from_value(value)?
+            .map(Self::Operation)
+            // .or(Operation::from_value(value)?.map(Self::Operation))
             .or(LazyOperation::from_value(value)?.map(Self::LazyOperation))
             .or(DataOperation::from_value(value)?.map(Self::DataOperation))
-            .or(data::Raw::from_value(value)?.map(Self::Raw))
+            .or(Raw::from_value(value)?.map(Self::Raw))
             .ok_or(Error::UnexpectedError(format!(
                 "Failed to parse Value {:?}",
                 value
@@ -46,7 +45,6 @@ impl<'a> Parsed<'a> {
             Self::LazyOperation(op) => op.evaluate(data),
             Self::DataOperation(op) => op.evaluate(data),
             Self::Raw(val) => val.evaluate(data),
-            Self::MissingSome(missing) => missing.evaluate(data),
         }
     }
 }
@@ -57,8 +55,29 @@ impl From<Parsed<'_>> for Value {
             Parsed::LazyOperation(op) => Value::from(op),
             Parsed::DataOperation(op) => Value::from(op),
             Parsed::Raw(raw) => Value::from(raw),
-            Parsed::MissingSome(missing) => Value::from(missing),
         }
+    }
+}
+
+/// A Raw JSON value
+///
+/// Raw values are those that are not any known operation. A raw value may
+/// be of any valid JSON type.
+#[derive(Debug)]
+pub struct Raw<'a> {
+    value: &'a Value,
+}
+impl<'a> Parser<'a> for Raw<'a> {
+    fn from_value(value: &'a Value) -> Result<Option<Self>, Error> {
+        Ok(Some(Self { value }))
+    }
+    fn evaluate(&self, _data: &Value) -> Result<Evaluated, Error> {
+        Ok(Evaluated::Raw(self.value))
+    }
+}
+impl From<Raw<'_>> for Value {
+    fn from(raw: Raw) -> Self {
+        raw.value.clone()
     }
 }
 
