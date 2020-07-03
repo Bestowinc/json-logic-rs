@@ -46,7 +46,7 @@ pub mod javascript_iface {
         let value_json = to_serde_value(value)?;
         let data_json = to_serde_value(data)?;
 
-        let res = crate::jsonlogic(&value_json, &data_json)
+        let res = crate::apply(&value_json, &data_json)
             .map_err(|err| format!("{}", err))
             .map_err(JsValue::from)?;
 
@@ -61,34 +61,30 @@ pub mod python_iface {
     use cpython::exc::ValueError;
     use cpython::{py_fn, py_module_initializer, PyErr, PyResult, Python};
 
-    py_module_initializer!(jsonlogic_rs, |py, m| {
+    py_module_initializer!(jsonlogic, initjsonlogic, PyInit_jsonlogic, |py, m| {
         m.add(py, "__doc__", "Python bindings for json-logic-rs")?;
-        m.add(
-            py,
-            "jsonlogic",
-            py_fn!(py, jsonlogic_py(value: &str, data: &str)),
-        )?;
+        m.add(py, "apply", py_fn!(py, py_apply(value: &str, data: &str)))?;
         Ok(())
     });
 
-    fn jsonlogic(value: &str, data: &str) -> Result<String, String> {
+    fn apply(value: &str, data: &str) -> Result<String, String> {
         let value_json =
             serde_json::from_str(value).map_err(|err| format!("{}", err))?;
         let data_json = serde_json::from_str(data).map_err(|err| format!("{}", err))?;
 
-        crate::jsonlogic(&value_json, &data_json)
+        crate::apply(&value_json, &data_json)
             .map_err(|err| format!("{}", err))
             .map(|res| res.to_string())
     }
 
-    fn jsonlogic_py(py: Python, value: &str, data: &str) -> PyResult<String> {
-        jsonlogic(value, data).map_err(|err| PyErr::new::<ValueError, _>(py, err))
+    fn py_apply(py: Python, value: &str, data: &str) -> PyResult<String> {
+        apply(value, data).map_err(|err| PyErr::new::<ValueError, _>(py, err))
     }
 }
 
 /// Run JSONLogic for the given operation and data.
 ///
-pub fn jsonlogic(value: &Value, data: &Value) -> Result<Value, Error> {
+pub fn apply(value: &Value, data: &Value) -> Result<Value, Error> {
     let parsed = Parsed::from_value(&value)?;
     parsed.evaluate(data).map(Value::from)
 }
@@ -1138,7 +1134,7 @@ mod jsonlogic_tests {
 
     fn assert_jsonlogic((op, data, exp): (Value, Value, Result<Value, ()>)) -> () {
         println!("Running rule: {:?} with data: {:?}", op, data);
-        let result = jsonlogic(&op, &data);
+        let result = apply(&op, &data);
         println!("- Result: {:?}", result);
         println!("- Expected: {:?}", exp);
         if exp.is_ok() {
