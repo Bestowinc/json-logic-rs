@@ -43,7 +43,7 @@ test-wasm:
 
 .PHONY: test-py
 test-py: venv
-	python tests/test_py.py
+	$(VENV) python tests/test_py.py
 
 venv: setup.py pyproject.toml
 	python3 -m venv venv
