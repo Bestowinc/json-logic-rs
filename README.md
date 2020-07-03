@@ -9,7 +9,8 @@ This s an implementation of  the [JSONLogic] specification in Rust.
 You must have Rust installed and `cargo` available in your `PATH`.
 
 If you would like to build or test the Python distribution, Python 3.6 or
-newer must be available in your `PATH`.
+newer must be available in your `PATH`. The `venv` module must be part of the
+Python distribution (looking at you, Ubuntu).
 
 If you would like to run tests for the WASM package, `node` 10 or newer must be
 available in your `PATH`.

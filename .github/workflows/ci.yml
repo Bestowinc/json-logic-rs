@@ -7,6 +7,7 @@ jobs:
     strategy:
       matrix:
         os: [ubuntu-latest, macos-latest, windows-latest]
+        python-version: [3.6, 3.7, 3.8]
     runs-on: "${{ matrix.os }}"
     steps:
       # Check out the code
@@ -14,6 +15,12 @@ jobs:
 
       # We need node for some integration tests
       - uses: "actions/setup-node@v1"
+
+      # Install python
+      - name: "Set up python"
+        uses: "actions/setup-python@v2"
+        with:
+          python-version: "${{ matrix.python-version }}"
 
       # Set the current month and year (used for cache key)
       - name: "Get Date"
