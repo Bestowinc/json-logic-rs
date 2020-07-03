@@ -49,6 +49,10 @@ make develop-py
 This will automatically create a virtual environment in `venv/`, install
 the necessary packages, and then install `jsonlogic_rs` into that environment.
 
+**Note:** from our CI experiences, this may not work for Python 3.8 on Windows.
+If you are running this on a Windows machine and can confirm whether or not
+this works, let us know!
+
 To build a production source distribution:
 
 ```sh

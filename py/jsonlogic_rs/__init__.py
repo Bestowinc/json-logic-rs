@@ -1,13 +1,26 @@
 """Python JSONLogic with a Rust Backend."""
 
 __all__ = (
-    "jsonlogic",
-    "jsonlogic_serialized",
+    "apply",
+    "apply_serialized",
 )
 
 import json as _json
+import sys as _sys
 
-from .jsonlogic import apply as _apply
+try:
+    from .jsonlogic import apply as _apply
+except ImportError:
+    # See https://docs.python.org/3/library/os.html#os.add_dll_directory
+    # for why this is here.
+    if _sys.platform.startswith("win"):
+        import os
+        from pathlib import Path
+        if hasattr(os, "add_dll_directory"):
+            os.add_dll_directory(str(Path(__file__).parent))
+        from .jsonlogic import apply as _apply
+    else:
+        raise
 
 
 def apply(value, data=None, serializer=None, deserializer=None):

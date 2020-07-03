@@ -6,6 +6,10 @@
 //! as a runner.
 
 #[cfg(feature = "python")]
+use std::fs;
+#[cfg(feature = "python")]
+use std::path;
+#[cfg(feature = "python")]
 use std::process::Command;
 
 #[cfg(feature = "python")]
