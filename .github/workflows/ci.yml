@@ -97,6 +97,7 @@ jobs:
 
   build-wasm:
     name: "Build WASM"
+    needs: test
     runs-on: ubuntu-latest
     steps:
       # Check out the code
@@ -151,6 +152,7 @@ jobs:
 
   build-python-wheels:
     name: "Build Python Wheels"
+    needs: test
     strategy:
       matrix:
         os: [ubuntu-latest, macos-latest, windows-latest]
@@ -227,6 +229,7 @@ jobs:
 
   build-python-sdist:
     name: "Build Python Source Dist"
+    needs: test
     runs-on: ubuntu-latest
     steps:
       # Check out the code
