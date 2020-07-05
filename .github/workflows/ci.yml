@@ -96,9 +96,10 @@ jobs:
           PYTHON: ${{ steps.get-py-path.outputs.path }}
 
   build:
-    name: "Build"
+    name: "Build Libs, WASM, and Python sdist"
     needs: test
     runs-on: ubuntu-latest
+    if: "${{ github.ref == 'master' }}"
     steps:
       # Check out the code
       - uses: "actions/checkout@v2"
@@ -190,6 +191,7 @@ jobs:
   build-python-wheels:
     name: "Build Python Wheels"
     needs: test
+    if: "${{ github.ref == 'master' }}"
     strategy:
       matrix:
         os: [ubuntu-latest, macos-latest, windows-latest]
