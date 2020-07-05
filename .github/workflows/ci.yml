@@ -95,61 +95,6 @@ jobs:
           WINDOWS: "${{ contains(runner.os, 'windows') }}"
           PYTHON: ${{ steps.get-py-path.outputs.path }}
 
-  build-wasm:
-    name: "Build WASM"
-    needs: test
-    runs-on: ubuntu-latest
-    steps:
-      # Check out the code
-      - uses: "actions/checkout@v2"
-
-      # Set the current month and year (used for cache key)
-      - name: "Get Date"
-        id: get-date
-        # Outputs e.g. "202007"
-        # tbh I have yet to find the docs where this output format is
-        # defined, but I copied this from the official cache action's README.
-        run: |
-          echo "::set-output name=date::$(/bin/date -u '+%Y%m')"
-        shell: bash
-
-      # Generate the lockfile
-      - name: "Generate Cargo Lockfile"
-        run: "cargo generate-lockfile"
-
-      # Cache build dependencies
-      - name: "Cache Build Fragments"
-        id: "cache-build-fragments"
-        uses: "actions/cache@v2"
-        with:
-          path: |
-            ~/.cargo/registry
-            ~/.cargo/git
-            target
-          # Rebuild whenever the cargo lock file changes
-          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
-
-      # Cache `cargo install` built binaries
-      - name: "Cache Built Binaries"
-        id: "cache-binaries"
-        uses: "actions/cache@v2"
-        with:
-          path: "~/.cargo/bin"
-          # In theory, this should rebuild binaries once a month
-          key: "${{ runner.os }}-cargo-binaries-${{steps.get-date.outputs.date}}"
-
-      - name: "Perform Setup"
-        run: "make setup"
-        shell: bash
-
-      - name: "Build WASM"
-        run: "make build-wasm"
-
-      - uses: "actions/upload-artifact@v2"
-        with:
-          path: js/
-          name: wasm-pkg
-
   build:
     name: "Build"
     needs: test
@@ -218,7 +163,7 @@ jobs:
       - uses: "actions/upload-artifact@v2"
         name: "Upload Rust/C Libraries"
         with:
-          path: target/libjsonlogic.*
+          path: target/release/libjsonlogic.*
           name: libs
 
       - name: "Build Python Source Dist"
