@@ -1,5 +1,7 @@
 # json-logic-rs
 
+![Continuous Integration](https://github.com/Bestowinc/json-logic-rs/workflows/Continuous%20Integration/badge.svg?branch=master)
+
 This s an implementation of  the [JSONLogic] specification in Rust.
 
 ## Building

@@ -94,3 +94,174 @@ jobs:
         env:
           WINDOWS: "${{ contains(runner.os, 'windows') }}"
           PYTHON: ${{ steps.get-py-path.outputs.path }}
+
+  build:
+    name: "Build Libs, WASM, and Python sdist"
+    needs: test
+    runs-on: ubuntu-latest
+    if: "${{ github.ref == 'master' }}"
+    steps:
+      # Check out the code
+      - uses: "actions/checkout@v2"
+
+      # Install python
+      - name: "Set up python"
+        uses: "actions/setup-python@v2"
+        with:
+          python-version: "3.8"
+
+      - name: "Get Python Path"
+        id: get-py-path
+        shell: bash
+        run: |
+          echo "::set-output name=path::$(which python)"
+
+      # Set the current month and year (used for cache key)
+      - name: "Get Date"
+        id: get-date
+        # Outputs e.g. "202007"
+        # tbh I have yet to find the docs where this output format is
+        # defined, but I copied this from the official cache action's README.
+        run: |
+          echo "::set-output name=date::$(/bin/date -u '+%Y%m')"
+        shell: bash
+
+      # Generate the lockfile
+      - name: "Generate Cargo Lockfile"
+        run: "cargo generate-lockfile"
+
+      # Cache build dependencies
+      - name: "Cache Build Fragments"
+        id: "cache-build-fragments"
+        uses: "actions/cache@v2"
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            target
+          # Rebuild whenever the cargo lock file changes
+          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+
+      # Cache `cargo install` built binaries
+      - name: "Cache Built Binaries"
+        id: "cache-binaries"
+        uses: "actions/cache@v2"
+        with:
+          path: "~/.cargo/bin"
+          # In theory, this should rebuild binaries once a month
+          key: "${{ runner.os }}-cargo-binaries-${{steps.get-date.outputs.date}}"
+
+      - name: "Perform Setup"
+        run: "make setup"
+        shell: bash
+        env:
+          WINDOWS: "${{ contains(runner.os, 'windows') }}"
+          PYTHON: ${{ steps.get-py-path.outputs.path }}
+
+      - name: "Build Rust/C Libraries"
+        run: "make build"
+
+      - uses: "actions/upload-artifact@v2"
+        name: "Upload Rust/C Libraries"
+        with:
+          path: target/release/libjsonlogic.*
+          name: libs
+
+      - name: "Build Python Source Dist"
+        run: "make build-py-sdist"
+        env:
+          WINDOWS: "${{ contains(runner.os, 'windows') }}"
+          PYTHON: ${{ steps.get-py-path.outputs.path }}
+
+      - uses: "actions/upload-artifact@v2"
+        name: "Upload Python sdist"
+        with:
+          path: dist/*.tar.gz
+          name: py-sdist
+
+      - name: "Build WASM Node Package"
+        run: "make build-wasm"
+
+      - uses: "actions/upload-artifact@v2"
+        name: "Upload node package"
+        with:
+          path: js/
+          name: wasm-pkg
+
+  build-python-wheels:
+    name: "Build Python Wheels"
+    needs: test
+    if: "${{ github.ref == 'master' }}"
+    strategy:
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+        python-version: [3.6, 3.7, 3.8]
+    runs-on: "${{ matrix.os }}"
+    steps:
+      # Check out the code
+      - uses: "actions/checkout@v2"
+
+      # Install python
+      - name: "Set up python"
+        uses: "actions/setup-python@v2"
+        with:
+          python-version: "${{ matrix.python-version }}"
+
+      - name: "Get Python Path"
+        id: get-py-path
+        shell: bash
+        run: |
+          echo "::set-output name=path::$(which python)"
+
+      # Set the current month and year (used for cache key)
+      - name: "Get Date"
+        id: get-date
+        # Outputs e.g. "202007"
+        # tbh I have yet to find the docs where this output format is
+        # defined, but I copied this from the official cache action's README.
+        run: |
+          echo "::set-output name=date::$(/bin/date -u '+%Y%m')"
+        shell: bash
+
+      # Generate the lockfile
+      - name: "Generate Cargo Lockfile"
+        run: "cargo generate-lockfile"
+
+      # Cache build dependencies
+      - name: "Cache Build Fragments"
+        id: "cache-build-fragments"
+        uses: "actions/cache@v2"
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            target
+          # Rebuild whenever the cargo lock file changes
+          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+
+      # Cache `cargo install` built binaries
+      - name: "Cache Built Binaries"
+        id: "cache-binaries"
+        uses: "actions/cache@v2"
+        with:
+          path: "~/.cargo/bin"
+          # In theory, this should rebuild binaries once a month
+          key: "${{ runner.os }}-cargo-binaries-${{steps.get-date.outputs.date}}"
+
+      - name: "Perform Setup"
+        run: "make setup"
+        shell: bash
+        env:
+          WINDOWS: "${{ contains(runner.os, 'windows') }}"
+          PYTHON: ${{ steps.get-py-path.outputs.path }}
+
+      - name: "Build Python Wheel"
+        run: "make build-py-wheel"
+        env:
+          WINDOWS: "${{ contains(runner.os, 'windows') }}"
+          PYTHON: ${{ steps.get-py-path.outputs.path }}
+
+      - uses: "actions/upload-artifact@v2"
+        with:
+          path: "dist/*.whl"
+          name: "py-${{ matrix.python-version }}-${{ runner.os }}-whl"
