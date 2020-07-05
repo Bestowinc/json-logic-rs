@@ -29,6 +29,7 @@ debug-wasm:
 .PHONY: build-py-sdist
 build-py-sdist: $(VENV)
 	cargo clean -p jsonlogic
+	rm -rf dist/*
 	$(VENV) setup.py sdist
 
 .PHONY: build-py-wheel
@@ -37,6 +38,19 @@ build-py-wheel: $(VENV)
 	rm -rf dist/*
 	$(VENV) setup.py bdist_wheel
 
+# NOTE: this command may sudo on linux
+.PHONY: build-py-wheel-manylinux
+build-py-wheel-manylinux:
+	rm -rf build/*
+	rm -rf dist/*
+	docker run -v "$$PWD":/io --rm $(MANYLINUX_IMG) /io/build-wheels.sh
+
+.PHONY: build-py-all
+build-py-all: $(VENV)
+	cargo clean -p jsonlogic
+	rm -rf dist/*
+	$(VENV) setup.py sdist bdist_wheel
+
 .PHONY: develop-py-wheel
 develop-py-wheel: $(VENV)
 	$(VENV) setup.py bdist_wheel
@@ -44,6 +58,16 @@ develop-py-wheel: $(VENV)
 .PHONY: develop-py
 develop-py: $(VENV)
 	$(VENV) setup.py develop
+
+.PHONY: distribute-py
+distribute-py: $(VENV)
+	$(VENV) -m pip install twine
+	twine upload -s dist/*
+
+.PHONY: test-distribute-py
+test-distribute-py:
+	$(VENV) -m pip install twine
+	twine upload -s --repository testpypi dist/*
 
 .PHONY: setup
 setup:
