@@ -21,3 +21,9 @@ Cargo.lock
 **/.DS_Store
 
 js/
+
+**/__pycache__/
+**/*.egg-info/
+build/
+dist/
+venv/

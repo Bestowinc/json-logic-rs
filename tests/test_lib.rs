@@ -73,7 +73,7 @@ fn run_cases() {
         println!("  data: {:?}", case.data);
         println!("  expected: {:?}", case.result);
         assert_eq!(
-            jsonlogic::jsonlogic(&case.logic, &case.data).unwrap(),
+            jsonlogic::apply(&case.logic, &case.data).unwrap(),
             case.result
         )
     })

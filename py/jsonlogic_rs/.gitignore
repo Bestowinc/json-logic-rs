@@ -1,0 +1,3 @@
+
+# Ignore development build of C extension
+*.so
