@@ -22,13 +22,11 @@ standard as we do so.
 Being built in Rust, we are able to provide the package in a variety of
 languages. The table below describes current language support:
 
-<!-- TODO  Add links below -->
-
-| **Language**         | **Available Via**    |
-| -------------------- | -------------------- |
-| Rust                 | Cargo                |
-| JavaScript (as WASM) | Node Package via NPM |
-| Python               | PyPI                 |
+| **Language**         | **Available Via**                                                          |
+| -------------------- | -------------------------------------------------------------------------- |
+| Rust                 | [Cargo](https://crates.io/crates/jsonlogic-rs)                             |
+| JavaScript (as WASM) | Node Package via [NPM](https://www.npmjs.com/package/@bestow/jsonlogic-rs) |
+| Python               | [PyPI](https://test.pypi.org/project/jsonlogic-rs/0.1.0/)                  |
 
 ## Usage
 
