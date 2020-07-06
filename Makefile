@@ -20,11 +20,11 @@ build:
 .PHONY: build-wasm
 build-wasm: setup
 	cargo clean -p jsonlogic
-	rm -rf ./js && wasm-pack build --target nodejs --out-dir js --out-name index --release -- --features wasm
+	rm -rf ./js && wasm-pack build --target nodejs --out-dir js --out-name index --release --scope bestow -- --features wasm
 
 .PHONY: debug-wasm
 debug-wasm:
-	rm -rf ./js && wasm-pack build --target nodejs --out-dir js --out-name index --debug -- --features wasm
+	rm -rf ./js && wasm-pack build --target nodejs --out-dir js --out-name index --debug --scope bestow -- --features wasm
 
 .PHONY: clean-py
 clean-py:
