@@ -88,8 +88,11 @@ jobs:
         # python integration tests
         run: |
           cargo test --features=wasm
+          rm -rf dist/*
+          rm -rf build/*
           make develop-py-wheel
           pip install dist/*.whl
+          echo "Running Tests"
           python tests/test_py.py
         env:
           WINDOWS: "${{ contains(runner.os, 'windows') }}"
