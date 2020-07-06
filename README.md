@@ -30,6 +30,49 @@ languages. The table below describes current language support:
 | JavaScript (as WASM) | Node Package via NPM |
 | Python               | PyPI                 |
 
+## Usage
+
+### Rust
+
+```rust
+use jsonlogic_rs;
+use serde_json::json;
+
+fn main() {
+    assert_eq!(
+        jsonlogic_rs::apply(
+            json!({"===": [{"var": "a"}, 7]}),
+            json!({"a": 7}),
+        ),
+        json!(true)
+    );
+}
+```
+
+### Javascript
+
+```js
+const jsonlogic = require("jsonlogic-rs")
+
+jsonlogic.apply(
+    {"===": [{"var": "a"}, 7]},
+    {"a": 7}
+)
+```
+
+### Python
+
+```py
+import jsonlogic_rs
+
+res = jsonlogic_rs.apply(
+    {"===": [{"var": "a"}, 7]},
+    {"a": 7}
+)
+
+assert res == True
+```
+
 ## Building
 
 ### Prerequisites

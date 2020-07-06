@@ -19,7 +19,7 @@ build:
 
 .PHONY: build-wasm
 build-wasm: setup
-	cargo clean -p jsonlogic
+	cargo clean -p jsonlogic-rs
 	rm -rf ./js && wasm-pack build --target nodejs --out-dir js --out-name index --release --scope bestow -- --features wasm
 
 .PHONY: debug-wasm
@@ -33,12 +33,12 @@ clean-py:
 
 .PHONY: build-py-sdist
 build-py-sdist: $(VENV) clean-py
-	cargo clean -p jsonlogic
+	cargo clean -p jsonlogic-rs
 	$(VENV) setup.py sdist
 
 .PHONY: build-py-wheel
 build-py-wheel: $(VENV) clean-py
-	cargo clean -p jsonlogic
+	cargo clean -p jsonlogic-rs
 	$(VENV) setup.py bdist_wheel
 
 # NOTE: this command may sudo on linux
@@ -48,7 +48,7 @@ build-py-wheel-manylinux: clean-py
 
 .PHONY: build-py-all
 build-py-all: $(VENV) clean-py
-	cargo clean -p jsonlogic
+	cargo clean -p jsonlogic-rs
 	$(VENV) setup.py sdist bdist_wheel
 
 .PHONY: develop-py-wheel

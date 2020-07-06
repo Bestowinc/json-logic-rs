@@ -104,7 +104,7 @@ pub fn to_number(value: &Value) -> Option<f64> {
 ///
 /// ```rust
 /// use serde_json::json;
-/// use jsonlogic::js_op::abstract_eq;
+/// use jsonlogic_rs::js_op::abstract_eq;
 ///
 /// assert!(
 ///   abstract_eq(
@@ -301,7 +301,7 @@ pub fn abstract_eq(first: &Value, second: &Value) -> bool {
 ///
 /// ```rust
 /// use serde_json::json;
-/// use jsonlogic::js_op::strict_eq;
+/// use jsonlogic_rs::js_op::strict_eq;
 ///
 /// // References of the same type and value are strictly equal
 /// assert!(strict_eq(&json!(1), &json!(1)));
@@ -347,7 +347,7 @@ pub fn strict_ne(first: &Value, second: &Value) -> bool {
 ///
 /// ```rust
 /// use serde_json::json;
-/// use jsonlogic::js_op::abstract_lt;
+/// use jsonlogic_rs::js_op::abstract_lt;
 ///
 /// assert_eq!(abstract_lt(&json!(-1), &json!(0)), true);
 /// assert_eq!(abstract_lt(&json!("-1"), &json!(0)), true);
@@ -383,7 +383,7 @@ pub fn abstract_lt(first: &Value, second: &Value) -> bool {
 ///
 /// ```rust
 /// use serde_json::json;
-/// use jsonlogic::js_op::abstract_gt;
+/// use jsonlogic_rs::js_op::abstract_gt;
 ///
 /// assert_eq!(abstract_gt(&json!(0), &json!(-1)), true);
 /// assert_eq!(abstract_gt(&json!(0), &json!("-1")), true);

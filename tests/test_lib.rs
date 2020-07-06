@@ -8,7 +8,7 @@ use reqwest;
 use serde_json;
 use serde_json::Value;
 
-use jsonlogic;
+use jsonlogic_rs;
 
 struct TestCase {
     logic: Value,
@@ -73,7 +73,7 @@ fn run_cases() {
         println!("  data: {:?}", case.data);
         println!("  expected: {:?}", case.result);
         assert_eq!(
-            jsonlogic::apply(&case.logic, &case.data).unwrap(),
+            jsonlogic_rs::apply(&case.logic, &case.data).unwrap(),
             case.result
         )
     })
