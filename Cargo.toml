@@ -1,8 +1,15 @@
 [package]
-name = "jsonlogic"
-version = "0.1.0"
 authors = ["Matthew Planchard <msplanchard@gmail.com>"]
+categories = ["parsing", "wasm", "web-programming"]
+description = "jsonlogic (jsonlogic.com) implemented in Rust"
 edition = "2018"
+homepage = "https://github.com/bestowinc/json-logic-rs"
+keywords = ["json", "jsonlogic", "s-expressions", "web", "logic"]
+license = "MIT"
+name = "jsonlogic"
+readme = "README.md"
+repository = "https://github.com/bestowinc/json-logic-rs"
+version = "0.1.0"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
@@ -15,21 +22,20 @@ python = ["cpython"]
 wasm = ["wasm-bindgen"]
 
 [dependencies]
-phf = { version = "~0.8.0", features = ["macros"] }
+phf = {version = "~0.8.0", features = ["macros"]}
 serde_json = "~1.0.41"
 thiserror = "~1.0.11"
 
 [dependencies.wasm-bindgen]
-version = "~0.2.62"
 features = ["serde-serialize"]
 optional = true
+version = "~0.2.62"
 
 [dependencies.cpython]
-version = "0.5"
 features = ["extension-module"]
 optional = true
+version = "0.5"
 
 [dev-dependencies.reqwest]
-version = "~0.10.6"
 features = ["blocking"]
-
+version = "~0.10.6"
