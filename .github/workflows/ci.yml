@@ -57,7 +57,7 @@ jobs:
           # python targets confused. The Python version is included at the
           # end so it can be partially matched by cache keys in contexts
           # where we're not iterating over python envs.
-          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}-${{ matrix.python-version }}
+          key: ${{ runner.os }}-${{ contains(runner.os, 'windows') && 'test-' || '' }}cargo-${{ hashFiles('**/Cargo.lock') }}-${{ matrix.python-version }}
 
       # Cache `cargo install` built binaries
       - name: "Cache Built Binaries"
@@ -106,7 +106,7 @@ jobs:
     name: "Build Libs, WASM, and Python sdist"
     needs: test
     runs-on: ubuntu-latest
-    if: "${{ github.ref == 'master' }}"
+    if: "${{ github.ref == 'refs/heads/master' }}"
     steps:
       # Check out the code
       - uses: "actions/checkout@v2"
@@ -201,7 +201,7 @@ jobs:
     # via a "manylinux" container as specified by PEPs 513, 571, and 599
     name: "Build Linux Wheels"
     needs: "test"
-    if: "${{ github.ref == 'master' }}"
+    if: "${{ github.ref == 'refs/heads/master' }}"
     runs-on: "ubuntu-latest"
     strategy:
       matrix:
@@ -270,7 +270,7 @@ jobs:
   build-python-wheels-mac-windows:
     name: "Build Python Wheels (MacOS, Windows)"
     needs: test
-    if: "${{ github.ref == 'master' }}"
+    if: "${{ github.ref == 'refs/heads/master' }}"
     strategy:
       matrix:
         os: [macos-latest, windows-latest]
