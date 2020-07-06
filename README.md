@@ -6,7 +6,7 @@ This is an implementation of  the [JSONLogic] specification in Rust.
 
 ## Project Status
 
-We implement 100% of the supported operations defined [here](http://jsonlogic.com/operations.html).
+We implement 100% of the standard supported operations defined [here](http://jsonlogic.com/operations.html).
 
 We also implement the `?:`, which is not described in that specification
 but is a direct alias for `if`.
@@ -22,7 +22,7 @@ standard as we do so.
 Being built in Rust, we are able to provide the package in a variety of
 languages. The table below describes current language support:
 
-<!-- TODO: Add links below -->
+<!-- TODO  Add links below -->
 
 | **Language**         | **Available Via**    |
 | -------------------- | -------------------- |
