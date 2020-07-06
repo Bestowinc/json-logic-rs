@@ -88,7 +88,7 @@ jobs:
         # python integration tests
         run: |
           cargo test --features=wasm
-          make build-py-wheel
+          make develop-py-wheel
           ls dist/*.whl
           pip install dist/*.whl
           echo "Running Tests"
@@ -194,8 +194,8 @@ jobs:
     # Linux wheels can't be built directly but instead need to be built
     # via a "manylinux" container as specified by PEPs 513, 571, and 599
     name: "Build Linux Wheels"
-    # needs: "test"
-    # if: "${{ github.ref == 'master' }}"
+    needs: "test"
+    if: "${{ github.ref == 'master' }}"
     runs-on: "ubuntu-latest"
     strategy:
       matrix:
