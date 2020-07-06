@@ -88,9 +88,8 @@ jobs:
         # python integration tests
         run: |
           cargo test --features=wasm
-          rm -rf dist/*
-          rm -rf build/*
-          make develop-py-wheel
+          make build-py-wheel
+          ls dist/*.whl
           pip install dist/*.whl
           echo "Running Tests"
           python tests/test_py.py
