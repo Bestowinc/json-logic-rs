@@ -52,7 +52,7 @@ jobs:
             ~/.cargo/git
             target
           # Rebuild whenever the cargo lock file changes
-          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}-v2
 
       # Cache `cargo install` built binaries
       - name: "Cache Built Binaries"
