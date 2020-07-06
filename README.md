@@ -2,7 +2,33 @@
 
 ![Continuous Integration](https://github.com/Bestowinc/json-logic-rs/workflows/Continuous%20Integration/badge.svg?branch=master)
 
-This s an implementation of  the [JSONLogic] specification in Rust.
+This is an implementation of  the [JSONLogic] specification in Rust.
+
+## Project Status
+
+We implement 100% of the standard supported operations defined [here](http://jsonlogic.com/operations.html).
+
+We also implement the `?:`, which is not described in that specification
+but is a direct alias for `if`.
+
+All operations are tested using our own test suite in Rust as well as the
+shared tests for all jsonlogic implementations defined [here](http://jsonlogic.com/tests.json).
+
+We are working on adding new operations with improved type safety, as well
+as the ability to define functions as jsonlogic. We will communicate with
+the broader jsonlogic community to see if we can make them part of the
+standard as we do so.
+
+Being built in Rust, we are able to provide the package in a variety of
+languages. The table below describes current language support:
+
+<!-- TODO  Add links below -->
+
+| **Language**         | **Available Via**    |
+| -------------------- | -------------------- |
+| Rust                 | Cargo                |
+| JavaScript (as WASM) | Node Package via NPM |
+| Python               | PyPI                 |
 
 ## Building
 
