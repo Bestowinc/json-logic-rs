@@ -13,9 +13,9 @@ EMAIL = "msplanchard@gmail.com"
 
 def get_version():
     proc = Popen(("cargo", "pkgid"), stdout=PIPE, stderr=PIPE)
-    out, _err = tuple(map(bytes.decode, proc.communicate()))
+    out, err = tuple(map(bytes.decode, proc.communicate()))
     if proc.returncode != 0:
-        raise RuntimeError("Could not get Cargo package info")
+        raise RuntimeError(f"Could not get Cargo package info: {err}")
     version = out.split(":")[-1]
     return version.strip()
 

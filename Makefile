@@ -26,16 +26,30 @@ build-wasm: setup
 debug-wasm:
 	rm -rf ./js && wasm-pack build --target nodejs --out-dir js --out-name index --debug -- --features wasm
 
+.PHONY: clean-py
+clean-py:
+	rm -rf build/*
+	rm -rf dist/*
+
 .PHONY: build-py-sdist
-build-py-sdist: $(VENV)
+build-py-sdist: $(VENV) clean-py
 	cargo clean -p jsonlogic
 	$(VENV) setup.py sdist
 
 .PHONY: build-py-wheel
-build-py-wheel: $(VENV)
+build-py-wheel: $(VENV) clean-py
 	cargo clean -p jsonlogic
-	rm -rf dist/*
 	$(VENV) setup.py bdist_wheel
+
+# NOTE: this command may sudo on linux
+.PHONY: build-py-wheel-manylinux
+build-py-wheel-manylinux: clean-py
+	docker run -v "$$PWD":/io --rm $(MANYLINUX_IMG) /io/build-wheels.sh
+
+.PHONY: build-py-all
+build-py-all: $(VENV) clean-py
+	cargo clean -p jsonlogic
+	$(VENV) setup.py sdist bdist_wheel
 
 .PHONY: develop-py-wheel
 develop-py-wheel: $(VENV)
@@ -44,6 +58,16 @@ develop-py-wheel: $(VENV)
 .PHONY: develop-py
 develop-py: $(VENV)
 	$(VENV) setup.py develop
+
+.PHONY: distribute-py
+distribute-py: $(VENV)
+	$(VENV) -m pip install twine
+	twine upload -s dist/*
+
+.PHONY: test-distribute-py
+test-distribute-py:
+	$(VENV) -m pip install twine
+	twine upload -s --repository testpypi dist/*
 
 .PHONY: setup
 setup:

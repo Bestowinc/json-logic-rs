@@ -51,8 +51,13 @@ jobs:
             ~/.cargo/registry
             ~/.cargo/git
             target
-          # Rebuild whenever the cargo lock file changes
-          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+          # Use the OS, the python version, and the hashed cargo lockfile as the
+          # cache key. The Python version shouldn't be necessary, but I have
+          # seen some weird failures in Windows CI where it gets the built
+          # python targets confused. The Python version is included at the
+          # end so it can be partially matched by cache keys in contexts
+          # where we're not iterating over python envs.
+          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}-${{ matrix.python-version }}
 
       # Cache `cargo install` built binaries
       - name: "Cache Built Binaries"
@@ -89,7 +94,9 @@ jobs:
         run: |
           cargo test --features=wasm
           make develop-py-wheel
+          ls dist/*.whl
           pip install dist/*.whl
+          echo "Running Tests"
           python tests/test_py.py
         env:
           WINDOWS: "${{ contains(runner.os, 'windows') }}"
@@ -139,7 +146,8 @@ jobs:
             ~/.cargo/registry
             ~/.cargo/git
             target
-          # Rebuild whenever the cargo lock file changes
+          # This should partial match the caches generated for the tests,
+          # which include a python version at the end.
           key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
 
       # Cache `cargo install` built binaries
@@ -188,13 +196,84 @@ jobs:
           path: js/
           name: wasm-pkg
 
-  build-python-wheels:
-    name: "Build Python Wheels"
+  build-python-wheels-linux:
+    # Linux wheels can't be built directly but instead need to be built
+    # via a "manylinux" container as specified by PEPs 513, 571, and 599
+    name: "Build Linux Wheels"
+    needs: "test"
+    if: "${{ github.ref == 'master' }}"
+    runs-on: "ubuntu-latest"
+    strategy:
+      matrix:
+        manylinux:
+          - arch: "manylinux1_i686"
+            img: "quay.io/pypa/manylinux1_i686:2020-07-04-283458f"
+          - arch: "manylinux1_x86_64"
+            img: "quay.io/pypa/manylinux1_x86_64:2020-07-04-283458f"
+          - arch: "manylinux2010_i686"
+            img: "quay.io/pypa/manylinux2010_i686:2020-07-04-10a3c30"
+          - arch: "manylinux2010_x86_64"
+            img: "quay.io/pypa/manylinux2010_x86_64:2020-07-04-10a3c30"
+          - arch: "manylinux2014_i686"
+            img: "quay.io/pypa/manylinux2014_i686:2020-07-04-bb5f087"
+          - arch: "manylinux2014_x86_64"
+            img: "quay.io/pypa/manylinux2014_x86_64:2020-07-04-bb5f087"
+    steps:
+      # Check out the code
+      - uses: "actions/checkout@v2"
+      # Set the current month and year (used for cache key)
+      - name: "Get Date"
+        id: get-date
+        # Outputs e.g. "202007"
+        # tbh I have yet to find the docs where this output format is
+        # defined, but I copied this from the official cache action's README.
+        run: |
+          echo "::set-output name=date::$(/bin/date -u '+%Y%m')"
+        shell: bash
+
+      # Generate the lockfile
+      - name: "Generate Cargo Lockfile"
+        run: "cargo generate-lockfile"
+
+      # Cache build dependencies
+      - name: "Cache Build Fragments"
+        id: "cache-build-fragments"
+        uses: "actions/cache@v2"
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            target
+          # This should partial match the caches generated for the tests,
+          # which include a python version at the end.
+          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+
+      # Cache `cargo install` built binaries
+      - name: "Cache Built Binaries"
+        id: "cache-binaries"
+        uses: "actions/cache@v2"
+        with:
+          path: "~/.cargo/bin"
+          # In theory, this should rebuild binaries once a month
+          key: "${{ runner.os }}-cargo-binaries-${{steps.get-date.outputs.date}}"
+
+      - name: "Build Wheels"
+        run: "make build-py-wheel-manylinux"
+        env:
+          MANYLINUX_IMG: ${{ matrix.manylinux.img }}
+
+      - uses: "actions/upload-artifact@v2"
+        with:
+          path: "dist/*.whl"
+          name: "py-${{ matrix.manylinux.arch }}-wheels"
+
+  build-python-wheels-mac-windows:
+    name: "Build Python Wheels (MacOS, Windows)"
     needs: test
     if: "${{ github.ref == 'master' }}"
     strategy:
       matrix:
-        os: [ubuntu-latest, macos-latest, windows-latest]
+        os: [macos-latest, windows-latest]
         python-version: [3.6, 3.7, 3.8]
     runs-on: "${{ matrix.os }}"
     steps:
@@ -236,8 +315,13 @@ jobs:
             ~/.cargo/registry
             ~/.cargo/git
             target
-          # Rebuild whenever the cargo lock file changes
-          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+          # Use the OS, the python version, and the hashed cargo lockfile as the
+          # cache key. The Python version shouldn't be necessary, but I have
+          # seen some weird failures in Windows CI where it gets the built
+          # python targets confused. The Python version is included at the
+          # end so it can be partially matched by cache keys in contexts
+          # where we're not iterating over python envs.
+          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}-${{ matrix.python-version }}
 
       # Cache `cargo install` built binaries
       - name: "Cache Built Binaries"
@@ -264,4 +348,4 @@ jobs:
       - uses: "actions/upload-artifact@v2"
         with:
           path: "dist/*.whl"
-          name: "py-${{ matrix.python-version }}-${{ runner.os }}-whl"
+          name: "py-${{ matrix.python-version }}-${{ runner.os }}-wheels"
