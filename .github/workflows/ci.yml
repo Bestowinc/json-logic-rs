@@ -51,8 +51,13 @@ jobs:
             ~/.cargo/registry
             ~/.cargo/git
             target
-          # Rebuild whenever the cargo lock file changes
-          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}-v2
+          # Use the OS, the python version, and the hashed cargo lockfile as the
+          # cache key. The Python version shouldn't be necessary, but I have
+          # seen some weird failures in Windows CI where it gets the built
+          # python targets confused. The Python version is included at the
+          # end so it can be partially matched by cache keys in contexts
+          # where we're not iterating over python envs.
+          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}-${{ matrix.python-version }}
 
       # Cache `cargo install` built binaries
       - name: "Cache Built Binaries"
@@ -141,7 +146,8 @@ jobs:
             ~/.cargo/registry
             ~/.cargo/git
             target
-          # Rebuild whenever the cargo lock file changes
+          # This should partial match the caches generated for the tests,
+          # which include a python version at the end.
           key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
 
       # Cache `cargo install` built binaries
@@ -238,7 +244,8 @@ jobs:
             ~/.cargo/registry
             ~/.cargo/git
             target
-          # Rebuild whenever the cargo lock file changes
+          # This should partial match the caches generated for the tests,
+          # which include a python version at the end.
           key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
 
       # Cache `cargo install` built binaries
@@ -308,8 +315,13 @@ jobs:
             ~/.cargo/registry
             ~/.cargo/git
             target
-          # Rebuild whenever the cargo lock file changes
-          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+          # Use the OS, the python version, and the hashed cargo lockfile as the
+          # cache key. The Python version shouldn't be necessary, but I have
+          # seen some weird failures in Windows CI where it gets the built
+          # python targets confused. The Python version is included at the
+          # end so it can be partially matched by cache keys in contexts
+          # where we're not iterating over python envs.
+          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}-${{ matrix.python-version }}
 
       # Cache `cargo install` built binaries
       - name: "Cache Built Binaries"
