@@ -14,6 +14,8 @@ version = "0.1.0"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [lib]
+# cdylib for CFFI and python integration
+# lib for regular rust stuff
 crate-type = ["cdylib", "lib"]
 
 [features]
