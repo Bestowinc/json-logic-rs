@@ -349,3 +349,39 @@ jobs:
         with:
           path: "dist/*.whl"
           name: "py-${{ matrix.python-version }}-${{ runner.os }}-wheels"
+
+  distribute:
+    name: "Distribute Package"
+    # needs: build
+    runs-on: ubuntu-latest
+    # if: "${{ github.ref == 'refs/heads/master' }}"
+    steps:
+      # Check out the code
+      - uses: "actions/checkout@v2"
+
+      # Generate the lockfile
+      # - name: "Generate Cargo Lockfile"
+      #   run: "cargo generate-lockfile"
+
+      # Cache build dependencies
+      # - name: "Cache Build Fragments"
+      #   id: "cache-build-fragments"
+      #   uses: "actions/cache@v2"
+      #   with:
+      #     path: |
+      #       ~/.cargo/registry
+      #       ~/.cargo/git
+      #       target
+      #     # This should partial match the caches generated for the tests,
+      #     # which include a python version at the end.
+      #     key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+
+      - name: "Check for version update"
+        id: check-update
+        shell: bash
+        run: |
+          echo "::set-output name=updated::$(./scripts/newVersion.sh)"
+
+      - name: "Echo version update var"
+        shell: bash
+        run: "echo ${{ steps.check-update.outputs.updated }}"
