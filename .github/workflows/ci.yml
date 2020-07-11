@@ -352,7 +352,7 @@ jobs:
 
   distribute:
     name: "Distribute Cargo, WASM, and Python Sdist Packages"
-    # needs: build
+    needs: build
     runs-on: ubuntu-latest
     # if: "${{ github.ref == 'refs/heads/master' }}"
     steps:
