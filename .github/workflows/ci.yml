@@ -351,7 +351,7 @@ jobs:
           name: "py-${{ matrix.python-version }}-${{ runner.os }}-wheels"
 
   distribute:
-    name: "Distribute Package"
+    name: "Distribute Cargo, WASM, and Python Sdist Packages"
     # needs: build
     runs-on: ubuntu-latest
     # if: "${{ github.ref == 'refs/heads/master' }}"
@@ -359,22 +359,28 @@ jobs:
       # Check out the code
       - uses: "actions/checkout@v2"
 
+      # Install python
+      - name: "Set up python"
+        uses: "actions/setup-python@v2"
+        with:
+          python-version: 3.8
+
       # Generate the lockfile
       - name: "Generate Cargo Lockfile"
         run: "cargo generate-lockfile"
 
       # Cache build dependencies
-      # - name: "Cache Build Fragments"
-      #   id: "cache-build-fragments"
-      #   uses: "actions/cache@v2"
-      #   with:
-      #     path: |
-      #       ~/.cargo/registry
-      #       ~/.cargo/git
-      #       target
-      #     # This should partial match the caches generated for the tests,
-      #     # which include a python version at the end.
-      #     key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+      - name: "Cache Build Fragments"
+        id: "cache-build-fragments"
+        uses: "actions/cache@v2"
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            target
+          # This should partial match the caches generated for the tests,
+          # which include a python version at the end.
+          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
 
       - name: "Check for version update"
         id: check-update
@@ -385,3 +391,34 @@ jobs:
       - name: "Echo version update var"
         shell: bash
         run: "echo ${{ steps.check-update.outputs.updated }}"
+
+      - name: "Cargo Publish"
+        if: "${{ steps.check-update.outputs.updated == 'true' }}"
+        run: |
+          cargo publish --token "${{ secrets.CARGO_TOKEN }}" --dry-run
+
+      - name: "Pull WASM Artifact"
+        uses: "actions/download-artifact@v1"
+        with:
+          name: wasm-pkg
+          path: dist-wasm
+
+      - name: "Publish NPM Package"
+        shell: bash
+        run: |
+          echo "//registry.npmjs.org/:_authToken=${{ secrets.NPM_TOKEN }}" > ~/.npmrc
+          npm publish dist-wasm/ --access public --dry-run
+
+      - name: "Pull Python Sdist Artifact"
+        uses: "actions/download-artifact@v1"
+        with:
+          name: py-sdist
+          path: dist-py
+
+      - name: "Publish Python Sdist"
+        shell: bash
+        #  twine upload -u "__token__" -p "${{ secrets.PYPI_TOKEN }}" <path>
+        run: |
+          pip install twine
+          ls dist-py/
+
