@@ -176,7 +176,7 @@ jobs:
       - uses: "actions/upload-artifact@v2"
         name: "Upload Rust/C Libraries"
         with:
-          path: target/release/libjsonlogic.*
+          path: target/release/libjsonlogic_rs.*
           name: libs
 
       - name: "Build Python Source Dist"
