@@ -414,7 +414,6 @@ jobs:
   distribute-py-wheels-mac-windows:
     name: "Distribute Mac and Windows Python Wheels"
     needs: build-python-wheels-mac-windows
-    runs-on: ubuntu-latest
     # if: "${{ github.ref == 'refs/heads/master' }}"
     strategy:
       matrix:
