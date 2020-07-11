@@ -104,9 +104,9 @@ jobs:
 
   build:
     name: "Build Libs, WASM, and Python sdist"
-    needs: test
+    # needs: test
     runs-on: ubuntu-latest
-    if: "${{ github.ref == 'refs/heads/master' }}"
+    # if: "${{ github.ref == 'refs/heads/master' }}"
     steps:
       # Check out the code
       - uses: "actions/checkout@v2"
