@@ -4,6 +4,7 @@ on: [push]
 jobs:
   test:
     name: "Test"
+    if: false
     strategy:
       matrix:
         os: [ubuntu-latest, macos-latest, windows-latest]
@@ -169,6 +170,9 @@ jobs:
       - name: "Build Rust/C Libraries"
         run: "make build"
 
+      - name: "Check Rust target content"
+        run: ls target/release
+
       - uses: "actions/upload-artifact@v2"
         name: "Upload Rust/C Libraries"
         with:
@@ -200,8 +204,8 @@ jobs:
     # Linux wheels can't be built directly but instead need to be built
     # via a "manylinux" container as specified by PEPs 513, 571, and 599
     name: "Build Linux Wheels"
-    needs: "test"
-    if: "${{ github.ref == 'refs/heads/master' }}"
+    # needs: "test"
+    # if: "${{ github.ref == 'refs/heads/master' }}"
     runs-on: "ubuntu-latest"
     strategy:
       matrix:
@@ -268,9 +272,9 @@ jobs:
           name: "py-${{ matrix.manylinux.arch }}-wheels"
 
   build-python-wheels-mac-windows:
-    name: "Build Python Wheels (MacOS, Windows)"
-    needs: test
-    if: "${{ github.ref == 'refs/heads/master' }}"
+    name: "Build MacOS and Windows Python Wheels"
+    # needs: test
+    # if: "${{ github.ref == 'refs/heads/master' }}"
     strategy:
       matrix:
         os: [macos-latest, windows-latest]
@@ -393,7 +397,7 @@ jobs:
         run: "echo ${{ steps.check-update.outputs.updated }}"
 
       - name: "Cargo Publish"
-        if: "${{ steps.check-update.outputs.updated == 'true' }}"
+        # if: "${{ steps.check-update.outputs.updated == 'true' }}"
         run: |
           cargo publish --token "${{ secrets.CARGO_TOKEN }}" --dry-run
 
@@ -405,12 +409,14 @@ jobs:
 
       - name: "Publish NPM Package"
         shell: bash
+        # if: "${{ steps.check-update.outputs.updated == 'true' }}"
         run: |
           echo "//registry.npmjs.org/:_authToken=${{ secrets.NPM_TOKEN }}" > ~/.npmrc
           npm publish dist-wasm/ --access public --dry-run
 
       - name: "Pull Python Sdist Artifact"
         uses: "actions/download-artifact@v1"
+        # if: "${{ steps.check-update.outputs.updated == 'true' }}"
         with:
           name: py-sdist
           path: dist-py
@@ -422,3 +428,127 @@ jobs:
           pip install twine
           ls dist-py/
 
+  distribute-py-wheels-mac-windows:
+    name: "Distribute Mac and Windows Python Wheels"
+    needs: build-python-wheels-mac-windows
+    runs-on: ubuntu-latest
+    # if: "${{ github.ref == 'refs/heads/master' }}"
+    strategy:
+      matrix:
+        os: [macos-latest, windows-latest]
+        python-version: [3.6, 3.7, 3.8]
+    steps:
+      # Check out the code
+      - uses: "actions/checkout@v2"
+
+      # Install python
+      - name: "Set up python"
+        uses: "actions/setup-python@v2"
+        with:
+          python-version: 3.8
+
+      # Generate the lockfile
+      - name: "Generate Cargo Lockfile"
+        run: "cargo generate-lockfile"
+
+      # Cache build dependencies
+      - name: "Cache Build Fragments"
+        id: "cache-build-fragments"
+        uses: "actions/cache@v2"
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            target
+          # This should partial match the caches generated for the tests,
+          # which include a python version at the end.
+          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+
+      - name: "Check for version update"
+        id: check-update
+        shell: bash
+        run: |
+          echo "::set-output name=updated::$(./scripts/newVersion.sh)"
+
+      - name: "Echo version update var"
+        shell: bash
+        run: "echo ${{ steps.check-update.outputs.updated }}"
+
+      - name: "Pull Python Wheel"
+        uses: "actions/download-artifact@v1"
+        # if: "${{ steps.check-update.outputs.updated == 'true' }}"
+        with:
+          name: "py-${{ matrix.python-version }}-${{ runner.os }}-wheels"
+          path: dist-py
+
+      - name: "Publish Python Sdist"
+        shell: bash
+        #  twine upload -u "__token__" -p "${{ secrets.PYPI_TOKEN }}" <path>
+        run: |
+          pip install twine
+          ls dist-py/
+
+  distribute-py-wheels-linux:
+    name: "Distribute Linux Python Wheels"
+    needs: build-python-wheels-linux
+    runs-on: ubuntu-latest
+    # if: "${{ github.ref == 'refs/heads/master' }}"
+    strategy:
+      matrix:
+        manylinux:
+          - "manylinux1_i686"
+          - "manylinux1_x86_64"
+          - "manylinux2010_i686"
+          - "manylinux2010_x86_64"
+          - "manylinux2014_i686"
+          - "manylinux2014_x86_64"
+    steps:
+      # Check out the code
+      - uses: "actions/checkout@v2"
+
+      # Install python
+      - name: "Set up python"
+        uses: "actions/setup-python@v2"
+        with:
+          python-version: 3.8
+
+      # Generate the lockfile
+      - name: "Generate Cargo Lockfile"
+        run: "cargo generate-lockfile"
+
+      # Cache build dependencies
+      - name: "Cache Build Fragments"
+        id: "cache-build-fragments"
+        uses: "actions/cache@v2"
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            target
+          # This should partial match the caches generated for the tests,
+          # which include a python version at the end.
+          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+
+      - name: "Check for version update"
+        id: check-update
+        shell: bash
+        run: |
+          echo "::set-output name=updated::$(./scripts/newVersion.sh)"
+
+      - name: "Echo version update var"
+        shell: bash
+        run: "echo ${{ steps.check-update.outputs.updated }}"
+
+      - name: "Pull Python Wheel"
+        uses: "actions/download-artifact@v1"
+        # if: "${{ steps.check-update.outputs.updated == 'true' }}"
+        with:
+          name: "py-${{ matrix.manylinux.arch }}-wheels"
+          path: dist-py
+
+      - name: "Publish Python Sdist"
+        shell: bash
+        # pip install twine
+        #  twine upload -u "__token__" -p "${{ secrets.PYPI_TOKEN }}" <path>
+        run: |
+          ls dist-py/
