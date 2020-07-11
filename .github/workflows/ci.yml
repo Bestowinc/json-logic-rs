@@ -207,21 +207,6 @@ jobs:
     # needs: "test"
     # if: "${{ github.ref == 'refs/heads/master' }}"
     runs-on: "ubuntu-latest"
-    strategy:
-      matrix:
-        manylinux:
-          - arch: "manylinux1_i686"
-            img: "quay.io/pypa/manylinux1_i686:2020-07-04-283458f"
-          - arch: "manylinux1_x86_64"
-            img: "quay.io/pypa/manylinux1_x86_64:2020-07-04-283458f"
-          - arch: "manylinux2010_i686"
-            img: "quay.io/pypa/manylinux2010_i686:2020-07-04-10a3c30"
-          - arch: "manylinux2010_x86_64"
-            img: "quay.io/pypa/manylinux2010_x86_64:2020-07-04-10a3c30"
-          - arch: "manylinux2014_i686"
-            img: "quay.io/pypa/manylinux2014_i686:2020-07-04-bb5f087"
-          - arch: "manylinux2014_x86_64"
-            img: "quay.io/pypa/manylinux2014_x86_64:2020-07-04-bb5f087"
     steps:
       # Check out the code
       - uses: "actions/checkout@v2"
@@ -262,14 +247,12 @@ jobs:
           key: "${{ runner.os }}-cargo-binaries-${{steps.get-date.outputs.date}}"
 
       - name: "Build Wheels"
-        run: "make build-py-wheel-manylinux"
-        env:
-          MANYLINUX_IMG: ${{ matrix.manylinux.img }}
+        run: "./scripts/build-all-linux-wheels.sh"
 
       - uses: "actions/upload-artifact@v2"
         with:
           path: "dist/*.whl"
-          name: "py-${{ matrix.manylinux.arch }}-wheels"
+          name: "py-linux-wheels"
 
   build-python-wheels-mac-windows:
     name: "Build MacOS and Windows Python Wheels"
@@ -493,15 +476,6 @@ jobs:
     needs: build-python-wheels-linux
     runs-on: ubuntu-latest
     # if: "${{ github.ref == 'refs/heads/master' }}"
-    strategy:
-      matrix:
-        manylinux:
-          - "manylinux1_i686"
-          - "manylinux1_x86_64"
-          - "manylinux2010_i686"
-          - "manylinux2010_x86_64"
-          - "manylinux2014_i686"
-          - "manylinux2014_x86_64"
     steps:
       # Check out the code
       - uses: "actions/checkout@v2"
@@ -543,7 +517,7 @@ jobs:
         uses: "actions/download-artifact@v1"
         # if: "${{ steps.check-update.outputs.updated == 'true' }}"
         with:
-          name: "py-${{ matrix.manylinux.arch }}-wheels"
+          name: "py-linux-wheels"
           path: dist-py
 
       - name: "Publish Python Sdist"
