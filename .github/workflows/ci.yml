@@ -420,6 +420,7 @@ jobs:
       matrix:
         os: [macos-latest, windows-latest]
         python-version: [3.6, 3.7, 3.8]
+    runs-on: "${{ matrix.os }}"
     steps:
       # Check out the code
       - uses: "actions/checkout@v2"
@@ -457,7 +458,7 @@ jobs:
         shell: bash
         run: "echo ${{ steps.check-update.outputs.updated }}"
 
-      - name: "Pull Python Wheel"
+      - name: "Pull Python Wheels"
         uses: "actions/download-artifact@v1"
         # if: "${{ steps.check-update.outputs.updated == 'true' }}"
         with:
