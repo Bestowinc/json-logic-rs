@@ -274,7 +274,7 @@ jobs:
   build-python-wheels-mac-windows:
     name: "Build MacOS and Windows Python Wheels"
     # needs: test
-    # if: "${{ github.ref == 'refs/heads/master' }}"
+    if: "${{ github.ref == 'refs/heads/master' }}"
     strategy:
       matrix:
         os: [macos-latest, windows-latest]
@@ -358,7 +358,7 @@ jobs:
     name: "Distribute Cargo, WASM, and Python Sdist Packages"
     needs: build
     runs-on: ubuntu-latest
-    # if: "${{ github.ref == 'refs/heads/master' }}"
+    if: "${{ github.ref == 'refs/heads/master' }}"
     steps:
       # Check out the code
       - uses: "actions/checkout@v2"
@@ -443,7 +443,7 @@ jobs:
   distribute-py-wheels-mac-windows:
     name: "Distribute Mac and Windows Python Wheels"
     needs: build-python-wheels-mac-windows
-    # if: "${{ github.ref == 'refs/heads/master' }}"
+    if: "${{ github.ref == 'refs/heads/master' }}"
     strategy:
       matrix:
         os: [macos-latest, windows-latest]
@@ -494,7 +494,7 @@ jobs:
     name: "Distribute Linux Python Wheels"
     needs: build-python-wheels-linux
     runs-on: ubuntu-latest
-    # if: "${{ github.ref == 'refs/heads/master' }}"
+    if: "${{ github.ref == 'refs/heads/master' }}"
     strategy:
       matrix:
         manylinux:
@@ -540,6 +540,6 @@ jobs:
       - name: "Publish Python Wheels"
         shell: bash
         # pip install twine
-        #  twine upload -u "__token__" -p "${{ secrets.PYPI_TOKEN }}" <path>
+        # twine upload -u "__token__" -p "${{ secrets.PYPI_TOKEN }}" dist-py/*
         run: |
           ls dist-py/
