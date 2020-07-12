@@ -386,44 +386,60 @@ jobs:
           # which include a python version at the end.
           key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
 
-      - name: "Check for version update"
-        id: check-update
+      - name: "Check if new Cargo version"
+        id: cargo-version
         shell: bash
         run: |
-          echo "::set-output name=updated::$(./scripts/newVersion.sh)"
+          echo "::set-output name=new::$(./scripts/newCargoVersion.sh)"
 
-      - name: "Echo version update var"
+      - name: "Check if new NPM version update"
+        id: npm-version
         shell: bash
-        run: "echo ${{ steps.check-update.outputs.updated }}"
+        run: |
+          echo "::set-output name=new::$(./scripts/newNpmVersion.sh)"
+
+      - name: "Check if new PyPI version"
+        id: pypi-version
+        shell: bash
+        run: |
+          echo "::set-output name=new::$(./scripts/newPypiVersion.sh)"
+
+      - name: "(DEBUG) new versions"
+        shell: bash
+        run: |
+          echo "Cargo: ${{ steps.cargo-version.outputs.new }}"
+          echo "NPM: ${{ steps.npm-version.outputs.new }}"
+          echo "PyPI: ${{ steps.pypi-version.outputs.new }}"
 
       - name: "Cargo Publish"
-        # if: "${{ steps.check-update.outputs.updated == 'true' }}"
+        if: "${{ steps.cargo-version.outputs.new == 'true' }}"
         run: |
           cargo publish --token "${{ secrets.CARGO_TOKEN }}" --dry-run
 
       - name: "Pull WASM Artifact"
         uses: "actions/download-artifact@v1"
+        if: "${{ steps.npm-version.outputs.new == 'true' }}"
         with:
           name: wasm-pkg
           path: dist-wasm
 
       - name: "Publish NPM Package"
         shell: bash
-        # if: "${{ steps.check-update.outputs.updated == 'true' }}"
+        if: "${{ steps.npm-version.outputs.new == 'true' }}"
         run: |
           echo "//registry.npmjs.org/:_authToken=${{ secrets.NPM_TOKEN }}" > ~/.npmrc
           npm publish dist-wasm/ --access public --dry-run
 
       - name: "Pull Python Sdist Artifact"
         uses: "actions/download-artifact@v1"
-        # if: "${{ steps.check-update.outputs.updated == 'true' }}"
+        if: "${{ steps.pypi-version.outputs.new == 'true' }}"
         with:
           name: py-sdist
           path: dist-py
 
       - name: "Publish Python Sdist"
         shell: bash
-        #  twine upload -u "__token__" -p "${{ secrets.PYPI_TOKEN }}" <path>
+        if: "${{ steps.pypi-version.outputs.new == 'true' }}"
         run: |
           pip install twine
           ls dist-py/
@@ -451,10 +467,21 @@ jobs:
       - name: "Generate Cargo Lockfile"
         run: "cargo generate-lockfile"
 
+      - name: "Check if new PyPI version"
+        id: pypi-version
+        shell: bash
+        run: |
+          echo "::set-output name=new::$(./scripts/newPypiVersion.sh)"
+
+      - name: "(DEBUG) new version"
+        shell: bash
+        run: "echo ${{ steps.pypi-version.outputs.new }}"
+
       # Cache build dependencies
       - name: "Cache Build Fragments"
         id: "cache-build-fragments"
         uses: "actions/cache@v2"
+        if: "${{ steps.pypi-version.outputs.new == 'true' }}"
         with:
           path: |
             ~/.cargo/registry
@@ -464,25 +491,16 @@ jobs:
           # which include a python version at the end.
           key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
 
-      - name: "Check for version update"
-        id: check-update
-        shell: bash
-        run: |
-          echo "::set-output name=updated::$(./scripts/newVersion.sh)"
-
-      - name: "Echo version update var"
-        shell: bash
-        run: "echo ${{ steps.check-update.outputs.updated }}"
-
       - name: "Pull Python Wheels"
         uses: "actions/download-artifact@v1"
-        # if: "${{ steps.check-update.outputs.updated == 'true' }}"
+        if: "${{ steps.pypi-version.outputs.new == 'true' }}"
         with:
           name: "py-${{ matrix.python-version }}-${{ runner.os }}-wheels"
           path: dist-py
 
-      - name: "Publish Python Sdist"
+      - name: "Publish Wheels"
         shell: bash
+        if: "${{ steps.pypi-version.outputs.new == 'true' }}"
         #  twine upload -u "__token__" -p "${{ secrets.PYPI_TOKEN }}" <path>
         run: |
           pip install twine
@@ -516,8 +534,19 @@ jobs:
       - name: "Generate Cargo Lockfile"
         run: "cargo generate-lockfile"
 
+      - name: "Check if new PyPI version"
+        id: pypi-version
+        shell: bash
+        run: |
+          echo "::set-output name=new::$(./scripts/newPypiVersion.sh)"
+
+      - name: "(DEBUG) new version"
+        shell: bash
+        run: "echo ${{ steps.pypi-version.outputs.new }}"
+
       # Cache build dependencies
       - name: "Cache Build Fragments"
+        if: "${{ steps.pypi-version.outputs.new == 'true' }}"
         id: "cache-build-fragments"
         uses: "actions/cache@v2"
         with:
@@ -529,24 +558,15 @@ jobs:
           # which include a python version at the end.
           key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
 
-      - name: "Check for version update"
-        id: check-update
-        shell: bash
-        run: |
-          echo "::set-output name=updated::$(./scripts/newVersion.sh)"
-
-      - name: "Echo version update var"
-        shell: bash
-        run: "echo ${{ steps.check-update.outputs.updated }}"
-
       - name: "Pull Python Wheel"
+        if: "${{ steps.pypi-version.outputs.new == 'true' }}"
         uses: "actions/download-artifact@v1"
-        # if: "${{ steps.check-update.outputs.updated == 'true' }}"
         with:
           name: "py-linux-wheels-${{ matrix.manylinux.arch }}"
           path: dist-py
 
-      - name: "Publish Python Sdist"
+      - name: "Publish Python Wheels"
+        if: "${{ steps.pypi-version.outputs.new == 'true' }}"
         shell: bash
         # pip install twine
         #  twine upload -u "__token__" -p "${{ secrets.PYPI_TOKEN }}" <path>
