@@ -387,11 +387,53 @@ jobs:
           # which include a python version at the end.
           key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
 
+      - name: "Get Current Version"
+        id: get-version
+        shell: bash
+        run: |
+          echo "::set-output name=version::$(cargo pkgid | tr ':' ' ' | awk '{print $3}')"
+
+      - name: "(DEBUG) log current version"
+        shell: bash
+        run: |
+          echo "${{ steps.get-version.outputs.version }}"
+         
       - name: "Check if new Cargo version"
         id: cargo-version
         shell: bash
         run: |
           echo "::set-output name=new::$(./scripts/newCargoVersion.sh)"
+
+      - name: "Add Git Tag Ref for Version"
+        if: "${{ steps.cargo-version.outputs.new == 'true' }}"
+        uses: "actions/github-script@v2"
+        with:
+          github-token: "${{ secrets.GITHUB_TOKEN }}"
+          script: |
+            github.git.createRef({
+              owner: "${{ github.repository_owner }}",
+              repo: "${{ github.repository }}",
+              ref: "refs/tags/v${{ steps.get-version.ouputs.version }}",
+              sha: "${{ github.sha }}",
+            })
+
+      - name: "Add GitHub Annotated Tag for Version"
+        if: "${{ steps.cargo-version.outputs.new == 'true' }}"
+        uses: "actions/github-script@v2"
+        with:
+          github-token: "${{ secrets.GITHUB_TOKEN }}"
+          script: |
+            github.git.createTag({
+              owner: "${{ github.repository_owner }}",
+              repo: "${{ github.repository }}",
+              tag: "v${{ steps.get-version.ouputs.version }}",
+              message: "Vesrion ${{ steps.get-version.outputs.version }}",
+              object: "${{ github.sha }}",
+              type: "commit",
+              tagger: {
+                name: "${{ github.actor }}",
+              }
+            })
 
       - name: "Check if new NPM version"
         id: npm-version
