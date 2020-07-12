@@ -453,7 +453,7 @@ jobs:
       - name: "Cargo Publish"
         if: "${{ steps.cargo-version.outputs.new == 'true' }}"
         run: |
-          cargo publish --token "${{ secrets.CARGO_TOKEN }}" --dry-run
+          cargo publish --token "${{ secrets.CARGO_TOKEN }}"
 
       - name: "Pull WASM Artifact"
         uses: "actions/download-artifact@v1"
@@ -467,7 +467,7 @@ jobs:
         if: "${{ steps.npm-version.outputs.new == 'true' }}"
         run: |
           echo "//registry.npmjs.org/:_authToken=${{ secrets.NPM_TOKEN }}" > ~/.npmrc
-          npm publish dist-wasm/ --access public --dry-run
+          npm publish dist-wasm/ --access public
 
       - name: "Pull Python Sdist Artifact"
         uses: "actions/download-artifact@v1"
