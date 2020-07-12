@@ -398,18 +398,16 @@ jobs:
         run: |
           echo "::set-output name=new::$(./scripts/newNpmVersion.sh)"
 
-      - name: "Check if new PyPI version"
-        id: pypi-version
-        shell: bash
-        run: |
-          echo "::set-output name=new::$(./scripts/newPypiVersion.sh)"
+      # Note we don't check for a new python version b/c there are so
+      # many python artifacts that it is impractical. Instead we just
+      # upload with a `--skip-existing` flag, so if it's already there
+      # it wont' be an error.
 
       - name: "(DEBUG) new versions"
         shell: bash
         run: |
           echo "Cargo: ${{ steps.cargo-version.outputs.new }}"
           echo "NPM: ${{ steps.npm-version.outputs.new }}"
-          echo "PyPI: ${{ steps.pypi-version.outputs.new }}"
 
       - name: "Cargo Publish"
         if: "${{ steps.cargo-version.outputs.new == 'true' }}"
@@ -432,14 +430,12 @@ jobs:
 
       - name: "Pull Python Sdist Artifact"
         uses: "actions/download-artifact@v1"
-        if: "${{ steps.pypi-version.outputs.new == 'true' }}"
         with:
           name: py-sdist
           path: dist-py
 
       - name: "Publish Python Sdist"
         shell: bash
-        if: "${{ steps.pypi-version.outputs.new == 'true' }}"
         run: |
           pip install twine
           ls dist-py/
@@ -467,21 +463,10 @@ jobs:
       - name: "Generate Cargo Lockfile"
         run: "cargo generate-lockfile"
 
-      - name: "Check if new PyPI version"
-        id: pypi-version
-        shell: bash
-        run: |
-          echo "::set-output name=new::$(./scripts/newPypiVersion.sh)"
-
-      - name: "(DEBUG) new version"
-        shell: bash
-        run: "echo ${{ steps.pypi-version.outputs.new }}"
-
       # Cache build dependencies
       - name: "Cache Build Fragments"
         id: "cache-build-fragments"
         uses: "actions/cache@v2"
-        if: "${{ steps.pypi-version.outputs.new == 'true' }}"
         with:
           path: |
             ~/.cargo/registry
@@ -493,7 +478,6 @@ jobs:
 
       - name: "Pull Python Wheels"
         uses: "actions/download-artifact@v1"
-        if: "${{ steps.pypi-version.outputs.new == 'true' }}"
         with:
           name: "py-${{ matrix.python-version }}-${{ runner.os }}-wheels"
           path: dist-py
@@ -534,19 +518,8 @@ jobs:
       - name: "Generate Cargo Lockfile"
         run: "cargo generate-lockfile"
 
-      - name: "Check if new PyPI version"
-        id: pypi-version
-        shell: bash
-        run: |
-          echo "::set-output name=new::$(./scripts/newPypiVersion.sh)"
-
-      - name: "(DEBUG) new version"
-        shell: bash
-        run: "echo ${{ steps.pypi-version.outputs.new }}"
-
       # Cache build dependencies
       - name: "Cache Build Fragments"
-        if: "${{ steps.pypi-version.outputs.new == 'true' }}"
         id: "cache-build-fragments"
         uses: "actions/cache@v2"
         with:
@@ -559,14 +532,12 @@ jobs:
           key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
 
       - name: "Pull Python Wheel"
-        if: "${{ steps.pypi-version.outputs.new == 'true' }}"
         uses: "actions/download-artifact@v1"
         with:
           name: "py-linux-wheels-${{ matrix.manylinux.arch }}"
           path: dist-py
 
       - name: "Publish Python Wheels"
-        if: "${{ steps.pypi-version.outputs.new == 'true' }}"
         shell: bash
         # pip install twine
         #  twine upload -u "__token__" -p "${{ secrets.PYPI_TOKEN }}" <path>
