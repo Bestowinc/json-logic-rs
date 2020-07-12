@@ -476,6 +476,7 @@ jobs:
           path: dist-py
 
       - name: "Publish Python Sdist"
+        if: "${{ steps.cargo-version.outputs.new == 'true' }}"
         shell: bash
         run: |
           pip install twine
@@ -504,6 +505,12 @@ jobs:
       - name: "Generate Cargo Lockfile"
         run: "cargo generate-lockfile"
 
+      - name: "Check if new Cargo version"
+        id: cargo-version
+        shell: bash
+        run: |
+          echo "::set-output name=new::$(./scripts/newCargoVersion.sh)"
+
       # Cache build dependencies
       - name: "Cache Build Fragments"
         id: "cache-build-fragments"
@@ -525,7 +532,7 @@ jobs:
 
       - name: "Publish Wheels"
         shell: bash
-        if: "${{ steps.pypi-version.outputs.new == 'true' }}"
+        if: "${{ steps.cargo-version.outputs.new == 'true' }}"
         run: |
           pip install twine
           twine upload -u "__token__" -p "${{ secrets.PYPI_TOKEN }}" --skip-existing dist-py/*
@@ -558,6 +565,12 @@ jobs:
       - name: "Generate Cargo Lockfile"
         run: "cargo generate-lockfile"
 
+      - name: "Check if new Cargo version"
+        id: cargo-version
+        shell: bash
+        run: |
+          echo "::set-output name=new::$(./scripts/newCargoVersion.sh)"
+
       # Cache build dependencies
       - name: "Cache Build Fragments"
         id: "cache-build-fragments"
@@ -578,6 +591,7 @@ jobs:
           path: dist-py
 
       - name: "Publish Python Wheels"
+        if: "${{ steps.cargo-version.outputs.new == 'true' }}"
         shell: bash
         run: |
           pip install twine
