@@ -392,7 +392,7 @@ jobs:
         run: |
           echo "::set-output name=new::$(./scripts/newCargoVersion.sh)"
 
-      - name: "Check if new NPM version update"
+      - name: "Check if new NPM version"
         id: npm-version
         shell: bash
         run: |
