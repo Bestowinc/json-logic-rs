@@ -262,14 +262,14 @@ jobs:
           key: "${{ runner.os }}-cargo-binaries-${{steps.get-date.outputs.date}}"
 
       - name: "Build Wheels"
-        run: "./scripts/build-all-linux-wheels.sh"
+        run: "make build-py-wheel-manylinux"
         env:
-          MANYLINUX_IMG: "${{ manylinux.img }}"
+          MANYLINUX_IMG: "${{ matrix.manylinux.img }}"
 
       - uses: "actions/upload-artifact@v2"
         with:
           path: "dist/*.whl"
-          name: "py-linux-wheels-${{ manylinux.arch }}"
+          name: "py-linux-wheels-${{ matrix.manylinux.arch }}"
 
   build-python-wheels-mac-windows:
     name: "Build MacOS and Windows Python Wheels"
@@ -543,7 +543,7 @@ jobs:
         uses: "actions/download-artifact@v1"
         # if: "${{ steps.check-update.outputs.updated == 'true' }}"
         with:
-          name: "py-linux-wheels-${{ manylinux.arch }}"
+          name: "py-linux-wheels-${{ matrix.manylinux.arch }}"
           path: dist-py
 
       - name: "Publish Python Sdist"
