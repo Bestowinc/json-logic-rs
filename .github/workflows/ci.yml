@@ -104,7 +104,7 @@ jobs:
 
   build:
     name: "Build Libs, WASM, and Python sdist"
-    needs: test
+    needs: "test"
     runs-on: ubuntu-latest
     if: "${{ github.ref == 'refs/heads/master' }}"
     steps:
@@ -169,10 +169,13 @@ jobs:
       - name: "Build Rust/C Libraries"
         run: "make build"
 
+      - name: "Check Rust target content"
+        run: ls target/release
+
       - uses: "actions/upload-artifact@v2"
         name: "Upload Rust/C Libraries"
         with:
-          path: target/release/libjsonlogic.*
+          path: target/release/libjsonlogic_rs.*
           name: libs
 
       - name: "Build Python Source Dist"
@@ -202,7 +205,6 @@ jobs:
     name: "Build Linux Wheels"
     needs: "test"
     if: "${{ github.ref == 'refs/heads/master' }}"
-    runs-on: "ubuntu-latest"
     strategy:
       matrix:
         manylinux:
@@ -218,6 +220,7 @@ jobs:
             img: "quay.io/pypa/manylinux2014_i686:2020-07-04-bb5f087"
           - arch: "manylinux2014_x86_64"
             img: "quay.io/pypa/manylinux2014_x86_64:2020-07-04-bb5f087"
+    runs-on: "ubuntu-latest"
     steps:
       # Check out the code
       - uses: "actions/checkout@v2"
@@ -260,16 +263,16 @@ jobs:
       - name: "Build Wheels"
         run: "make build-py-wheel-manylinux"
         env:
-          MANYLINUX_IMG: ${{ matrix.manylinux.img }}
+          MANYLINUX_IMG: "${{ matrix.manylinux.img }}"
 
       - uses: "actions/upload-artifact@v2"
         with:
           path: "dist/*.whl"
-          name: "py-${{ matrix.manylinux.arch }}-wheels"
+          name: "py-linux-wheels-${{ matrix.manylinux.arch }}"
 
   build-python-wheels-mac-windows:
-    name: "Build Python Wheels (MacOS, Windows)"
-    needs: test
+    name: "Build MacOS and Windows Python Wheels"
+    needs: "test"
     if: "${{ github.ref == 'refs/heads/master' }}"
     strategy:
       matrix:
@@ -349,3 +352,247 @@ jobs:
         with:
           path: "dist/*.whl"
           name: "py-${{ matrix.python-version }}-${{ runner.os }}-wheels"
+
+  distribute:
+    name: "Distribute Cargo, WASM, and Python Sdist Packages"
+    needs: "build"
+    runs-on: ubuntu-latest
+    if: "${{ github.ref == 'refs/heads/master' }}"
+    steps:
+      # Check out the code
+      - uses: "actions/checkout@v2"
+
+      # Install python
+      - name: "Set up python"
+        uses: "actions/setup-python@v2"
+        with:
+          python-version: 3.8
+
+      # Generate the lockfile
+      - name: "Generate Cargo Lockfile"
+        run: "cargo generate-lockfile"
+
+      # Cache build dependencies
+      - name: "Cache Build Fragments"
+        id: "cache-build-fragments"
+        uses: "actions/cache@v2"
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            target
+          # This should partial match the caches generated for the tests,
+          # which include a python version at the end.
+          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+
+      - name: "Get Current Version"
+        id: get-version
+        shell: bash
+        run: |
+          echo "::set-output name=version::$(cargo pkgid | tr ':' ' ' | awk '{print $3}')"
+
+      - name: "(DEBUG) log current version"
+        shell: bash
+        run: |
+          echo "${{ steps.get-version.outputs.version }}"
+         
+      - name: "Check if new Cargo version"
+        id: cargo-version
+        shell: bash
+        run: |
+          echo "::set-output name=new::$(./scripts/newCargoVersion.sh)"
+
+      - name: "Add Git Tag Ref for Version"
+        if: "${{ steps.cargo-version.outputs.new == 'true' }}"
+        uses: "actions/github-script@v2"
+        with:
+          github-token: "${{ secrets.GITHUB_TOKEN }}"
+          script: |
+            github.git.createRef({
+              owner: "${{ github.repository_owner }}",
+              repo: "${{ github.repository }}",
+              ref: "refs/tags/v${{ steps.get-version.ouputs.version }}",
+              sha: "${{ github.sha }}",
+            })
+
+      - name: "Add GitHub Annotated Tag for Version"
+        if: "${{ steps.cargo-version.outputs.new == 'true' }}"
+        uses: "actions/github-script@v2"
+        with:
+          github-token: "${{ secrets.GITHUB_TOKEN }}"
+          script: |
+            github.git.createTag({
+              owner: "${{ github.repository_owner }}",
+              repo: "${{ github.repository }}",
+              tag: "v${{ steps.get-version.ouputs.version }}",
+              message: "Vesrion ${{ steps.get-version.outputs.version }}",
+              object: "${{ github.sha }}",
+              type: "commit",
+              tagger: {
+                name: "${{ github.actor }}",
+              }
+            })
+
+      - name: "Check if new NPM version"
+        id: npm-version
+        shell: bash
+        run: |
+          echo "::set-output name=new::$(./scripts/newNpmVersion.sh)"
+
+      # Note we don't check for a new python version b/c there are so
+      # many python artifacts that it is impractical. Instead we just
+      # upload with a `--skip-existing` flag, so if it's already there
+      # it wont' be an error.
+
+      - name: "(DEBUG) new versions"
+        shell: bash
+        run: |
+          echo "Cargo: ${{ steps.cargo-version.outputs.new }}"
+          echo "NPM: ${{ steps.npm-version.outputs.new }}"
+
+      - name: "Cargo Publish"
+        if: "${{ steps.cargo-version.outputs.new == 'true' }}"
+        run: |
+          cargo publish --token "${{ secrets.CARGO_TOKEN }}"
+
+      - name: "Pull WASM Artifact"
+        uses: "actions/download-artifact@v1"
+        if: "${{ steps.npm-version.outputs.new == 'true' }}"
+        with:
+          name: wasm-pkg
+          path: dist-wasm
+
+      - name: "Publish NPM Package"
+        shell: bash
+        if: "${{ steps.npm-version.outputs.new == 'true' }}"
+        run: |
+          echo "//registry.npmjs.org/:_authToken=${{ secrets.NPM_TOKEN }}" > ~/.npmrc
+          npm publish dist-wasm/ --access public
+
+      - name: "Pull Python Sdist Artifact"
+        uses: "actions/download-artifact@v1"
+        with:
+          name: py-sdist
+          path: dist-py
+
+      - name: "Publish Python Sdist"
+        if: "${{ steps.cargo-version.outputs.new == 'true' }}"
+        shell: bash
+        run: |
+          pip install twine
+          twine upload -u "__token__" -p "${{ secrets.PYPI_TOKEN }}" --skip-existing dist-py/*
+
+  distribute-py-wheels-mac-windows:
+    name: "Distribute Mac and Windows Python Wheels"
+    needs: "build-python-wheels-mac-windows"
+    if: "${{ github.ref == 'refs/heads/master' }}"
+    strategy:
+      matrix:
+        os: [macos-latest, windows-latest]
+        python-version: [3.6, 3.7, 3.8]
+    runs-on: "${{ matrix.os }}"
+    steps:
+      # Check out the code
+      - uses: "actions/checkout@v2"
+
+      # Install python
+      - name: "Set up python"
+        uses: "actions/setup-python@v2"
+        with:
+          python-version: 3.8
+
+      # Generate the lockfile
+      - name: "Generate Cargo Lockfile"
+        run: "cargo generate-lockfile"
+
+      - name: "Check if new Cargo version"
+        id: cargo-version
+        shell: bash
+        run: |
+          echo "::set-output name=new::$(./scripts/newCargoVersion.sh)"
+
+      # Cache build dependencies
+      - name: "Cache Build Fragments"
+        id: "cache-build-fragments"
+        uses: "actions/cache@v2"
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            target
+          # This should partial match the caches generated for the tests,
+          # which include a python version at the end.
+          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+
+      - name: "Pull Python Wheels"
+        uses: "actions/download-artifact@v1"
+        with:
+          name: "py-${{ matrix.python-version }}-${{ runner.os }}-wheels"
+          path: dist-py
+
+      - name: "Publish Wheels"
+        shell: bash
+        if: "${{ steps.cargo-version.outputs.new == 'true' }}"
+        run: |
+          pip install twine
+          twine upload -u "__token__" -p "${{ secrets.PYPI_TOKEN }}" --skip-existing dist-py/*
+
+  distribute-py-wheels-linux:
+    name: "Distribute Linux Python Wheels"
+    needs: "build-python-wheels-linux"
+    runs-on: ubuntu-latest
+    if: "${{ github.ref == 'refs/heads/master' }}"
+    strategy:
+      matrix:
+        manylinux:
+          - arch: "manylinux1_i686"
+          - arch: "manylinux1_x86_64"
+          - arch: "manylinux2010_i686"
+          - arch: "manylinux2010_x86_64"
+          - arch: "manylinux2014_i686"
+          - arch: "manylinux2014_x86_64"
+    steps:
+      # Check out the code
+      - uses: "actions/checkout@v2"
+
+      # Install python
+      - name: "Set up python"
+        uses: "actions/setup-python@v2"
+        with:
+          python-version: 3.8
+
+      # Generate the lockfile
+      - name: "Generate Cargo Lockfile"
+        run: "cargo generate-lockfile"
+
+      - name: "Check if new Cargo version"
+        id: cargo-version
+        shell: bash
+        run: |
+          echo "::set-output name=new::$(./scripts/newCargoVersion.sh)"
+
+      # Cache build dependencies
+      - name: "Cache Build Fragments"
+        id: "cache-build-fragments"
+        uses: "actions/cache@v2"
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            target
+          # This should partial match the caches generated for the tests,
+          # which include a python version at the end.
+          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+
+      - name: "Pull Python Wheel"
+        uses: "actions/download-artifact@v1"
+        with:
+          name: "py-linux-wheels-${{ matrix.manylinux.arch }}"
+          path: dist-py
+
+      - name: "Publish Python Wheels"
+        if: "${{ steps.cargo-version.outputs.new == 'true' }}"
+        shell: bash
+        run: |
+          pip install twine
+          twine upload -u "__token__" -p "${{ secrets.PYPI_TOKEN }}" --skip-existing dist-py/*

@@ -41,10 +41,15 @@ build-py-wheel: $(VENV) clean-py
 	cargo clean -p jsonlogic-rs
 	$(VENV) setup.py bdist_wheel
 
-# NOTE: this command may sudo on linux
+# NOTE: this command may require sudo on linux
 .PHONY: build-py-wheel-manylinux
 build-py-wheel-manylinux: clean-py
-	docker run -v "$$PWD":/io --rm $(MANYLINUX_IMG) /io/build-wheels.sh
+	docker run -v "$$PWD":/io --rm "$(MANYLINUX_IMG)" /io/build-wheels.sh
+
+# NOTE: this command may require sudo on linux
+.PHONY: build-py-wheel-manylinux-no-clean
+build-py-wheel-manylinux-no-clean:
+	docker run -v "$$PWD":/io --rm "$(MANYLINUX_IMG)" /io/build-wheels.sh
 
 .PHONY: build-py-all
 build-py-all: $(VENV) clean-py
