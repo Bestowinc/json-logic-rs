@@ -4,6 +4,7 @@ on: [push]
 jobs:
   test:
     name: "Test"
+    if: false
     strategy:
       matrix:
         os: [ubuntu-latest, macos-latest, windows-latest]

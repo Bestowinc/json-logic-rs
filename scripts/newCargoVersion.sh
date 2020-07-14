@@ -1,5 +1,5 @@
 #!/usr/bin/env sh
-set -eu
+set -eux
 
 CURRENT_VERSION=$(cargo pkgid | tr ':' ' ' | awk '{print $3}')
 
