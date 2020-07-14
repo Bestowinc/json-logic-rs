@@ -1,5 +1,5 @@
-#!/usr/bin/env bash
-set -euo pipefail
+#!/usr/bin/env sh
+set -eu
 
 CURRENT_VERSION=$(cargo pkgid | tr ':' ' ' | awk '{print $3}')
 
@@ -15,7 +15,7 @@ PREV_VERSION=$(echo "${RESP}" \
     | awk '{print $2}' \
     | sed 's/"//g')
 
-if [[ "${CURRENT_VERSION}" == "${PREV_VERSION}" ]]; then
+if [ "${CURRENT_VERSION}" = "${PREV_VERSION}" ]; then
     echo false
     exit 0
 else
