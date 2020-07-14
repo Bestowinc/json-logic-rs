@@ -453,7 +453,9 @@ jobs:
       - name: "Cargo Publish"
         if: "${{ steps.cargo-version.outputs.new == 'true' }}"
         run: |
-          cargo publish --token "${{ secrets.CARGO_TOKEN }}"
+          cargo publish --token "$CARGO_TOKEN"
+        env:
+          CARGO_TOKEN: "${{ secrets.CARGO_TOKEN }}"
 
       - name: "Pull WASM Artifact"
         uses: "actions/download-artifact@v1"
@@ -466,8 +468,10 @@ jobs:
         shell: bash
         if: "${{ steps.npm-version.outputs.new == 'true' }}"
         run: |
-          echo "//registry.npmjs.org/:_authToken=${{ secrets.NPM_TOKEN }}" > ~/.npmrc
+          echo "//registry.npmjs.org/:_authToken=$NPM_TOKEN" > ~/.npmrc
           npm publish dist-wasm/ --access public
+        env:
+          NPM_TOKEN: "${{ secrets.NPM_TOKEN }}"
 
       - name: "Pull Python Sdist Artifact"
         uses: "actions/download-artifact@v1"
@@ -480,7 +484,10 @@ jobs:
         shell: bash
         run: |
           pip install twine
-          twine upload -u "__token__" -p "${{ secrets.PYPI_TOKEN }}" --skip-existing dist-py/*
+          twine upload --skip-existing dist-py/*
+        env:
+          TWINE_USERNAME: "__token__"
+          TWINE_PASSWORD: "${{ secrets.PYPI_TOKEN }}"
 
   distribute-py-wheels-mac-windows:
     name: "Distribute Mac and Windows Python Wheels"
@@ -511,6 +518,11 @@ jobs:
         run: |
           echo "::set-output name=new::$(./scripts/newCargoVersion.sh)"
 
+      - name: "(DEBUG) is new cargo version"
+        shell: bash
+        run: |
+          echo "${{ steps.cargo-version.outputs.new }}"
+
       # Cache build dependencies
       - name: "Cache Build Fragments"
         id: "cache-build-fragments"
@@ -535,7 +547,10 @@ jobs:
         if: "${{ steps.cargo-version.outputs.new == 'true' }}"
         run: |
           pip install twine
-          twine upload -u "__token__" -p "${{ secrets.PYPI_TOKEN }}" --skip-existing dist-py/*
+          twine upload --skip-existing dist-py/*
+        env:
+          TWINE_USERNAME: "__token__"
+          TWINE_PASSWORD: "${{ secrets.PYPI_TOKEN }}"
 
   distribute-py-wheels-linux:
     name: "Distribute Linux Python Wheels"
@@ -571,6 +586,11 @@ jobs:
         run: |
           echo "::set-output name=new::$(./scripts/newCargoVersion.sh)"
 
+      - name: "(DEBUG) is new cargo version"
+        shell: bash
+        run: |
+          echo "${{ steps.cargo-version.outputs.new }}"
+
       # Cache build dependencies
       - name: "Cache Build Fragments"
         id: "cache-build-fragments"
@@ -595,4 +615,7 @@ jobs:
         shell: bash
         run: |
           pip install twine
-          twine upload -u "__token__" -p "${{ secrets.PYPI_TOKEN }}" --skip-existing dist-py/*
+          twine upload --skip-existing dist-py/*
+        env:
+          TWINE_USERNAME: "__token__"
+          TWINE_PASSWORD: "${{ secrets.PYPI_TOKEN }}"
