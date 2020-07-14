@@ -2,7 +2,7 @@
 
 ![Continuous Integration](https://github.com/Bestowinc/json-logic-rs/workflows/Continuous%20Integration/badge.svg?branch=master)
 
-This is an implementation of  the [JSONLogic] specification in Rust.
+This is an implementation of  the [JsonLogic] specification in Rust.
 
 ## Project Status
 
@@ -12,11 +12,11 @@ We also implement the `?:`, which is not described in that specification
 but is a direct alias for `if`.
 
 All operations are tested using our own test suite in Rust as well as the
-shared tests for all jsonlogic implementations defined [here](http://jsonlogic.com/tests.json).
+shared tests for all JsonLogic implementations defined [here](http://jsonlogic.com/tests.json).
 
 We are working on adding new operations with improved type safety, as well
-as the ability to define functions as jsonlogic. We will communicate with
-the broader jsonlogic community to see if we can make them part of the
+as the ability to define functions as JsonLogic. We will communicate with
+the broader JsonLogic community to see if we can make them part of the
 standard as we do so.
 
 Being built in Rust, we are able to provide the package in a variety of
@@ -28,6 +28,43 @@ languages. The table below describes current language support:
 | JavaScript (as WASM) | Node Package via [NPM](https://www.npmjs.com/package/@bestow/jsonlogic-rs) |
 | Python               | [PyPI](https://test.pypi.org/project/jsonlogic-rs/0.1.0/)                  |
 
+## Installation
+
+### Rust
+
+Just add to your `Cargo.toml`:
+
+``` toml
+[dependencies]
+jsonlogic-rs = "~0.1.1"
+```
+
+### Node/Browser
+
+You can install JsonLogic using npm or yarn. In NPM:
+
+``` sh
+npm install --save @bestow/jsonlogic-rs
+```
+
+Note that the package is distributed as a node package, so you'll need to use
+`browserify`, `webpack`, or similar to install for the browser.
+
+### Python
+
+Wheels are distributed for many platforms, so you should often be able to just
+run:
+
+``` sh
+pip install jsonlogic-rs
+```
+
+If a wheel does _not_ exist for your system, this will attempt to build the 
+package. In order for the package to build successfully, you MUST have Rust
+installed on your local system, and `cargo` MUST be present in your `PATH`.
+
+See [Building](#Building) below for more details.
+
 ## Usage
 
 ### Rust
@@ -36,6 +73,8 @@ languages. The table below describes current language support:
 use jsonlogic_rs;
 use serde_json::json;
 
+// You can pass JSON values deserialized with serde straight
+// into apply().
 fn main() {
     assert_eq!(
         jsonlogic_rs::apply(
@@ -69,6 +108,13 @@ res = jsonlogic_rs.apply(
 )
 
 assert res == True
+
+# If You have serialized JsonLogic and data, the `apply_serialized` method can 
+# be used instead
+res = jsonlogic_rs.apply_serialized(
+    '{"===": [{"var": "a"}, 7]}',
+    '{"a": 7}'
+)
 ```
 
 ## Building
