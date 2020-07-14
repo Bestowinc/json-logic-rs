@@ -11,7 +11,18 @@ AUTHOR = "Matthew Planchard"
 EMAIL = "msplanchard@gmail.com"
 
 
+def generate_lockfile():
+    if (PKG_ROOT / "Cargo.lock").exists():
+        return
+    print("Generating Cargo lockfile")
+    proc = Popen(("cargo", "generate-lockfile"), stdout=PIPE, stderr=PIPE)
+    _out, err = tuple(map(bytes.decode, proc.communicate()))
+    if proc.returncode != 0:
+        raise RuntimeError(f"Could not generate Cargo lockfile: {err}")
+    return
+
 def get_version():
+    generate_lockfile()
     proc = Popen(("cargo", "pkgid"), stdout=PIPE, stderr=PIPE)
     out, err = tuple(map(bytes.decode, proc.communicate()))
     if proc.returncode != 0:

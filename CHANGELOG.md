@@ -8,6 +8,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [0.1.1] - 2020-07-14
 
+### Fixed
+- The Python source dist wasn't generating a lockfile prior to attempting to
+  determine the package version, causing the `cargo pkgid` command to fail
+- The Python source dist wasn't generating a Cargo lockfile prior to attempting 
+  to determine the package version, causing the `cargo pkgid` command to fail
+
 ### Chore
 - CI fixes for distribution of all the python wheels
 - Bumped version to test distribution pipeline
