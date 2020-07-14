@@ -491,8 +491,8 @@ jobs:
 
   distribute-py-wheels-mac-windows:
     name: "Distribute Mac and Windows Python Wheels"
-    needs: "build-python-wheels-mac-windows"
-    if: "${{ github.ref == 'refs/heads/master' }}"
+    # needs: "build-python-wheels-mac-windows"
+    # if: "${{ github.ref == 'refs/heads/master' }}"
     strategy:
       matrix:
         os: [macos-latest, windows-latest]
@@ -542,15 +542,15 @@ jobs:
           name: "py-${{ matrix.python-version }}-${{ runner.os }}-wheels"
           path: dist-py
 
-      - name: "Publish Wheels"
-        shell: bash
-        if: "${{ steps.cargo-version.outputs.new == 'true' }}"
-        run: |
-          pip install twine
-          twine upload --skip-existing dist-py/*
-        env:
-          TWINE_USERNAME: "__token__"
-          TWINE_PASSWORD: "${{ secrets.PYPI_TOKEN }}"
+      # - name: "Publish Wheels"
+      #   shell: bash
+      #   if: "${{ steps.cargo-version.outputs.new == 'true' }}"
+      #   run: |
+      #     pip install twine
+      #     twine upload --skip-existing dist-py/*
+      #   env:
+      #     TWINE_USERNAME: "__token__"
+      #     TWINE_PASSWORD: "${{ secrets.PYPI_TOKEN }}"
 
   distribute-py-wheels-linux:
     name: "Distribute Linux Python Wheels"
