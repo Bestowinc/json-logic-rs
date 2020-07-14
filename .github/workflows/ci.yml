@@ -356,9 +356,9 @@ jobs:
 
   distribute:
     name: "Distribute Cargo, WASM, and Python Sdist Packages"
-    needs: "build"
+    # needs: "build"
     runs-on: ubuntu-latest
-    if: "${{ github.ref == 'refs/heads/master' }}"
+    # if: "${{ github.ref == 'refs/heads/master' }}"
     steps:
       # Check out the code
       - uses: "actions/checkout@v2"
@@ -390,7 +390,7 @@ jobs:
         id: get-version
         shell: bash
         run: |
-          echo "::set-output name=version::$(cargo pkgid | tr ':' ' ' | awk '{print $3}')"
+          echo "::set-output name=version::$(cargo pkgid | tr '#' '\n' | tail -n 1 | tr ':' ' ' | awk '{print $2}')"
 
       - name: "(DEBUG) log current version"
         shell: bash
@@ -403,42 +403,42 @@ jobs:
         run: |
           echo "::set-output name=new::$(./scripts/newCargoVersion.sh)"
 
-      - name: "Add Git Tag Ref for Version"
-        if: "${{ steps.cargo-version.outputs.new == 'true' }}"
-        uses: "actions/github-script@v2"
-        with:
-          github-token: "${{ secrets.GITHUB_TOKEN }}"
-          script: |
-            github.git.createRef({
-              owner: "${{ github.repository_owner }}",
-              repo: "${{ github.repository }}",
-              ref: "refs/tags/v${{ steps.get-version.ouputs.version }}",
-              sha: "${{ github.sha }}",
-            })
+      # - name: "Add Git Tag Ref for Version"
+      #   if: "${{ steps.cargo-version.outputs.new == 'true' }}"
+      #   uses: "actions/github-script@v2"
+      #   with:
+      #     github-token: "${{ secrets.GITHUB_TOKEN }}"
+      #     script: |
+      #       github.git.createRef({
+      #         owner: "${{ github.repository_owner }}",
+      #         repo: "${{ github.repository }}",
+      #         ref: "refs/tags/v${{ steps.get-version.ouputs.version }}",
+      #         sha: "${{ github.sha }}",
+      #       })
 
-      - name: "Add GitHub Annotated Tag for Version"
-        if: "${{ steps.cargo-version.outputs.new == 'true' }}"
-        uses: "actions/github-script@v2"
-        with:
-          github-token: "${{ secrets.GITHUB_TOKEN }}"
-          script: |
-            github.git.createTag({
-              owner: "${{ github.repository_owner }}",
-              repo: "${{ github.repository }}",
-              tag: "v${{ steps.get-version.ouputs.version }}",
-              message: "Vesrion ${{ steps.get-version.outputs.version }}",
-              object: "${{ github.sha }}",
-              type: "commit",
-              tagger: {
-                name: "${{ github.actor }}",
-              }
-            })
+      # - name: "Add GitHub Annotated Tag for Version"
+      #   if: "${{ steps.cargo-version.outputs.new == 'true' }}"
+      #   uses: "actions/github-script@v2"
+      #   with:
+      #     github-token: "${{ secrets.GITHUB_TOKEN }}"
+      #     script: |
+      #       github.git.createTag({
+      #         owner: "${{ github.repository_owner }}",
+      #         repo: "${{ github.repository }}",
+      #         tag: "v${{ steps.get-version.ouputs.version }}",
+      #         message: "Vesrion ${{ steps.get-version.outputs.version }}",
+      #         object: "${{ github.sha }}",
+      #         type: "commit",
+      #         tagger: {
+      #           name: "${{ github.actor }}",
+      #         }
+      #       })
 
-      - name: "Check if new NPM version"
-        id: npm-version
-        shell: bash
-        run: |
-          echo "::set-output name=new::$(./scripts/newNpmVersion.sh)"
+      # - name: "Check if new NPM version"
+      #   id: npm-version
+      #   shell: bash
+      #   run: |
+      #     echo "::set-output name=new::$(./scripts/newNpmVersion.sh)"
 
       # Note we don't check for a new python version b/c there are so
       # many python artifacts that it is impractical. Instead we just
@@ -451,44 +451,44 @@ jobs:
           echo "Cargo: ${{ steps.cargo-version.outputs.new }}"
           echo "NPM: ${{ steps.npm-version.outputs.new }}"
 
-      - name: "Cargo Publish"
-        if: "${{ steps.cargo-version.outputs.new == 'true' }}"
-        run: |
-          cargo publish --token "$CARGO_TOKEN"
-        env:
-          CARGO_TOKEN: "${{ secrets.CARGO_TOKEN }}"
+      # - name: "Cargo Publish"
+      #   if: "${{ steps.cargo-version.outputs.new == 'true' }}"
+      #   run: |
+      #     cargo publish --token "$CARGO_TOKEN"
+      #   env:
+      #     CARGO_TOKEN: "${{ secrets.CARGO_TOKEN }}"
 
-      - name: "Pull WASM Artifact"
-        uses: "actions/download-artifact@v1"
-        if: "${{ steps.npm-version.outputs.new == 'true' }}"
-        with:
-          name: wasm-pkg
-          path: dist-wasm
+      # - name: "Pull WASM Artifact"
+      #   uses: "actions/download-artifact@v1"
+      #   if: "${{ steps.npm-version.outputs.new == 'true' }}"
+      #   with:
+      #     name: wasm-pkg
+      #     path: dist-wasm
 
-      - name: "Publish NPM Package"
-        shell: bash
-        if: "${{ steps.npm-version.outputs.new == 'true' }}"
-        run: |
-          echo "//registry.npmjs.org/:_authToken=$NPM_TOKEN" > ~/.npmrc
-          npm publish dist-wasm/ --access public
-        env:
-          NPM_TOKEN: "${{ secrets.NPM_TOKEN }}"
+      # - name: "Publish NPM Package"
+      #   shell: bash
+      #   if: "${{ steps.npm-version.outputs.new == 'true' }}"
+      #   run: |
+      #     echo "//registry.npmjs.org/:_authToken=$NPM_TOKEN" > ~/.npmrc
+      #     npm publish dist-wasm/ --access public
+      #   env:
+      #     NPM_TOKEN: "${{ secrets.NPM_TOKEN }}"
 
-      - name: "Pull Python Sdist Artifact"
-        uses: "actions/download-artifact@v1"
-        with:
-          name: py-sdist
-          path: dist-py
+      # - name: "Pull Python Sdist Artifact"
+      #   uses: "actions/download-artifact@v1"
+      #   with:
+      #     name: py-sdist
+      #     path: dist-py
 
-      - name: "Publish Python Sdist"
-        if: "${{ steps.cargo-version.outputs.new == 'true' }}"
-        shell: bash
-        run: |
-          pip install twine
-          twine upload --skip-existing dist-py/*
-        env:
-          TWINE_USERNAME: "__token__"
-          TWINE_PASSWORD: "${{ secrets.PYPI_TOKEN }}"
+      # - name: "Publish Python Sdist"
+      #   if: "${{ steps.cargo-version.outputs.new == 'true' }}"
+      #   shell: bash
+      #   run: |
+      #     pip install twine
+      #     twine upload --skip-existing dist-py/*
+      #   env:
+      #     TWINE_USERNAME: "__token__"
+      #     TWINE_PASSWORD: "${{ secrets.PYPI_TOKEN }}"
 
   distribute-py-wheels-mac-windows:
     name: "Distribute Mac and Windows Python Wheels"

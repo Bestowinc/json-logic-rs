@@ -1,7 +1,7 @@
-#!/usr/bin/env sh
-set -eux
+#!/usr/bin/env bash
+set -euo pipefail
 
-CURRENT_VERSION=$(cargo pkgid | tr ':' ' ' | awk '{print $3}')
+CURRENT_VERSION=$(cargo pkgid | tr '#' '\n' | tail -n 1 | tr ':' ' ' | awk '{print $2}')
 
 RESP=$(curl 'https://crates.io/api/v1/crates/jsonlogic-rs' -s \
     -H 'User-Agent: mplanchard_verison_check (msplanchard@gmail.com)' \
@@ -15,7 +15,7 @@ PREV_VERSION=$(echo "${RESP}" \
     | awk '{print $2}' \
     | sed 's/"//g')
 
-if [ "${CURRENT_VERSION}" = "${PREV_VERSION}" ]; then
+if [[ "${CURRENT_VERSION}" == "${PREV_VERSION}" ]]; then
     echo false
     exit 0
 else
