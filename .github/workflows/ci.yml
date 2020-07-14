@@ -536,11 +536,11 @@ jobs:
           # which include a python version at the end.
           key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
 
-      - name: "Pull Python Wheels"
-        uses: "actions/download-artifact@v1"
-        with:
-          name: "py-${{ matrix.python-version }}-${{ runner.os }}-wheels"
-          path: dist-py
+      # - name: "Pull Python Wheels"
+      #   uses: "actions/download-artifact@v1"
+      #   with:
+      #     name: "py-${{ matrix.python-version }}-${{ runner.os }}-wheels"
+      #     path: dist-py
 
       # - name: "Publish Wheels"
       #   shell: bash
