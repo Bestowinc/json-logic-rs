@@ -30,3 +30,4 @@ venv/
 
 # Used in the CI pipeline
 tmp-new-cargo-ver
+new-cargo/
