@@ -491,7 +491,7 @@ jobs:
 
   distribute-py-wheels-mac-windows:
     name: "Distribute Mac and Windows Python Wheels"
-    needs: "build-python-wheels-mac-windows"
+    needs: ["distribute", "build-python-wheels-mac-windows"]
     if: "${{ github.ref == 'refs/heads/master' }}"
     strategy:
       matrix:
@@ -554,7 +554,7 @@ jobs:
 
   distribute-py-wheels-linux:
     name: "Distribute Linux Python Wheels"
-    needs: "build-python-wheels-linux"
+    needs: ["distribute", "build-python-wheels-linux"]
     runs-on: ubuntu-latest
     if: "${{ github.ref == 'refs/heads/master' }}"
     strategy:
