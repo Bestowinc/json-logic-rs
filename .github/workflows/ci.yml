@@ -249,7 +249,7 @@ jobs:
             target
           # This should partial match the caches generated for the tests,
           # which include a python version at the end.
-          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+          key: "${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}-${{ matrix.manylinux.arch }}"
 
       # Cache `cargo install` built binaries
       - name: "Cache Built Binaries"
