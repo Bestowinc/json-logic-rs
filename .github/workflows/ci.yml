@@ -398,7 +398,7 @@ jobs:
             github.git.createRef({
               owner: "${{ github.repository_owner }}",
               repo: "json-logic-rs",
-              ref: "refs/tags/v${{ steps.get-version.ouputs.version }}",
+              ref: "refs/tags/v${{ steps.get-version.outputs.version }}",
               sha: "${{ github.sha }}",
             })
 
@@ -411,7 +411,7 @@ jobs:
             github.git.createTag({
               owner: "${{ github.repository_owner }}",
               repo: "json-logic-rs",
-              tag: "v${{ steps.get-version.ouputs.version }}",
+              tag: "v${{ steps.get-version.outputs.version }}",
               message: "Vesrion ${{ steps.get-version.outputs.version }}",
               object: "${{ github.sha }}",
               type: "commit",
