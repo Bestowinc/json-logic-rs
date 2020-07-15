@@ -410,7 +410,7 @@ jobs:
           script: |
             github.git.createRef({
               owner: "${{ github.repository_owner }}",
-              repo: "${{ github.repository }}",
+              repo: "json-logic-rs",
               ref: "refs/tags/v${{ steps.get-version.ouputs.version }}",
               sha: "${{ github.sha }}",
             })
@@ -423,7 +423,7 @@ jobs:
           script: |
             github.git.createTag({
               owner: "${{ github.repository_owner }}",
-              repo: "${{ github.repository }}",
+              repo: "json-logic-rs",
               tag: "v${{ steps.get-version.ouputs.version }}",
               message: "Vesrion ${{ steps.get-version.outputs.version }}",
               object: "${{ github.sha }}",
@@ -491,7 +491,7 @@ jobs:
 
   distribute-py-wheels-mac-windows:
     name: "Distribute Mac and Windows Python Wheels"
-    needs: "build-python-wheels-mac-windows"
+    needs: ["distribute", "build-python-wheels-mac-windows"]
     if: "${{ github.ref == 'refs/heads/master' }}"
     strategy:
       matrix:
@@ -554,7 +554,7 @@ jobs:
 
   distribute-py-wheels-linux:
     name: "Distribute Linux Python Wheels"
-    needs: "build-python-wheels-linux"
+    needs: ["distribute", "build-python-wheels-linux"]
     runs-on: ubuntu-latest
     if: "${{ github.ref == 'refs/heads/master' }}"
     strategy:
@@ -615,7 +615,7 @@ jobs:
         shell: bash
         run: |
           pip install twine
-          twine upload --skip-existing dist-py/*
+          twine upload --skip-existing dist-py/*manylinux*
         env:
           TWINE_USERNAME: "__token__"
           TWINE_PASSWORD: "${{ secrets.PYPI_TOKEN }}"
