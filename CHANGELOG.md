@@ -6,6 +6,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.2] - 2020-07-14
+
+### Chore
+
+- A bunch of minor fixes to get the CI pipeline working for all platforms
+
 ## [0.1.1] - 2020-07-14
 
 ### Fixed
@@ -27,5 +33,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Python SDist build
 - Packages published & registered on the various package repositories
 
-[Unreleased]: https://github.com/Bestowinc/json-logic-rs/compare/v0.1.0...HEAD
+[Unreleased]: https://github.com/Bestowinc/json-logic-rs/compare/v0.1.2...HEAD
+[0.1.2]: https://github.com/Bestowinc/json-logic-rs/compare/v0.1.0...v0.1.2
+[0.1.1]: https://github.com/Bestowinc/json-logic-rs/compare/v0.1.0...v0.1.1
 [0.1.0]: https://github.com/Bestowinc/json-logic-rs/compare/0ce0196...v0.1.0
