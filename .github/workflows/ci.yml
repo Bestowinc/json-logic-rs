@@ -438,6 +438,16 @@ jobs:
           echo "Cargo: ${{ steps.cargo-version.outputs.new }}"
           echo "NPM: ${{ steps.npm-version.outputs.new }}"
 
+      - name: "Persist new cargo state for subsequent jobs"
+        shell: bash
+        run: |
+          echo "${{ steps.cargo-version.outputs.new }}" > tmp-new-cargo-ver
+
+      - uses: "actions/upload-artifact@v2"
+        with:
+          path: "tmp-new-cargo-ver"
+          name: "new-cargo"
+
       - name: "Cargo Publish"
         if: "${{ steps.cargo-version.outputs.new == 'true' }}"
         run: |
@@ -462,6 +472,7 @@ jobs:
           NPM_TOKEN: "${{ secrets.NPM_TOKEN }}"
 
       - name: "Pull Python Sdist Artifact"
+        if: "${{ steps.cargo-version.outputs.new == 'true' }}"
         uses: "actions/download-artifact@v1"
         with:
           name: py-sdist
@@ -496,30 +507,28 @@ jobs:
         with:
           python-version: 3.8
 
-      # Generate the lockfile
-      - name: "Generate Cargo Lockfile"
-        run: "cargo generate-lockfile"
+      - name: "Pull cargo version tracking file"
+        uses: "actions/download-artifact@v1"
+        with:
+          name: "new-cargo"
+          path: tmp-new-cargo-ver
 
-      - name: "Check if new Cargo version"
+      - name: "Check for new cargo version"
         id: cargo-version
         shell: bash
         run: |
-          echo "::set-output name=new::$(./scripts/newCargoVersion.sh)"
-
-      - name: "(DEBUG) is new cargo version"
-        shell: bash
-        run: |
-          echo "${{ steps.cargo-version.outputs.new }}"
+          echo "::set-output name=new::$(cat tmp-new-cargo-ver)"
 
       - name: "Pull Python Wheels"
+        if: "${{ steps.cargo-version.outputs.new == 'true' }}"
         uses: "actions/download-artifact@v1"
         with:
           name: "py-${{ matrix.python-version }}-${{ runner.os }}-wheels"
           path: dist-py
 
       - name: "Publish Wheels"
-        shell: bash
         if: "${{ steps.cargo-version.outputs.new == 'true' }}"
+        shell: bash
         run: |
           pip install twine
           twine upload --skip-existing dist-py/*
@@ -551,22 +560,20 @@ jobs:
         with:
           python-version: 3.8
 
-      # Generate the lockfile
-      - name: "Generate Cargo Lockfile"
-        run: "cargo generate-lockfile"
+      - name: "Pull cargo version tracking file"
+        uses: "actions/download-artifact@v1"
+        with:
+          name: "new-cargo"
+          path: tmp-new-cargo-ver
 
-      - name: "Check if new Cargo version"
+      - name: "Check for new cargo version"
         id: cargo-version
         shell: bash
         run: |
-          echo "::set-output name=new::$(./scripts/newCargoVersion.sh)"
-
-      - name: "(DEBUG) is new cargo version"
-        shell: bash
-        run: |
-          echo "${{ steps.cargo-version.outputs.new }}"
+          echo "::set-output name=new::$(cat tmp-new-cargo-ver)"
 
       - name: "Pull Python Wheel"
+        if: "${{ steps.cargo-version.outputs.new == 'true' }}"
         uses: "actions/download-artifact@v1"
         with:
           name: "py-linux-wheels-${{ matrix.manylinux.arch }}"
