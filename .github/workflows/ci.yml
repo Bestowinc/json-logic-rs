@@ -372,19 +372,6 @@ jobs:
       - name: "Generate Cargo Lockfile"
         run: "cargo generate-lockfile"
 
-      # Cache build dependencies
-      - name: "Cache Build Fragments"
-        id: "cache-build-fragments"
-        uses: "actions/cache@v2"
-        with:
-          path: |
-            ~/.cargo/registry
-            ~/.cargo/git
-            target
-          # This should partial match the caches generated for the tests,
-          # which include a python version at the end.
-          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
-
       - name: "Get Current Version"
         id: get-version
         shell: bash
@@ -524,19 +511,6 @@ jobs:
         run: |
           echo "${{ steps.cargo-version.outputs.new }}"
 
-      # Cache build dependencies
-      - name: "Cache Build Fragments"
-        id: "cache-build-fragments"
-        uses: "actions/cache@v2"
-        with:
-          path: |
-            ~/.cargo/registry
-            ~/.cargo/git
-            target
-          # This should partial match the caches generated for the tests,
-          # which include a python version at the end.
-          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
-
       - name: "Pull Python Wheels"
         uses: "actions/download-artifact@v1"
         with:
@@ -591,19 +565,6 @@ jobs:
         shell: bash
         run: |
           echo "${{ steps.cargo-version.outputs.new }}"
-
-      # Cache build dependencies
-      - name: "Cache Build Fragments"
-        id: "cache-build-fragments"
-        uses: "actions/cache@v2"
-        with:
-          path: |
-            ~/.cargo/registry
-            ~/.cargo/git
-            target
-          # This should partial match the caches generated for the tests,
-          # which include a python version at the end.
-          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
 
       - name: "Pull Python Wheel"
         uses: "actions/download-artifact@v1"
