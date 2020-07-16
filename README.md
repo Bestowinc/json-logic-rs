@@ -42,7 +42,7 @@ jsonlogic-rs = "~0.1"
 If you just want to use the commandline `jsonlogic` binary:
 
 ``` sh
-cargo install jsonlogic-rs
+cargo install jsonlogic-rs --features cmdline
 ```
 
 ### Node/Browser
@@ -163,6 +163,38 @@ $ echo '{"a": "a"}' \
     | jsonlogic '{"if": [{"!!": {"var": "result"}}, "result was true", "result was false"]}'
 
 "result was true"
+```
+
+Using `jsonlogic` on the cmdline to explore an API:
+
+``` sh
+> curl -s "https://catfact.ninja/facts?limit=5"
+
+{"current_page":1,"data":[{"fact":"The Egyptian Mau is probably the oldest breed of cat. In fact, the breed is so ancient that its name is the Egyptian word for \u201ccat.\u201d","length":132},{"fact":"Julius Ceasar, Henri II, Charles XI, and Napoleon were all afraid of cats.","length":74},{"fact":"Unlike humans, cats cannot detect sweetness which likely explains why they are not drawn to it at all.","length":102},{"fact":"Cats can be taught to walk on a leash, but a lot of time and patience is required to teach them. The younger the cat is, the easier it will be for them to learn.","length":161},{"fact":"Researchers believe the word \u201ctabby\u201d comes from Attabiyah, a neighborhood in Baghdad, Iraq. Tabbies got their name because their striped coats resembled the famous wavy patterns in the silk produced in this city.","length":212}],"first_page_url":"https:\/\/catfact.ninja\/facts?page=1","from":1,"last_page":67,"last_page_url":"https:\/\/catfact.ninja\/facts?page=67","next_page_url":"https:\/\/catfact.ninja\/facts?page=2","path":"https:\/\/catfact.ninja\/facts","per_page":"5","prev_page_url":null,"to":5,"total":332}
+
+> curl -s "https://catfact.ninja/facts?limit=5" | jsonlogic '{"var": "data"}'
+
+[{"fact":"A cat's appetite is the barometer of its health. Any cat that does not eat or drink for more than two days should be taken to a vet.","length":132},{"fact":"Some notable people who disliked cats:  Napoleon Bonaparte, Dwight D. Eisenhower, Hitler.","length":89},{"fact":"During the time of the Spanish Inquisition, Pope Innocent VIII condemned cats as evil and thousands of cats were burned. Unfortunately, the widespread killing of cats led to an explosion of the rat population, which exacerbated the effects of the Black Death.","length":259},{"fact":"A cat has approximately 60 to 80 million olfactory cells (a human has between 5 and 20 million).","length":96},{"fact":"In just seven years, a single pair of cats and their offspring could produce a staggering total of 420,000 kittens.","length":115}]
+
+> curl -s "https://catfact.ninja/facts?limit=5" | jsonlogic '{"var": "data.0"}'
+
+{"fact":"A tiger's stripes are like fingerprints","length":39}
+
+> curl -s "https://catfact.ninja/facts?limit=5" | jsonlogic '{"var": "data.0.fact"}'
+"Neutering a male cat will, in almost all cases, stop him from spraying (territorial marking), fighting with other males (at least over females), as well as lengthen his life and improve its quality."
+
+> curl -s "https://catfact.ninja/facts?limit=5" \
+    | jsonlogic '{"var": "data.0.fact"}' \
+    | jsonlogic '{"in": ["cat", {"var": ""}]}'
+
+true
+
+> curl -s "https://catfact.ninja/facts?limit=5" \
+    | jsonlogic '{"var": "data.0.fact"}' \
+    | jsonlogic '{"in": ["cat", {"var": ""}]}' \
+    | jsonlogic '{"if": [{"var": ""}, "fact contained cat", "fact did not contain cat"]}'
+
+"fact contained cat"
 ```
 
 ## Building
