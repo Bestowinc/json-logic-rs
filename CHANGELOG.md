@@ -6,6 +6,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## Added
+
+- A new `cmdline` feature that builds a `jsonlogic` binary for JsonLogic on
+  the commandline
+
+## [0.1.3] - 2020-07-15
+
+- More minor CI fixes
+
 ## [0.1.2] - 2020-07-14
 
 ### Chore
@@ -15,7 +24,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [0.1.1] - 2020-07-14
 
 ### Fixed
-- The Python source dist wasn't generating a Cargo lockfile prior to attempting 
+- The Python source dist wasn't generating a Cargo lockfile prior to attempting
   to determine the package version, causing the `cargo pkgid` command to fail
 
 ### Chore

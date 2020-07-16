@@ -32,11 +32,17 @@ languages. The table below describes current language support:
 
 ### Rust
 
-Just add to your `Cargo.toml`:
+To use as a Rust library, add to your `Cargo.toml`:
 
 ``` toml
 [dependencies]
-jsonlogic-rs = "~0.1.1"
+jsonlogic-rs = "~0.1"
+```
+
+If you just want to use the commandline `jsonlogic` binary:
+
+``` sh
+cargo install jsonlogic-rs
 ```
 
 ### Node/Browser
@@ -52,14 +58,15 @@ Note that the package is distributed as a node package, so you'll need to use
 
 ### Python
 
-Wheels are distributed for many platforms, so you should often be able to just
-run:
+Supports Python 3.6+.
+
+Wheels are distributed for many platforms, so you can often just run:
 
 ``` sh
 pip install jsonlogic-rs
 ```
 
-If a wheel does _not_ exist for your system, this will attempt to build the 
+If a wheel does _not_ exist for your system, this will attempt to build the
 package. In order for the package to build successfully, you MUST have Rust
 installed on your local system, and `cargo` MUST be present in your `PATH`.
 
@@ -71,15 +78,15 @@ See [Building](#Building) below for more details.
 
 ```rust
 use jsonlogic_rs;
-use serde_json::json;
+use serde_json::{json, from_str, Value};
 
-// You can pass JSON values deserialized with serde straight
-// into apply().
+// You can pass JSON values deserialized with serde straight into apply().
 fn main() {
+    let data: Value = from_str(r#"{"a": 7}"#)
     assert_eq!(
         jsonlogic_rs::apply(
             json!({"===": [{"var": "a"}, 7]}),
-            json!({"a": 7}),
+            data,
         ),
         json!(true)
     );
@@ -109,12 +116,53 @@ res = jsonlogic_rs.apply(
 
 assert res == True
 
-# If You have serialized JsonLogic and data, the `apply_serialized` method can 
+# If You have serialized JsonLogic and data, the `apply_serialized` method can
 # be used instead
 res = jsonlogic_rs.apply_serialized(
     '{"===": [{"var": "a"}, 7]}',
     '{"a": 7}'
 )
+```
+
+### Commandline
+
+``` raw
+Parse JSON data with a JsonLogic rule.
+
+When no <data> or <data> is -, read from stdin.
+
+The result is written to stdout as JSON, so multiple calls
+can be chained together if desired.
+
+USAGE:
+    jsonlogic <logic> [data]
+
+FLAGS:
+    -h, --help       Prints help information
+    -V, --version    Prints version information
+
+ARGS:
+    <logic>    A JSON logic string
+    <data>     A string of JSON data to parse. May be provided as stdin.
+
+EXAMPLES:
+    jsonlogic '{"===": [{"var": "a"}, "foo"]}' '{"a": "foo"}'
+    jsonlogic '{"===": [1, 1]}' null
+    echo '{"a": "foo"}' | jsonlogic '{"===": [{"var": "a"}, "foo"]}'
+
+Inspired by and conformant with the original JsonLogic (jsonlogic.com).
+```
+
+Run `jsonlogic --help` the most up-to-date usage.
+
+An example of chaining multiple results:
+
+``` sh
+$ echo '{"a": "a"}' \
+    | jsonlogic '{"if": [{"===": [{"var": "a"}, "a"]}, {"result": true}, {"result": false}]}' \
+    | jsonlogic '{"if": [{"!!": {"var": "result"}}, "result was true", "result was false"]}'
+
+"result was true"
 ```
 
 ## Building
