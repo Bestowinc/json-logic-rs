@@ -32,11 +32,17 @@ languages. The table below describes current language support:
 
 ### Rust
 
-Just add to your `Cargo.toml`:
+To use as a Rust library, add to your `Cargo.toml`:
 
 ``` toml
 [dependencies]
-jsonlogic-rs = "~0.1.1"
+jsonlogic-rs = "~0.1"
+```
+
+If you just want to use the commandline `jsonlogic` binary:
+
+``` sh
+cargo install jsonlogic-rs --features cmdline
 ```
 
 ### Node/Browser
@@ -52,14 +58,15 @@ Note that the package is distributed as a node package, so you'll need to use
 
 ### Python
 
-Wheels are distributed for many platforms, so you should often be able to just
-run:
+Supports Python 3.6+.
+
+Wheels are distributed for many platforms, so you can often just run:
 
 ``` sh
 pip install jsonlogic-rs
 ```
 
-If a wheel does _not_ exist for your system, this will attempt to build the 
+If a wheel does _not_ exist for your system, this will attempt to build the
 package. In order for the package to build successfully, you MUST have Rust
 installed on your local system, and `cargo` MUST be present in your `PATH`.
 
@@ -71,15 +78,15 @@ See [Building](#Building) below for more details.
 
 ```rust
 use jsonlogic_rs;
-use serde_json::json;
+use serde_json::{json, from_str, Value};
 
-// You can pass JSON values deserialized with serde straight
-// into apply().
+// You can pass JSON values deserialized with serde straight into apply().
 fn main() {
+    let data: Value = from_str(r#"{"a": 7}"#)
     assert_eq!(
         jsonlogic_rs::apply(
             json!({"===": [{"var": "a"}, 7]}),
-            json!({"a": 7}),
+            data,
         ),
         json!(true)
     );
@@ -109,12 +116,85 @@ res = jsonlogic_rs.apply(
 
 assert res == True
 
-# If You have serialized JsonLogic and data, the `apply_serialized` method can 
+# If You have serialized JsonLogic and data, the `apply_serialized` method can
 # be used instead
 res = jsonlogic_rs.apply_serialized(
     '{"===": [{"var": "a"}, 7]}',
     '{"a": 7}'
 )
+```
+
+### Commandline
+
+``` raw
+Parse JSON data with a JsonLogic rule.
+
+When no <data> or <data> is -, read from stdin.
+
+The result is written to stdout as JSON, so multiple calls
+can be chained together if desired.
+
+USAGE:
+    jsonlogic <logic> [data]
+
+FLAGS:
+    -h, --help       Prints help information
+    -V, --version    Prints version information
+
+ARGS:
+    <logic>    A JSON logic string
+    <data>     A string of JSON data to parse. May be provided as stdin.
+
+EXAMPLES:
+    jsonlogic '{"===": [{"var": "a"}, "foo"]}' '{"a": "foo"}'
+    jsonlogic '{"===": [1, 1]}' null
+    echo '{"a": "foo"}' | jsonlogic '{"===": [{"var": "a"}, "foo"]}'
+
+Inspired by and conformant with the original JsonLogic (jsonlogic.com).
+```
+
+Run `jsonlogic --help` the most up-to-date usage.
+
+An example of chaining multiple results:
+
+``` sh
+$ echo '{"a": "a"}' \
+    | jsonlogic '{"if": [{"===": [{"var": "a"}, "a"]}, {"result": true}, {"result": false}]}' \
+    | jsonlogic '{"if": [{"!!": {"var": "result"}}, "result was true", "result was false"]}'
+
+"result was true"
+```
+
+Using `jsonlogic` on the cmdline to explore an API:
+
+``` sh
+> curl -s "https://catfact.ninja/facts?limit=5"
+
+{"current_page":1,"data":[{"fact":"The Egyptian Mau is probably the oldest breed of cat. In fact, the breed is so ancient that its name is the Egyptian word for \u201ccat.\u201d","length":132},{"fact":"Julius Ceasar, Henri II, Charles XI, and Napoleon were all afraid of cats.","length":74},{"fact":"Unlike humans, cats cannot detect sweetness which likely explains why they are not drawn to it at all.","length":102},{"fact":"Cats can be taught to walk on a leash, but a lot of time and patience is required to teach them. The younger the cat is, the easier it will be for them to learn.","length":161},{"fact":"Researchers believe the word \u201ctabby\u201d comes from Attabiyah, a neighborhood in Baghdad, Iraq. Tabbies got their name because their striped coats resembled the famous wavy patterns in the silk produced in this city.","length":212}],"first_page_url":"https:\/\/catfact.ninja\/facts?page=1","from":1,"last_page":67,"last_page_url":"https:\/\/catfact.ninja\/facts?page=67","next_page_url":"https:\/\/catfact.ninja\/facts?page=2","path":"https:\/\/catfact.ninja\/facts","per_page":"5","prev_page_url":null,"to":5,"total":332}
+
+> curl -s "https://catfact.ninja/facts?limit=5" | jsonlogic '{"var": "data"}'
+
+[{"fact":"A cat's appetite is the barometer of its health. Any cat that does not eat or drink for more than two days should be taken to a vet.","length":132},{"fact":"Some notable people who disliked cats:  Napoleon Bonaparte, Dwight D. Eisenhower, Hitler.","length":89},{"fact":"During the time of the Spanish Inquisition, Pope Innocent VIII condemned cats as evil and thousands of cats were burned. Unfortunately, the widespread killing of cats led to an explosion of the rat population, which exacerbated the effects of the Black Death.","length":259},{"fact":"A cat has approximately 60 to 80 million olfactory cells (a human has between 5 and 20 million).","length":96},{"fact":"In just seven years, a single pair of cats and their offspring could produce a staggering total of 420,000 kittens.","length":115}]
+
+> curl -s "https://catfact.ninja/facts?limit=5" | jsonlogic '{"var": "data.0"}'
+
+{"fact":"A tiger's stripes are like fingerprints","length":39}
+
+> curl -s "https://catfact.ninja/facts?limit=5" | jsonlogic '{"var": "data.0.fact"}'
+"Neutering a male cat will, in almost all cases, stop him from spraying (territorial marking), fighting with other males (at least over females), as well as lengthen his life and improve its quality."
+
+> curl -s "https://catfact.ninja/facts?limit=5" \
+    | jsonlogic '{"var": "data.0.fact"}' \
+    | jsonlogic '{"in": ["cat", {"var": ""}]}'
+
+true
+
+> curl -s "https://catfact.ninja/facts?limit=5" \
+    | jsonlogic '{"var": "data.0.fact"}' \
+    | jsonlogic '{"in": ["cat", {"var": ""}]}' \
+    | jsonlogic '{"if": [{"var": ""}, "fact contained cat", "fact did not contain cat"]}'
+
+"fact contained cat"
 ```
 
 ## Building

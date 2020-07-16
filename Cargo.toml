@@ -18,7 +18,13 @@ version = "0.1.3"
 # lib for regular rust stuff
 crate-type = ["cdylib", "lib"]
 
+[[bin]]
+name = "jsonlogic"
+path = "src/bin.rs"
+required-features = ["cmdline"]
+
 [features]
+cmdline = ["anyhow", "clap"]
 default = []
 python = ["cpython"]
 wasm = ["wasm-bindgen"]
@@ -37,6 +43,14 @@ version = "~0.2.62"
 features = ["extension-module"]
 optional = true
 version = "0.5"
+
+[dependencies.anyhow]
+optional = true
+version = "~1.0.31"
+
+[dependencies.clap]
+optional = true
+version = "~2.33.1"
 
 [dev-dependencies.reqwest]
 features = ["blocking"]
