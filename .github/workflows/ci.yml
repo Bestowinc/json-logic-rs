@@ -389,38 +389,6 @@ jobs:
         run: |
           echo "::set-output name=new::$(./scripts/newCargoVersion.sh)"
 
-      - name: "Add Git Tag Ref for Version"
-        if: "${{ steps.cargo-version.outputs.new == 'true' }}"
-        uses: "actions/github-script@v2"
-        with:
-          github-token: "${{ secrets.GITHUB_TOKEN }}"
-          script: |
-            github.git.createRef({
-              owner: "${{ github.repository_owner }}",
-              repo: "json-logic-rs",
-              ref: "refs/tags/v${{ steps.get-version.outputs.version }}",
-              sha: "${{ github.sha }}",
-            })
-
-      - name: "Add GitHub Annotated Tag for Version"
-        if: "${{ steps.cargo-version.outputs.new == 'true' }}"
-        uses: "actions/github-script@v2"
-        with:
-          github-token: "${{ secrets.GITHUB_TOKEN }}"
-          script: |
-            github.git.createTag({
-              owner: "${{ github.repository_owner }}",
-              repo: "json-logic-rs",
-              tag: "v${{ steps.get-version.outputs.version }}",
-              message: "Vesrion ${{ steps.get-version.outputs.version }}",
-              object: "${{ github.sha }}",
-              type: "commit",
-              tagger: {
-                name: "${{ github.actor }}",
-                email: "msplanchard@gmail.com",
-              }
-            })
-
       - name: "Check if new NPM version"
         id: npm-version
         shell: bash
@@ -488,6 +456,38 @@ jobs:
           TWINE_USERNAME: "__token__"
           TWINE_PASSWORD: "${{ secrets.PYPI_TOKEN }}"
 
+      - name: "Add Git Tag Ref for Version"
+        if: "${{ steps.cargo-version.outputs.new == 'true' }}"
+        uses: "actions/github-script@v2"
+        with:
+          github-token: "${{ secrets.GITHUB_TOKEN }}"
+          script: |
+            github.git.createRef({
+              owner: "${{ github.repository_owner }}",
+              repo: "json-logic-rs",
+              ref: "refs/tags/v${{ steps.get-version.outputs.version }}",
+              sha: "${{ github.sha }}",
+            })
+
+      - name: "Add GitHub Annotated Tag for Version"
+        if: "${{ steps.cargo-version.outputs.new == 'true' }}"
+        uses: "actions/github-script@v2"
+        with:
+          github-token: "${{ secrets.GITHUB_TOKEN }}"
+          script: |
+            github.git.createTag({
+              owner: "${{ github.repository_owner }}",
+              repo: "json-logic-rs",
+              tag: "v${{ steps.get-version.outputs.version }}",
+              message: "Vesrion ${{ steps.get-version.outputs.version }}",
+              object: "${{ github.sha }}",
+              type: "commit",
+              tagger: {
+                name: "${{ github.actor }}",
+                email: "msplanchard@gmail.com",
+              }
+            })
+
   distribute-py-wheels-mac-windows:
     name: "Distribute Mac and Windows Python Wheels"
     needs: ["distribute", "build-python-wheels-mac-windows"]
@@ -511,13 +511,12 @@ jobs:
         uses: "actions/download-artifact@v1"
         with:
           name: "new-cargo"
-          path: "tmp-new-cargo-ver"
 
       - name: "Check for new cargo version"
         id: cargo-version
         shell: bash
         run: |
-          echo "::set-output name=new::$(cat tmp-new-cargo-ver)"
+          echo "::set-output name=new::$(cat ./new-cargo/tmp-new-cargo-ver)"
 
       - name: "Pull Python Wheels"
         if: "${{ steps.cargo-version.outputs.new == 'true' }}"
@@ -564,13 +563,12 @@ jobs:
         uses: "actions/download-artifact@v1"
         with:
           name: "new-cargo"
-          path: "tmp-new-cargo-ver"
 
       - name: "Check for new cargo version"
         id: cargo-version
         shell: bash
         run: |
-          echo "::set-output name=new::$(cat tmp-new-cargo-ver)"
+          echo "::set-output name=new::$(cat ./new-cargo/tmp-new-cargo-ver)"
 
       - name: "Pull Python Wheel"
         if: "${{ steps.cargo-version.outputs.new == 'true' }}"
