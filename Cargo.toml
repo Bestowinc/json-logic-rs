@@ -24,7 +24,7 @@ path = "src/bin.rs"
 required-features = ["cmdline"]
 
 [features]
-cmdline = ["clap"]
+cmdline = ["anyhow", "clap"]
 default = []
 python = ["cpython"]
 wasm = ["wasm-bindgen"]
@@ -45,7 +45,7 @@ optional = true
 version = "0.5"
 
 [dependencies.anyhow]
-optinoal = true
+optional = true
 version = "~1.0.31"
 
 [dependencies.clap]
