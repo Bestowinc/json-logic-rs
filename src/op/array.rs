@@ -178,11 +178,18 @@ pub fn all(data: &Value, args: &Vec<&Value>) -> Result<Value, Error> {
                 .collect();
             &_new_arr
         }
+        Value::Null => {
+            _new_arr = Vec::new();
+            &_new_arr
+        }
         _ => {
             return Err(Error::InvalidArgument {
                 value: first_arg.clone(),
                 operation: "all".into(),
-                reason: "First argument to all must be an array or a string".into(),
+                reason: format!(
+                "First argument to all must evaluate to an array, string, or null, got {}",
+                potentially_evaled_first_arg
+            ),
             })
         }
     };
@@ -253,13 +260,18 @@ pub fn some(data: &Value, args: &Vec<&Value>) -> Result<Value, Error> {
                 .collect();
             &_new_arr
         }
-        _ => {
-            return Err(Error::InvalidArgument {
-                value: first_arg.clone(),
-                operation: "all".into(),
-                reason: "First argument to all must be an array or a string".into(),
-            })
+        Value::Null => {
+            _new_arr = Vec::new();
+            &_new_arr
         }
+        _ => return Err(Error::InvalidArgument {
+            value: first_arg.clone(),
+            operation: "all".into(),
+            reason: format!(
+                "First argument must evaluate to an array, a string, or null, got {}",
+                potentially_evaled_first_arg
+            ),
+        }),
     };
 
     // Special-case the empty array, since it for some reason is specified

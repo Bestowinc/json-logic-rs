@@ -6,10 +6,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-## Added
+### Added
 
 - A new `cmdline` feature that builds a `jsonlogic` binary for JsonLogic on
   the commandline
+
+### Fixed
+
+- `all`, `some`, and `none` will now accept an initial argument (the iterator)
+  that is or evaluates to `null`.
 
 ## [0.1.3] - 2020-07-15
 
