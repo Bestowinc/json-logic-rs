@@ -17,7 +17,9 @@ for PYBIN in /opt/python/{cp36-cp36m,cp37-cp37m,cp38-cp38}/bin; do
     export PYTHON_SYS_EXECUTABLE="$PYBIN/python"
 
     "${PYBIN}/python" -m ensurepip
-    "${PYBIN}/python" -m pip install -U setuptools wheel setuptools-rust
+    # Note: please change both here and in the makefile if specifying a particular
+    # version or removing the version pin.
+    "${PYBIN}/python" -m pip install -U setuptools wheel setuptools-rust==0.10.6
     "${PYBIN}/python" setup.py bdist_wheel
 done
 
