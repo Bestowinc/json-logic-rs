@@ -57,7 +57,7 @@ jobs:
           # python targets confused. The Python version is included at the
           # end so it can be partially matched by cache keys in contexts
           # where we're not iterating over python envs.
-          key: ${{ runner.os }}-${{ contains(runner.os, 'windows') && 'test-' || '' }}cargo-${{ hashFiles('**/Cargo.lock') }}-${{ matrix.python-version }}
+          key: ${{ runner.os }}-${{ contains(runner.os, 'windows') && 'test-' || '' }}cargo-${{ hashFiles('**/Cargo.lock') }}-${{ matrix.python-version }}-2
 
       # Cache `cargo install` built binaries
       - name: "Cache Built Binaries"
@@ -355,7 +355,8 @@ jobs:
 
   distribute:
     name: "Distribute Cargo, WASM, and Python Sdist Packages"
-    needs: ["build", "build-python-wheels-mac-windows", "build-python-wheels-linux"]
+    needs:
+      ["build", "build-python-wheels-mac-windows", "build-python-wheels-linux"]
     runs-on: ubuntu-latest
     if: "${{ github.ref == 'refs/heads/master' }}"
     steps:
@@ -382,7 +383,7 @@ jobs:
         shell: bash
         run: |
           echo "${{ steps.get-version.outputs.version }}"
-         
+
       - name: "Check if new Cargo version"
         id: cargo-version
         shell: bash
