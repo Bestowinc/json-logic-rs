@@ -57,7 +57,7 @@ jobs:
           # python targets confused. The Python version is included at the
           # end so it can be partially matched by cache keys in contexts
           # where we're not iterating over python envs.
-          key: ${{ runner.os }}-${{ contains(runner.os, 'windows') && 'test-' || '' }}cargo-${{ hashFiles('**/Cargo.lock') }}-${{ matrix.python-version }}-3
+          key: ${{ runner.os }}-${{ contains(runner.os, 'windows') && 'test-' || '' }}cargo-${{ hashFiles('**/Cargo.lock') }}-${{ matrix.python-version }}-4
 
       # Cache `cargo install` built binaries
       - name: "Cache Built Binaries"
