@@ -96,4 +96,4 @@ test-py: $(VENV)
 venv: $(VENV)
 $(VENV): setup.py pyproject.toml
 	$(PYTHON) -m venv venv
-	$(VENV) -m pip install setuptools wheel setuptools-rust==0.11.2
+	$(VENV) -m pip install setuptools wheel setuptools-rust==0.10.6
