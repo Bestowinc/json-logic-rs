@@ -355,7 +355,8 @@ jobs:
 
   distribute:
     name: "Distribute Cargo, WASM, and Python Sdist Packages"
-    needs: ["build", "build-python-wheels-mac-windows", "build-python-wheels-linux"]
+    needs:
+      ["build", "build-python-wheels-mac-windows", "build-python-wheels-linux"]
     runs-on: ubuntu-latest
     if: "${{ github.ref == 'refs/heads/master' }}"
     steps:
@@ -382,7 +383,7 @@ jobs:
         shell: bash
         run: |
           echo "${{ steps.get-version.outputs.version }}"
-         
+
       - name: "Check if new Cargo version"
         id: cargo-version
         shell: bash

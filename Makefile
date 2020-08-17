@@ -90,7 +90,10 @@ test-wasm:
 test-py: $(VENV)
 	$(VENV) tests/test_py.py
 
+# Note: please change both here and in the build-wheels script if specifying a
+# particular version or removing the version pin. setuptools-rust is currently
+# pinned because the windows builds were broken with v0.11.3.
 venv: $(VENV)
 $(VENV): setup.py pyproject.toml
 	$(PYTHON) -m venv venv
-	$(VENV) -m pip install setuptools wheel setuptools-rust
+	$(VENV) -m pip install setuptools wheel setuptools-rust==0.10.6

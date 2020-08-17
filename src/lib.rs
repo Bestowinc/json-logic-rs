@@ -578,12 +578,12 @@ mod jsonlogic_tests {
         vec![
             // Invalid first arguments
             (json!({"all": [1, 1]}), json!({}), Err(())),
-            (json!({"all": [null, 1]}), json!({}), Err(())),
             (json!({"all": [{}, 1]}), json!({}), Err(())),
             (json!({"all": [false, 1]}), json!({}), Err(())),
-            // Empty array/string
+            // Empty array/string/null
             (json!({"all": [[], 1]}), json!({}), Ok(json!(false))),
             (json!({"all": ["", 1]}), json!({}), Ok(json!(false))),
+            (json!({"all": [null, 1]}), json!({}), Ok(json!(false))),
             // Constant predicate
             (json!({"all": [[1, 2], 1]}), json!({}), Ok(json!(true))),
             (json!({"all": [[1, 2], 0]}), json!({}), Ok(json!(false))),
@@ -607,6 +607,12 @@ mod jsonlogic_tests {
                 json!({"all": ["aabaa", {"===": [{"var": ""}, "a"]}]}),
                 json!({}),
                 Ok(json!(false)),
+            ),
+            // First argument requires evaluation
+            (
+                json!({"all": [ {"var": "a"}, {"===": [{"var": ""}, "a"]} ]}),
+                json!({"a": "a"}),
+                Ok(json!(true)),
             ),
             // Expression in array
             (
@@ -648,6 +654,11 @@ mod jsonlogic_tests {
                 json!({"foo": -5}),
                 Ok(json!(false)),
             ),
+            (
+                json!({"all": [[1, {"var": "foo"}], {">": [{"var": ""}, 0]}]}),
+                json!({"foo": -5}),
+                Ok(json!(false)),
+            ),
         ]
     }
 
@@ -655,12 +666,12 @@ mod jsonlogic_tests {
         vec![
             // Invalid first arguments
             (json!({"some": [1, 1]}), json!({}), Err(())),
-            (json!({"some": [null, 1]}), json!({}), Err(())),
             (json!({"some": [{}, 1]}), json!({}), Err(())),
             (json!({"some": [false, 1]}), json!({}), Err(())),
             // Empty array/string
             (json!({"some": [[], 1]}), json!({}), Ok(json!(false))),
             (json!({"some": ["", 1]}), json!({}), Ok(json!(false))),
+            (json!({"some": [null, 1]}), json!({}), Ok(json!(false))),
             // Constant predicate
             (json!({"some": [[1, 2], 1]}), json!({}), Ok(json!(true))),
             (json!({"some": [[1, 2], 0]}), json!({}), Ok(json!(false))),
@@ -737,12 +748,12 @@ mod jsonlogic_tests {
         vec![
             // Invalid first arguments
             (json!({"none": [1, 1]}), json!({}), Err(())),
-            (json!({"none": [null, 1]}), json!({}), Err(())),
             (json!({"none": [{}, 1]}), json!({}), Err(())),
             (json!({"none": [false, 1]}), json!({}), Err(())),
             // Empty array/string
             (json!({"none": [[], 1]}), json!({}), Ok(json!(true))),
             (json!({"none": ["", 1]}), json!({}), Ok(json!(true))),
+            (json!({"none": [null, 1]}), json!({}), Ok(json!(true))),
             // Constant predicate
             (json!({"none": [[1, 2], 1]}), json!({}), Ok(json!(false))),
             (json!({"none": [[1, 2], 0]}), json!({}), Ok(json!(true))),
