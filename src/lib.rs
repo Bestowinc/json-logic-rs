@@ -1095,14 +1095,18 @@ mod jsonlogic_tests {
 
     fn in_cases() -> Vec<(Value, Value, Result<Value, ()>)> {
         vec![
+            // Invalid inputs
             (json!( {"in": []} ), json!({}), Err(())),
             (json!( {"in": [1, [], 1]} ), json!({}), Err(())),
             (json!( {"in": [1, "foo"]} ), json!({}), Err(())),
             (json!( {"in": [1, 1]} ), json!({}), Err(())),
+            // Valid inputs
+            (json!( {"in": [1, null]} ), json!({}), Ok(json!(false))),
             (json!( {"in": [1, [1, 2]]} ), json!({}), Ok(json!(true))),
             (json!( {"in": [1, [0, 2]]} ), json!({}), Ok(json!(false))),
             (json!( {"in": ["f", "foo"]} ), json!({}), Ok(json!(true))),
             (json!( {"in": ["f", "bar"]} ), json!({}), Ok(json!(false))),
+            (json!( {"in": ["f", null]} ), json!({}), Ok(json!(false))),
             (
                 json!( {"in": [null, [1, null]]} ),
                 json!({}),

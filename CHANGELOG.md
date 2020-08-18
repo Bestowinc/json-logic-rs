@@ -6,14 +6,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-## [0.2.0] - 2020-08-16
+## [0.2.1] - 2020-08-17
+
+### Changed
+
+- `in` will now accept `null` or anything that evaluates to `null` for its
+  second argument
+
+## [0.2.0] - 2020-08-17
 
 ### Added
 
 - A new `cmdline` feature that builds a `jsonlogic` binary for JsonLogic on
   the commandline
 
-### Fixed
+### Changed
 
 - `all`, `some`, and `none` will now accept an initial argument (the iterator)
   that is or evaluates to `null`.
