@@ -264,14 +264,16 @@ pub fn some(data: &Value, args: &Vec<&Value>) -> Result<Value, Error> {
             _new_arr = Vec::new();
             &_new_arr
         }
-        _ => return Err(Error::InvalidArgument {
-            value: first_arg.clone(),
-            operation: "all".into(),
-            reason: format!(
+        _ => {
+            return Err(Error::InvalidArgument {
+                value: first_arg.clone(),
+                operation: "all".into(),
+                reason: format!(
                 "First argument must evaluate to an array, a string, or null, got {}",
                 potentially_evaled_first_arg
             ),
-        }),
+            })
+        }
     };
 
     // Special-case the empty array, since it for some reason is specified
@@ -352,6 +354,7 @@ pub fn in_(items: &Vec<&Value>) -> Result<Value, Error> {
         // Given that anyone relying on this behavior in the existing jsonlogic
         // implementation is relying on broken, undefined behavior, it seems
         // okay to update that behavior to work in a more intuitive way.
+        Value::Null => Ok(Value::Bool(false)),
         Value::Array(possibles) => Ok(Value::Bool(possibles.contains(needle))),
         Value::String(haystack_string) => {
             // Note: the reference implementation uses the regular old
