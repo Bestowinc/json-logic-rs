@@ -7,7 +7,7 @@ jobs:
     strategy:
       matrix:
         os: [ubuntu-latest, macos-latest, windows-latest]
-        python-version: [3.6, 3.7, 3.8]
+        python-version: [3.6, 3.7, 3.8, 3.9]
     runs-on: "${{ matrix.os }}"
     steps:
       # Check out the code
@@ -115,7 +115,7 @@ jobs:
       - name: "Set up python"
         uses: "actions/setup-python@v2"
         with:
-          python-version: "3.8"
+          python-version: "3.9"
 
       - name: "Get Python Path"
         id: get-py-path
@@ -209,17 +209,19 @@ jobs:
       matrix:
         manylinux:
           - arch: "manylinux1_i686"
-            img: "quay.io/pypa/manylinux1_i686:2020-07-04-283458f"
+            img: "quay.io/pypa/manylinux1_i686:2020-12-31-84e1e23"
           - arch: "manylinux1_x86_64"
-            img: "quay.io/pypa/manylinux1_x86_64:2020-07-04-283458f"
+            img: "quay.io/pypa/manylinux1_x86_64:2020-12-31-84e1e23"
           - arch: "manylinux2010_i686"
-            img: "quay.io/pypa/manylinux2010_i686:2020-07-04-10a3c30"
+            img: "quay.io/pypa/manylinux2010_i686:2020-12-31-4928808"
           - arch: "manylinux2010_x86_64"
-            img: "quay.io/pypa/manylinux2010_x86_64:2020-07-04-10a3c30"
+            img: "quay.io/pypa/manylinux2010_x86_64:2020-12-31-4928808"
           - arch: "manylinux2014_i686"
-            img: "quay.io/pypa/manylinux2014_i686:2020-07-04-bb5f087"
+            img: "quay.io/pypa/manylinux2014_i686:2020-12-31-56195b3"
           - arch: "manylinux2014_x86_64"
-            img: "quay.io/pypa/manylinux2014_x86_64:2020-07-04-bb5f087"
+            img: "quay.io/pypa/manylinux2014_x86_64:2020-12-31-56195b3"
+          - arch: "manylinux2014_aarch64"
+            img: "quay.io/pypa/manylinux2014_aarch64:2020-12-31-56195b3"
     runs-on: "ubuntu-latest"
     steps:
       # Check out the code
@@ -277,7 +279,7 @@ jobs:
     strategy:
       matrix:
         os: [macos-latest, windows-latest]
-        python-version: [3.6, 3.7, 3.8]
+        python-version: [3.6, 3.7, 3.8, 3.9]
     runs-on: "${{ matrix.os }}"
     steps:
       # Check out the code
@@ -496,7 +498,7 @@ jobs:
     strategy:
       matrix:
         os: [macos-latest, windows-latest]
-        python-version: [3.6, 3.7, 3.8]
+        python-version: [3.6, 3.7, 3.8, 3.9]
     runs-on: "${{ matrix.os }}"
     steps:
       # Check out the code
@@ -558,7 +560,7 @@ jobs:
       - name: "Set up python"
         uses: "actions/setup-python@v2"
         with:
-          python-version: 3.8
+          python-version: 3.9
 
       - name: "Pull cargo version tracking file"
         uses: "actions/download-artifact@v1"
