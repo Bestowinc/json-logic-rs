@@ -216,8 +216,6 @@ jobs:
             img: "quay.io/pypa/manylinux2014_i686:2020-12-31-56195b3"
           - arch: "manylinux2014_x86_64"
             img: "quay.io/pypa/manylinux2014_x86_64:2020-12-31-56195b3"
-          - arch: "manylinux2014_aarch64"
-            img: "quay.io/pypa/manylinux2014_aarch64:2020-12-31-56195b3"
     runs-on: "ubuntu-latest"
     steps:
       # Check out the code
