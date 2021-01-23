@@ -208,10 +208,6 @@ jobs:
     strategy:
       matrix:
         manylinux:
-          - arch: "manylinux1_i686"
-            img: "quay.io/pypa/manylinux1_i686:2020-12-31-84e1e23"
-          - arch: "manylinux1_x86_64"
-            img: "quay.io/pypa/manylinux1_x86_64:2020-12-31-84e1e23"
           - arch: "manylinux2010_i686"
             img: "quay.io/pypa/manylinux2010_i686:2020-12-31-4928808"
           - arch: "manylinux2010_x86_64"
