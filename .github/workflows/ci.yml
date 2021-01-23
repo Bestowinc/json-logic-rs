@@ -540,8 +540,6 @@ jobs:
     strategy:
       matrix:
         manylinux:
-          - arch: "manylinux1_i686"
-          - arch: "manylinux1_x86_64"
           - arch: "manylinux2010_i686"
           - arch: "manylinux2010_x86_64"
           - arch: "manylinux2014_i686"
