@@ -68,14 +68,10 @@ jobs:
           # In theory, this should rebuild binaries once a month
           key: "${{ runner.os }}-cargo-binaries-${{steps.get-date.outputs.date}}"
 
-      # Ensure we're all set up
-      - name: "Perform Setup"
-        run: "make setup"
-        shell: bash
-        env:
-          # PY_VER: "${{ matrix.python-version }}"
-          WINDOWS: "${{ contains(runner.os, 'windows') }}"
-          PYTHON: ${{ steps.get-py-path.outputs.path }}
+      - name: Install wasm-pack
+        uses: jetli/wasm-pack-action@v0.3.0
+        with:
+          version: "v0.10.1"
 
       - name: "Run Tests"
         if: "${{ !contains(runner.os, 'windows') }}"
@@ -159,12 +155,10 @@ jobs:
           # In theory, this should rebuild binaries once a month
           key: "${{ runner.os }}-cargo-binaries-${{steps.get-date.outputs.date}}"
 
-      - name: "Perform Setup"
-        run: "make setup"
-        shell: bash
-        env:
-          WINDOWS: "${{ contains(runner.os, 'windows') }}"
-          PYTHON: ${{ steps.get-py-path.outputs.path }}
+      - name: Install wasm-pack
+        uses: jetli/wasm-pack-action@v0.3.0
+        with:
+          version: "v0.10.1"
 
       - name: "Build Rust/C Libraries"
         run: "make build"
