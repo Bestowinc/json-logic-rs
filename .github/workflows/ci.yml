@@ -102,7 +102,6 @@ jobs:
     name: "Build Libs, WASM, and Python sdist"
     needs: "test"
     runs-on: ubuntu-latest
-    if: "${{ github.ref == 'refs/heads/master' }}"
     steps:
       # Check out the code
       - uses: "actions/checkout@v2"
@@ -198,7 +197,7 @@ jobs:
     # via a "manylinux" container as specified by PEPs 513, 571, and 599
     name: "Build Linux Wheels"
     needs: "test"
-    if: "${{ github.ref == 'refs/heads/master' }}"
+#    if: "${{ github.ref == 'refs/heads/master' }}"
     strategy:
       matrix:
         manylinux:
