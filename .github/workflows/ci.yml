@@ -7,7 +7,7 @@ jobs:
     strategy:
       matrix:
         os: [ubuntu-latest, macos-latest, windows-latest]
-        python-version: [3.6, 3.7, 3.8, 3.9]
+        python-version: ["3.6", "3.7", "3.8", "3.9", "3.10"]
     runs-on: "${{ matrix.os }}"
     steps:
       # Check out the code
@@ -115,7 +115,7 @@ jobs:
       - name: "Set up python"
         uses: "actions/setup-python@v2"
         with:
-          python-version: "3.9"
+          python-version: "3.10"
 
       - name: "Get Python Path"
         id: get-py-path
@@ -273,7 +273,7 @@ jobs:
     strategy:
       matrix:
         os: [macos-latest, windows-latest]
-        python-version: [3.6, 3.7, 3.8, 3.9]
+        python-version: ["3.6", "3.7", "3.8", "3.9", "3.10"]
     runs-on: "${{ matrix.os }}"
     steps:
       # Check out the code
@@ -363,7 +363,7 @@ jobs:
       - name: "Set up python"
         uses: "actions/setup-python@v2"
         with:
-          python-version: 3.8
+          python-version: "3.8"
 
       # Generate the lockfile
       - name: "Generate Cargo Lockfile"
@@ -492,7 +492,7 @@ jobs:
     strategy:
       matrix:
         os: [macos-latest, windows-latest]
-        python-version: [3.6, 3.7, 3.8, 3.9]
+        python-version: ["3.6", "3.7", "3.8", "3.9", "3.10"]
     runs-on: "${{ matrix.os }}"
     steps:
       # Check out the code
@@ -502,7 +502,7 @@ jobs:
       - name: "Set up python"
         uses: "actions/setup-python@v2"
         with:
-          python-version: 3.8
+          python-version: "3.8"
 
       - name: "Pull cargo version tracking file"
         uses: "actions/download-artifact@v1"
@@ -552,7 +552,7 @@ jobs:
       - name: "Set up python"
         uses: "actions/setup-python@v2"
         with:
-          python-version: 3.9
+          python-version: "3.10"
 
       - name: "Pull cargo version tracking file"
         uses: "actions/download-artifact@v1"
