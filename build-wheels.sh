@@ -13,13 +13,13 @@ export PATH=/root/.cargo/bin:$PATH
 
 mkdir -p build && rm -rf build/*
 
-for PYBIN in /opt/python/{cp36-cp36m,cp37-cp37m,cp38-cp38,cp39-cp39,cp310-cp310}/bin; do
+for PYBIN in /opt/python/{cp37-cp37m,cp38-cp38,cp39-cp39,cp310-cp310,cp311-cp311}/bin; do
 	export PYTHON_SYS_EXECUTABLE="$PYBIN/python"
 
 	"${PYBIN}/python" -m ensurepip
 	# Note: please change both here and in the makefile if specifying a particular
 	# version or removing the version pin.
-	"${PYBIN}/python" -m pip install -U setuptools wheel setuptools-rust==0.10.6
+	"${PYBIN}/python" -m pip install -U setuptools wheel setuptools-rust==1.6.0
 	"${PYBIN}/python" setup.py bdist_wheel
 done
 
