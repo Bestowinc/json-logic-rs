@@ -26,7 +26,7 @@ languages. The table below describes current language support:
 | -------------------- | -------------------------------------------------------------------------- |
 | Rust                 | [Cargo](https://crates.io/crates/jsonlogic-rs)                             |
 | JavaScript (as WASM) | Node Package via [NPM](https://www.npmjs.com/package/@bestow/jsonlogic-rs) |
-| Python               | [PyPI](https://test.pypi.org/project/jsonlogic-rs/0.1.0/)                  |
+| Python               | [PyPI](https://pypi.org/project/jsonlogic-rs/)                  |
 
 ## Installation
 
