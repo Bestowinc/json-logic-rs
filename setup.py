@@ -27,7 +27,7 @@ def get_version():
     out, err = tuple(map(bytes.decode, proc.communicate()))
     if proc.returncode != 0:
         raise RuntimeError(f"Could not get Cargo package info: {err}")
-    version = out.split(":")[-1]
+    version = out.split("@")[-1]
     return version.strip()
 
 
@@ -51,34 +51,20 @@ setup(
     classifiers=[
         # See https://pypi.python.org/pypi?%3Aaction=list_classifiers for all
         # available setup classifiers
-        # "Development Status :: 1 - Planning",
-        # 'Development Status :: 2 - Pre-Alpha',
-        # "Development Status :: 3 - Alpha",
-        # "Development Status :: 4 - Beta",
         'Development Status :: 5 - Production/Stable',
-        # 'Development Status :: 6 - Mature',
-        # 'Framework :: AsyncIO',
-        # 'Framework :: Flask',
-        # 'Framework :: Sphinx',
-        # 'Environment :: Web Environment',
         "Intended Audience :: Developers",
-        # 'Intended Audience :: End Users/Desktop',
-        # 'Intended Audience :: Science/Research',
-        # 'Intended Audience :: System Administrators',
-        # 'License :: Other/Proprietary License',
-        # 'License :: OSI Approved :: GNU General Public License v3 (GPLv3)',
         "License :: OSI Approved :: MIT License",
-        # "License :: OSI Approved :: Apache Software License",
         "Natural Language :: English",
         "Operating System :: POSIX :: Linux",
         "Operating System :: MacOS :: MacOS X",
         "Operating System :: Microsoft :: Windows",
         "Programming Language :: Python",
         "Programming Language :: Python :: 3 :: Only",
-        "Programming Language :: Python :: 3.6",
         "Programming Language :: Python :: 3.7",
         "Programming Language :: Python :: 3.8",
         "Programming Language :: Python :: 3.9",
+        "Programming Language :: Python :: 3.10",
+        "Programming Language :: Python :: 3.11",
         "Programming Language :: Rust",
         # 'Programming Language :: Python :: Implementation :: PyPy',
     ],

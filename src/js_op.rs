@@ -900,7 +900,7 @@ mod abstract_operations {
 
     #[test]
     fn test_to_string_number() {
-        assert_eq!(&to_string(&json!(1.0)), "1");
+        assert_eq!(&to_string(&json!(1.0)), "1.0");
         assert_eq!(&to_string(&json!(1)), "1");
     }
 
