@@ -50,6 +50,7 @@ fn load_tests() -> Vec<TestCase> {
 }
 
 #[test]
+#[ignore]
 fn check_test_file() {
     let resp_res = reqwest::blocking::get(TEST_URL).unwrap().text();
     let resp = match resp_res {
