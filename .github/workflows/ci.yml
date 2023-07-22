@@ -1,5 +1,5 @@
 name: "Continuous Integration"
-on: [ push ]
+on: [ push, release ]
 
 jobs:
   test:
@@ -248,7 +248,7 @@ jobs:
     name: "Distribute Cargo, WASM, and Python Sdist Packages"
     needs: [ "build", "build-wheels" ]
     runs-on: ubuntu-latest
-    if: "${{ github.ref == 'refs/heads/master' }}"
+    if: github.event_name == 'release' && github.event.action == 'published'
     steps:
       # Check out the code
       - uses: "actions/checkout@v3"
@@ -382,13 +382,11 @@ jobs:
   distribute-py-wheels:
     name: "Distribute Python Wheels"
     needs: [ "distribute" ]
-    if: "${{ github.ref == 'refs/heads/master' }}"
-    #    needs: [build_wheels, build_sdist]
     runs-on: ubuntu-latest
     # upload to PyPI on every tag starting with 'v'
     #    if: github.event_name == 'push' && startsWith(github.event.ref, 'refs/tags/v')
     # alternatively, to publish when a GitHub Release is created, use the following rule:
-    # if: github.event_name == 'release' && github.event.action == 'published'
+    if: github.event_name == 'release' && github.event.action == 'published'
     steps:
       - uses: actions/download-artifact@v3
         with:
