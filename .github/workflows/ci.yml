@@ -1,6 +1,9 @@
 name: "Continuous Integration"
 on:
-  push: {}
+  push:
+    # ignore pushes to tags; release published will handle that
+    tags-ignore:
+      - "*"
   release:
     types:
       - published
