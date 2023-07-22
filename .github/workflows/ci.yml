@@ -1,5 +1,9 @@
 name: "Continuous Integration"
-on: [ push, release ]
+on:
+  push: {}
+  release:
+    types:
+      - published
 
 jobs:
   test:
