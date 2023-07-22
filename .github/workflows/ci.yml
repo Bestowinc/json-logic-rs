@@ -354,38 +354,6 @@ jobs:
           TWINE_USERNAME: "__token__"
           TWINE_PASSWORD: "${{ secrets.PYPI_TOKEN }}"
 
-      - name: "Add Git Tag Ref for Version"
-        if: "${{ steps.cargo-version.outputs.new == 'true' }}"
-        uses: "actions/github-script@v2"
-        with:
-          github-token: "${{ secrets.GITHUB_TOKEN }}"
-          script: |
-            github.git.createRef({
-              owner: "${{ github.repository_owner }}",
-              repo: "json-logic-rs",
-              ref: "refs/tags/v${{ steps.get-version.outputs.version }}",
-              sha: "${{ github.sha }}",
-            })
-
-      - name: "Add GitHub Annotated Tag for Version"
-        if: "${{ steps.cargo-version.outputs.new == 'true' }}"
-        uses: "actions/github-script@v2"
-        with:
-          github-token: "${{ secrets.GITHUB_TOKEN }}"
-          script: |
-            github.git.createTag({
-              owner: "${{ github.repository_owner }}",
-              repo: "json-logic-rs",
-              tag: "v${{ steps.get-version.outputs.version }}",
-              message: "Version ${{ steps.get-version.outputs.version }}",
-              object: "${{ github.sha }}",
-              type: "commit",
-              tagger: {
-                name: "${{ github.actor }}",
-                email: "msplanchard@gmail.com",
-              }
-            })
-
   distribute-py-wheels:
     name: "Distribute Python Wheels"
     needs: [ "distribute" ]
