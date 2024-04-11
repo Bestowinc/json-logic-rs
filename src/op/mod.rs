@@ -501,14 +501,18 @@ fn op_from_map<'a, 'b, T: CommonOperator>(
 
     // We've already validated the length to be one, so any error
     // here is super unexpected.
-    let key = obj.keys().next().ok_or(Error::UnexpectedError(format!(
-        "could not get first key from len(1) object: {:?}",
-        obj
-    )))?;
-    let val = obj.get(key).ok_or(Error::UnexpectedError(format!(
-        "could not get value for key '{}' from len(1) object: {:?}",
-        key, obj
-    )))?;
+    let key = obj.keys().next().ok_or_else(|| {
+        Error::UnexpectedError(format!(
+            "could not get first key from len(1) object: {:?}",
+            obj
+        ))
+    })?;
+    let val = obj.get(key).ok_or_else(|| {
+        Error::UnexpectedError(format!(
+            "could not get value for key '{}' from len(1) object: {:?}",
+            key, obj
+        ))
+    })?;
 
     // See if the key is an operator. If it's not, return None.
     let op = match map.get(key.as_str()) {
