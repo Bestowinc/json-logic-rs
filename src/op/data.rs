@@ -23,12 +23,12 @@ impl<'a> TryFrom<Value> for KeyType<'a> {
         match value {
             Value::Null => Ok(Self::Null),
             Value::String(s) => Ok(Self::String(Cow::from(s))),
-            Value::Number(n) => Ok(Self::Number(n.as_i64().ok_or(
+            Value::Number(n) => Ok(Self::Number(n.as_i64().ok_or_else(|| {
                 Error::InvalidVariableKey {
                     value: Value::Number(n),
                     reason: "Numeric keys must be valid integers".into(),
-                },
-            )?)),
+                }
+            })?)),
             _ => Err(Error::InvalidVariableKey {
                 value: value.clone(),
                 reason: "Variable keys must be strings, integers, or null".into(),
@@ -43,12 +43,12 @@ impl<'a> TryFrom<&'a Value> for KeyType<'a> {
         match value {
             Value::Null => Ok(Self::Null),
             Value::String(s) => Ok(Self::String(Cow::from(s))),
-            Value::Number(n) => Ok(Self::Number(n.as_i64().ok_or(
+            Value::Number(n) => Ok(Self::Number(n.as_i64().ok_or_else(|| {
                 Error::InvalidVariableKey {
                     value: value.clone(),
                     reason: "Numeric keys must be valid integers".into(),
-                },
-            )?)),
+                }
+            })?)),
             _ => Err(Error::InvalidVariableKey {
                 value: value.clone(),
                 reason: "Variable keys must be strings, integers, or null".into(),
@@ -155,7 +155,7 @@ pub fn missing_some(data: &Value, args: &Vec<&Value>) -> Result<Value, Error> {
         Value::Number(n) => n.as_u64(),
         _ => None,
     }
-    .ok_or(Error::InvalidArgument {
+    .ok_or_else(|| Error::InvalidArgument {
         value: threshold_arg.clone(),
         operation: "missing_some".into(),
         reason: "missing_some threshold must be a valid, positive integer".into(),
