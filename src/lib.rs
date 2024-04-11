@@ -18,6 +18,7 @@ trait Parser<'a>: Sized + Into<Value> {
 
 #[cfg(feature = "wasm")]
 pub mod javascript_iface {
+    use gloo_utils::format::JsValueSerdeExt;
     use serde_json::Value;
     use wasm_bindgen::prelude::*;
 
@@ -33,7 +34,8 @@ pub mod javascript_iface {
             serde_json::from_str(&js_string).or(Ok(Value::String(js_string)))
         } else {
             // If we're passed anything else, convert it directly to a serde Value.
-            serde_wasm_bindgen::from_value(js_value)
+
+            JsValueSerdeExt::into_serde::<Value>(&js_value)
                 .map_err(|err| format!("{}", err))
                 .map_err(JsValue::from)
         }
@@ -48,7 +50,7 @@ pub mod javascript_iface {
             .map_err(|err| format!("{}", err))
             .map_err(JsValue::from)?;
 
-        serde_wasm_bindgen::to_value(&res)
+        <wasm_bindgen::JsValue as JsValueSerdeExt>::from_serde(&res)
             .map_err(|err| format!("{}", err))
             .map_err(JsValue::from)
     }

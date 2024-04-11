@@ -27,7 +27,7 @@ required-features = ["cmdline"]
 cmdline = ["anyhow", "clap"]
 default = []
 python = ["cpython"]
-wasm = ["serde-wasm-bindgen", "wasm-bindgen"]
+wasm = ["wasm-bindgen", "gloo-utils"]
 
 [dependencies]
 phf = { version = "~0.8.0", features = ["macros"] }
@@ -39,10 +39,11 @@ features = ["serde-serialize"]
 optional = true
 version = "~0.2.62"
 
-[dependencies.serde-wasm-bindgen]
+[dependencies.gloo-utils]
 features = []
 optional = true
-version = "~0.6.5"
+version = "~0.2.0"
+
 
 [dependencies.serde]
 features = ["derive"]
