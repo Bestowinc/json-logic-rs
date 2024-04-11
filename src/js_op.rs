@@ -434,7 +434,7 @@ pub fn abstract_max(items: &Vec<&Value>) -> Result<f64, Error> {
     items
         .into_iter()
         .map(|v| {
-            to_number(v).ok_or(Error::InvalidArgument {
+            to_number(v).ok_or_else(|| Error::InvalidArgument {
                 value: (*v).clone(),
                 operation: "max".into(),
                 reason: "Could not convert value to number".into(),
@@ -460,7 +460,7 @@ pub fn abstract_min(items: &Vec<&Value>) -> Result<f64, Error> {
     items
         .into_iter()
         .map(|v| {
-            to_number(v).ok_or(Error::InvalidArgument {
+            to_number(v).ok_or_else(|| Error::InvalidArgument {
                 value: (*v).clone(),
                 operation: "max".into(),
                 reason: "Could not convert value to number".into(),
@@ -518,7 +518,7 @@ pub fn abstract_plus(first: &Value, second: &Value) -> Value {
 pub fn parse_float_add(vals: &Vec<&Value>) -> Result<f64, Error> {
     vals.into_iter()
         .map(|&v| {
-            parse_float(v).ok_or(Error::InvalidArgument {
+            parse_float(v).ok_or_else(|| Error::InvalidArgument {
                 value: v.clone(),
                 operation: "+".into(),
                 reason: "Argument could not be converted to a float".into(),
@@ -541,7 +541,7 @@ pub fn parse_float_add(vals: &Vec<&Value>) -> Result<f64, Error> {
 pub fn parse_float_mul(vals: &Vec<&Value>) -> Result<f64, Error> {
     vals.into_iter()
         .map(|&v| {
-            parse_float(v).ok_or(Error::InvalidArgument {
+            parse_float(v).ok_or_else(|| Error::InvalidArgument {
                 value: v.clone(),
                 operation: "*".into(),
                 reason: "Argument could not be converted to a float".into(),
@@ -629,7 +629,7 @@ pub fn abstract_mod(first: &Value, second: &Value) -> Result<f64, Error> {
 pub fn to_negative(val: &Value) -> Result<f64, Error> {
     to_number(val)
         .map(|v| -1.0 * v)
-        .ok_or(Error::InvalidArgument {
+        .ok_or_else(|| Error::InvalidArgument {
             value: val.clone(),
             operation: "to_negative".into(),
             reason: "Could not convert value to a number".into(),

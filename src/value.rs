@@ -26,10 +26,9 @@ impl<'a> Parsed<'a> {
             .or(LazyOperation::from_value(value)?.map(Self::LazyOperation))
             .or(DataOperation::from_value(value)?.map(Self::DataOperation))
             .or(Raw::from_value(value)?.map(Self::Raw))
-            .ok_or(Error::UnexpectedError(format!(
-                "Failed to parse Value {:?}",
-                value
-            )))
+            .ok_or_else(|| {
+                Error::UnexpectedError(format!("Failed to parse Value {:?}", value))
+            })
     }
 
     pub fn from_values(values: Vec<&'a Value>) -> Result<Vec<Self>, Error> {
@@ -106,10 +105,12 @@ pub fn to_number_value(number: f64) -> Result<Value, Error> {
         Ok(Value::Number(Number::from(number as i64)))
     } else {
         Number::from_f64(number)
-            .ok_or(Error::UnexpectedError(format!(
-                "Could not make JSON number from result {:?}",
-                number
-            )))
+            .ok_or_else(|| {
+                Error::UnexpectedError(format!(
+                    "Could not make JSON number from result {:?}",
+                    number
+                ))
+            })
             .map(Value::Number)
     }
 }
