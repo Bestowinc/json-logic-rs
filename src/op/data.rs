@@ -216,7 +216,7 @@ fn get_key(data: &Value, key: KeyType) -> Option<Value> {
         KeyType::String(k) => get_str_key(data, k),
         KeyType::Number(i) => match data {
             Value::Object(_) => get_str_key(data, i.to_string()),
-            Value::Array(arr) => get(arr, i).map(Value::clone),
+            Value::Array(arr) => get(arr, i).cloned(),
             Value::String(s) => {
                 let s_vec: Vec<char> = s.chars().collect();
                 get(&s_vec, i).map(|c| c.to_string()).map(Value::String)
@@ -236,14 +236,12 @@ fn get_str_key<K: AsRef<str>>(data: &Value, key: K) -> Option<Value> {
             // Exterior ref in case we need to make a new value in the match.
             k.split('.').try_fold(data.clone(), |acc, i| match acc {
                 // If the current value is an object, try to get the value
-                Value::Object(map) => map.get(i).map(Value::clone),
+                Value::Object(map) => map.get(i).cloned(),
                 // If the current value is an array, we need an integer
                 // index. If integer conversion fails, return None.
-                Value::Array(arr) => i
-                    .parse::<i64>()
-                    .ok()
-                    .and_then(|i| get(&arr, i))
-                    .map(Value::clone),
+                Value::Array(arr) => {
+                    i.parse::<i64>().ok().and_then(|i| get(&arr, i)).cloned()
+                }
                 // Same deal if it's a string.
                 Value::String(s) => {
                     let s_chars: Vec<char> = s.chars().collect();

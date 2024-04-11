@@ -138,6 +138,10 @@ jobs:
       - name: "Generate Cargo Lockfile"
         run: "cargo generate-lockfile"
 
+      - name: "Run clippy"
+        shell: bash
+        run: "cargo clippy --all --tests -- -D warnings"
+
       # Cache build dependencies
       - name: "Cache Build Fragments"
         id: "cache-build-fragments"
