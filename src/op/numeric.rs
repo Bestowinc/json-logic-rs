@@ -6,7 +6,7 @@ use crate::error::Error;
 use crate::js_op;
 use crate::value::to_number_value;
 
-fn compare<F>(func: F, items: &Vec<&Value>) -> Result<Value, Error>
+fn compare<F>(func: F, items: &[&Value]) -> Result<Value, Error>
 where
     F: Fn(&Value, &Value) -> bool,
 {
@@ -20,27 +20,27 @@ where
 }
 
 /// Do < for either 2 or 3 values
-pub fn lt(items: &Vec<&Value>) -> Result<Value, Error> {
+pub fn lt(items: &[&Value]) -> Result<Value, Error> {
     compare(js_op::abstract_lt, items)
 }
 
 /// Do <= for either 2 or 3 values
-pub fn lte(items: &Vec<&Value>) -> Result<Value, Error> {
+pub fn lte(items: &[&Value]) -> Result<Value, Error> {
     compare(js_op::abstract_lte, items)
 }
 
 /// Do > for either 2 or 3 values
-pub fn gt(items: &Vec<&Value>) -> Result<Value, Error> {
+pub fn gt(items: &[&Value]) -> Result<Value, Error> {
     compare(js_op::abstract_gt, items)
 }
 
 /// Do >= for either 2 or 3 values
-pub fn gte(items: &Vec<&Value>) -> Result<Value, Error> {
+pub fn gte(items: &[&Value]) -> Result<Value, Error> {
     compare(js_op::abstract_gte, items)
 }
 
 /// Perform subtraction or convert a number to a negative
-pub fn minus(items: &Vec<&Value>) -> Result<Value, Error> {
+pub fn minus(items: &[&Value]) -> Result<Value, Error> {
     let value = if items.len() == 1 {
         js_op::to_negative(items[0])?
     } else {

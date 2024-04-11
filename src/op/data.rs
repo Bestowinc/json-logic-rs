@@ -85,7 +85,7 @@ fn get<T>(slice: &[T], idx: i64) -> Option<&T> {
 ///
 /// Note that the reference implementation does not support negative
 /// indexing for numeric values, but we do.
-pub fn var(data: &Value, args: &Vec<&Value>) -> Result<Value, Error> {
+pub fn var(data: &Value, args: &[&Value]) -> Result<Value, Error> {
     let arg_count = args.len();
     if arg_count == 0 {
         return Ok(data.clone());
@@ -98,12 +98,12 @@ pub fn var(data: &Value, args: &Vec<&Value>) -> Result<Value, Error> {
         NULL
     } else {
         let _parsed_default = Parsed::from_value(args[1])?;
-        _parsed_default.evaluate(&data)?.into()
+        _parsed_default.evaluate(data)?.into()
     }))
 }
 
 /// Check for keys that are missing from the data
-pub fn missing(data: &Value, args: &Vec<&Value>) -> Result<Value, Error> {
+pub fn missing(data: &Value, args: &[&Value]) -> Result<Value, Error> {
     let mut missing_keys: Vec<Value> = Vec::new();
 
     // This bit of insanity is because for some reason the reference
@@ -111,7 +111,7 @@ pub fn missing(data: &Value, args: &Vec<&Value>) -> Result<Value, Error> {
     // multiple args and the first arg is an array, _that_ array is
     // treated as the only argument.
     let inner_vec: Vec<&Value>;
-    let adjusted_args = if args.len() > 0 {
+    let adjusted_args = if !args.is_empty() {
         match args[0] {
             Value::Array(vals) => {
                 inner_vec = vals.iter().collect();
@@ -123,8 +123,7 @@ pub fn missing(data: &Value, args: &Vec<&Value>) -> Result<Value, Error> {
         args
     };
 
-    adjusted_args.into_iter().fold(Ok(()), |had_error, arg| {
-        had_error?;
+    adjusted_args.iter().try_fold((), |_, arg| {
         let key: KeyType = (*arg).try_into()?;
         match key {
             KeyType::Null => Ok(()),
@@ -148,7 +147,7 @@ pub fn missing(data: &Value, args: &Vec<&Value>) -> Result<Value, Error> {
 /// to or more than the threshold value _present_ in the data, an empty
 /// array is returned. Otherwise, an array containing all missing keys
 /// is returned.
-pub fn missing_some(data: &Value, args: &Vec<&Value>) -> Result<Value, Error> {
+pub fn missing_some(data: &Value, args: &[&Value]) -> Result<Value, Error> {
     let (threshold_arg, keys_arg) = (args[0], args[1]);
 
     let threshold = match threshold_arg {
@@ -171,9 +170,9 @@ pub fn missing_some(data: &Value, args: &Vec<&Value>) -> Result<Value, Error> {
     }?;
 
     let mut missing_keys: Vec<Value> = Vec::new();
-    let present_count = keys.into_iter().fold(Ok(0 as u64), |last, key| {
+    let present_count = keys.iter().try_fold(0_u64, |last, key| {
         // Don't bother evaluating once we've met the threshold.
-        let prev_present_count = last?;
+        let prev_present_count = last;
         if prev_present_count >= threshold {
             return Ok(prev_present_count);
         };
@@ -213,7 +212,7 @@ fn get_key(data: &Value, key: KeyType) -> Option<Value> {
     match key {
         // If the key is null, we return the data, always, even if there
         // is a default parameter.
-        KeyType::Null => return Some(data.clone()),
+        KeyType::Null => Some(data.clone()),
         KeyType::String(k) => get_str_key(data, k),
         KeyType::Number(i) => match data {
             Value::Object(_) => get_str_key(data, i.to_string()),
@@ -229,13 +228,13 @@ fn get_key(data: &Value, key: KeyType) -> Option<Value> {
 
 fn get_str_key<K: AsRef<str>>(data: &Value, key: K) -> Option<Value> {
     let k = key.as_ref();
-    if k == "" {
+    if k.is_empty() {
         return Some(data.clone());
     };
     match data {
         Value::Object(_) | Value::Array(_) | Value::String(_) => {
             // Exterior ref in case we need to make a new value in the match.
-            k.split(".").fold(Some(data.clone()), |acc, i| match acc? {
+            k.split('.').try_fold(data.clone(), |acc, i| match acc {
                 // If the current value is an object, try to get the value
                 Value::Object(map) => map.get(i).map(Value::clone),
                 // If the current value is an array, we need an integer

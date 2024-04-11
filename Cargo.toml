@@ -27,10 +27,10 @@ required-features = ["cmdline"]
 cmdline = ["anyhow", "clap"]
 default = []
 python = ["cpython"]
-wasm = ["wasm-bindgen"]
+wasm = ["serde-wasm-bindgen", "wasm-bindgen"]
 
 [dependencies]
-phf = {version = "~0.8.0", features = ["macros"]}
+phf = { version = "~0.8.0", features = ["macros"] }
 serde_json = "~1.0.41"
 thiserror = "~1.0.11"
 
@@ -38,6 +38,15 @@ thiserror = "~1.0.11"
 features = ["serde-serialize"]
 optional = true
 version = "~0.2.62"
+
+[dependencies.serde-wasm-bindgen]
+features = []
+optional = true
+version = "~0.6.5"
+
+[dependencies.serde]
+features = ["derive"]
+version = "1"
 
 [dependencies.cpython]
 features = ["extension-module"]

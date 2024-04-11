@@ -3,10 +3,7 @@ use std::io::Read;
 
 use anyhow::{Context, Result};
 use clap::{App, Arg};
-use serde_json;
 use serde_json::Value;
-
-use jsonlogic_rs;
 
 fn configure_args<'a, 'b>(app: App<'a, 'b>) -> App<'a, 'b> {
     app.version(env!("CARGO_PKG_VERSION"))
@@ -67,7 +64,7 @@ fn main() -> Result<()> {
     let result = jsonlogic_rs::apply(&json_logic, &json_data)
         .context("Could not execute logic")?;
 
-    println!("{}", result.to_string());
+    println!("{}", result);
 
     Ok(())
 }

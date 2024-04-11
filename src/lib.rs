@@ -1,4 +1,3 @@
-use serde_json;
 use serde_json::Value;
 
 mod error;
@@ -34,8 +33,7 @@ pub mod javascript_iface {
             serde_json::from_str(&js_string).or(Ok(Value::String(js_string)))
         } else {
             // If we're passed anything else, convert it directly to a serde Value.
-            js_value
-                .into_serde::<Value>()
+            serde_wasm_bindgen::from_value(js_value)
                 .map_err(|err| format!("{}", err))
                 .map_err(JsValue::from)
         }
@@ -50,7 +48,7 @@ pub mod javascript_iface {
             .map_err(|err| format!("{}", err))
             .map_err(JsValue::from)?;
 
-        JsValue::from_serde(&res)
+        serde_wasm_bindgen::to_value(&res)
             .map_err(|err| format!("{}", err))
             .map_err(JsValue::from)
     }
@@ -63,6 +61,8 @@ pub mod python_iface {
 
     py_module_initializer!(jsonlogic, initjsonlogic, PyInit_jsonlogic, |py, m| {
         m.add(py, "__doc__", "Python bindings for json-logic-rs")?;
+        // Manual strip is done in cpython's macro code
+        #[allow(clippy::manual_strip)]
         m.add(py, "apply", py_fn!(py, py_apply(value: &str, data: &str)))?;
         Ok(())
     });
@@ -85,7 +85,7 @@ pub mod python_iface {
 /// Run JSONLogic for the given operation and data.
 ///
 pub fn apply(value: &Value, data: &Value) -> Result<Value, Error> {
-    let parsed = Parsed::from_value(&value)?;
+    let parsed = Parsed::from_value(value)?;
     parsed.evaluate(data).map(Value::from)
 }
 
@@ -1147,7 +1147,7 @@ mod jsonlogic_tests {
         ]
     }
 
-    fn assert_jsonlogic((op, data, exp): (Value, Value, Result<Value, ()>)) -> () {
+    fn assert_jsonlogic((op, data, exp): (Value, Value, Result<Value, ()>)) {
         println!("Running rule: {:?} with data: {:?}", op, data);
         let result = apply(&op, &data);
         println!("- Result: {:?}", result);

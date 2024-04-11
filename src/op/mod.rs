@@ -254,7 +254,7 @@ impl NumParams {
             true => Ok(len),
             false => Err(Error::WrongArgumentCount {
                 expected: self.clone(),
-                actual: len.clone(),
+                actual: *len,
             }),
         }
     }
@@ -280,7 +280,7 @@ pub struct Operator {
     num_params: NumParams,
 }
 impl Operator {
-    pub fn execute(&self, items: &Vec<&Value>) -> Result<Value, Error> {
+    pub fn execute(&self, items: &[&Value]) -> Result<Value, Error> {
         (self.operator)(items)
     }
 }
@@ -304,7 +304,7 @@ pub struct LazyOperator {
     num_params: NumParams,
 }
 impl LazyOperator {
-    pub fn execute(&self, data: &Value, items: &Vec<&Value>) -> Result<Value, Error> {
+    pub fn execute(&self, data: &Value, items: &[&Value]) -> Result<Value, Error> {
         (self.operator)(data, items)
     }
 }
@@ -333,7 +333,7 @@ pub struct DataOperator {
     num_params: NumParams,
 }
 impl DataOperator {
-    pub fn execute(&self, data: &Value, items: &Vec<&Value>) -> Result<Value, Error> {
+    pub fn execute(&self, data: &Value, items: &[&Value]) -> Result<Value, Error> {
         (self.operator)(data, items)
     }
 }
@@ -351,9 +351,9 @@ impl fmt::Debug for DataOperator {
     }
 }
 
-type OperatorFn = fn(&Vec<&Value>) -> Result<Value, Error>;
-type LazyOperatorFn = fn(&Value, &Vec<&Value>) -> Result<Value, Error>;
-type DataOperatorFn = fn(&Value, &Vec<&Value>) -> Result<Value, Error>;
+type OperatorFn = fn(&[&Value]) -> Result<Value, Error>;
+type LazyOperatorFn = fn(&Value, &[&Value]) -> Result<Value, Error>;
+type DataOperatorFn = fn(&Value, &[&Value]) -> Result<Value, Error>;
 
 /// An operation that doesn't do any recursive parsing or evaluation.
 ///
@@ -369,7 +369,7 @@ impl<'a> Parser<'a> for LazyOperation<'a> {
             opt.map(|op| {
                 Ok(LazyOperation {
                     operator: op.op,
-                    arguments: op.args.into_iter().map(|v| v.clone()).collect(),
+                    arguments: op.args.into_iter().cloned().collect(),
                 })
             })
             .transpose()
@@ -378,7 +378,7 @@ impl<'a> Parser<'a> for LazyOperation<'a> {
 
     fn evaluate(&self, data: &'a Value) -> Result<Evaluated, Error> {
         self.operator
-            .execute(data, &self.arguments.iter().collect())
+            .execute(data, &self.arguments.iter().collect::<Vec<_>>())
             .map(Evaluated::New)
     }
 }
@@ -420,7 +420,7 @@ impl<'a> Parser<'a> for Operation<'a> {
             .map(|value| value.evaluate(data).map(Value::from))
             .collect::<Result<Vec<Value>, Error>>()?;
         self.operator
-            .execute(&arguments.iter().collect())
+            .execute(&arguments.iter().collect::<Vec<_>>())
             .map(Evaluated::New)
     }
 }
@@ -464,7 +464,7 @@ impl<'a> Parser<'a> for DataOperation<'a> {
             .map(|value| value.evaluate(data).map(Value::from))
             .collect::<Result<Vec<Value>, Error>>()?;
         self.operator
-            .execute(data, &arguments.iter().collect())
+            .execute(data, &arguments.iter().collect::<Vec<_>>())
             .map(Evaluated::New)
     }
 }

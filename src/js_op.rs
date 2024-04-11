@@ -7,7 +7,7 @@ use std::str::FromStr;
 use crate::error::Error;
 
 // numeric characters according to parseFloat
-const NUMERICS: &'static [char] = &[
+const NUMERICS: &[char] = &[
     '0', '1', '2', '3', '4', '5', '6', '7', '8', '9', '0', '.', '-', '+', 'e', 'E',
 ];
 
@@ -58,7 +58,7 @@ fn to_primitive_number(value: &Value) -> Option<f64> {
 
 pub fn str_to_number<S: AsRef<str>>(string: S) -> Option<f64> {
     let s = string.as_ref();
-    if s == "" {
+    if s.is_empty() {
         Some(0.0)
     } else {
         f64::from_str(s).ok()
@@ -240,7 +240,7 @@ pub fn abstract_eq(first: &Value, second: &Value) -> bool {
         }
         // 6. If Type(x) is Boolean, return the result of the comparison ToNumber(x) == y.
         (Value::Bool(x), _) => match x {
-            true => Number::from_f64(1 as f64)
+            true => Number::from_f64(1_f64)
                 .map(|num| {
                     let value = Value::Number(num);
                     abstract_eq(&value, second)
@@ -255,7 +255,7 @@ pub fn abstract_eq(first: &Value, second: &Value) -> bool {
         },
         // 7. If Type(y) is Boolean, return the result of the comparison x == ToNumber(y).
         (_, Value::Bool(y)) => match y {
-            true => Number::from_f64(1 as f64)
+            true => Number::from_f64(1_f64)
                 .map(|num| {
                     let value = Value::Number(num);
                     abstract_eq(first, &value)
@@ -430,9 +430,9 @@ pub fn abstract_gte(first: &Value, second: &Value) -> bool {
 }
 
 /// Get the max of an array of values, performing abstract type conversion
-pub fn abstract_max(items: &Vec<&Value>) -> Result<f64, Error> {
+pub fn abstract_max(items: &[&Value]) -> Result<f64, Error> {
     items
-        .into_iter()
+        .iter()
         .map(|v| {
             to_number(v).ok_or_else(|| Error::InvalidArgument {
                 value: (*v).clone(),
@@ -440,8 +440,8 @@ pub fn abstract_max(items: &Vec<&Value>) -> Result<f64, Error> {
                 reason: "Could not convert value to number".into(),
             })
         })
-        .fold(Ok(f64::NEG_INFINITY), |acc, cur| {
-            let max = acc?;
+        .try_fold(f64::NEG_INFINITY, |acc, cur| {
+            let max = acc;
             match cur {
                 Ok(num) => {
                     if num > max {
@@ -456,9 +456,9 @@ pub fn abstract_max(items: &Vec<&Value>) -> Result<f64, Error> {
 }
 
 /// Get the max of an array of values, performing abstract type conversion
-pub fn abstract_min(items: &Vec<&Value>) -> Result<f64, Error> {
+pub fn abstract_min(items: &[&Value]) -> Result<f64, Error> {
     items
-        .into_iter()
+        .iter()
         .map(|v| {
             to_number(v).ok_or_else(|| Error::InvalidArgument {
                 value: (*v).clone(),
@@ -466,8 +466,8 @@ pub fn abstract_min(items: &Vec<&Value>) -> Result<f64, Error> {
                 reason: "Could not convert value to number".into(),
             })
         })
-        .fold(Ok(f64::INFINITY), |acc, cur| {
-            let min = acc?;
+        .try_fold(f64::INFINITY, |acc, cur| {
+            let min = acc;
             match cur {
                 Ok(num) => {
                     if num < min {
@@ -486,11 +486,8 @@ pub fn abstract_plus(first: &Value, second: &Value) -> Value {
     let first_num = to_primitive_number(first);
     let second_num = to_primitive_number(second);
 
-    match (first_num, second_num) {
-        (Some(f), Some(s)) => {
-            return Value::Number(Number::from_f64(f + s).unwrap());
-        }
-        _ => {}
+    if let (Some(f), Some(s)) = (first_num, second_num) {
+        return Value::Number(Number::from_f64(f + s).unwrap());
     };
 
     let first_string = to_string(first);
@@ -515,8 +512,8 @@ pub fn abstract_plus(first: &Value, second: &Value) -> Value {
 /// the behavior for non-numeric inputs is not specified in the spec,
 /// and returning errors seems like a more reasonable course of action
 /// than returning null.
-pub fn parse_float_add(vals: &Vec<&Value>) -> Result<f64, Error> {
-    vals.into_iter()
+pub fn parse_float_add(vals: &[&Value]) -> Result<f64, Error> {
+    vals.iter()
         .map(|&v| {
             parse_float(v).ok_or_else(|| Error::InvalidArgument {
                 value: v.clone(),
@@ -524,8 +521,8 @@ pub fn parse_float_add(vals: &Vec<&Value>) -> Result<f64, Error> {
                 reason: "Argument could not be converted to a float".into(),
             })
         })
-        .fold(Ok(0.0), |acc, cur| {
-            let total = acc?;
+        .try_fold(0.0, |acc, cur| {
+            let total = acc;
             match cur {
                 Ok(num) => Ok(total + num),
                 _ => cur,
@@ -538,8 +535,8 @@ pub fn parse_float_add(vals: &Vec<&Value>) -> Result<f64, Error> {
 /// See notes for parse_float_add on how this differs from normal number
 /// conversion as is done for _other_ arithmetic operators in the reference
 /// implementation
-pub fn parse_float_mul(vals: &Vec<&Value>) -> Result<f64, Error> {
-    vals.into_iter()
+pub fn parse_float_mul(vals: &[&Value]) -> Result<f64, Error> {
+    vals.iter()
         .map(|&v| {
             parse_float(v).ok_or_else(|| Error::InvalidArgument {
                 value: v.clone(),
@@ -547,8 +544,8 @@ pub fn parse_float_mul(vals: &Vec<&Value>) -> Result<f64, Error> {
                 reason: "Argument could not be converted to a float".into(),
             })
         })
-        .fold(Ok(1.0), |acc, cur| {
-            let total = acc?;
+        .try_fold(1.0, |acc, cur| {
+            let total = acc;
             match cur {
                 Ok(num) => Ok(total * num),
                 _ => cur,
@@ -561,14 +558,14 @@ pub fn abstract_minus(first: &Value, second: &Value) -> Result<f64, Error> {
     let first_num = to_number(first);
     let second_num = to_number(second);
 
-    if let None = first_num {
+    if first_num.is_none() {
         return Err(Error::InvalidArgument {
             value: first.clone(),
             operation: "-".into(),
             reason: "Could not convert value to number.".into(),
         });
     }
-    if let None = second_num {
+    if second_num.is_none() {
         return Err(Error::InvalidArgument {
             value: second.clone(),
             operation: "-".into(),
@@ -584,14 +581,14 @@ pub fn abstract_div(first: &Value, second: &Value) -> Result<f64, Error> {
     let first_num = to_number(first);
     let second_num = to_number(second);
 
-    if let None = first_num {
+    if first_num.is_none() {
         return Err(Error::InvalidArgument {
             value: first.clone(),
             operation: "/".into(),
             reason: "Could not convert value to number.".into(),
         });
     }
-    if let None = second_num {
+    if second_num.is_none() {
         return Err(Error::InvalidArgument {
             value: second.clone(),
             operation: "/".into(),
@@ -607,14 +604,14 @@ pub fn abstract_mod(first: &Value, second: &Value) -> Result<f64, Error> {
     let first_num = to_number(first);
     let second_num = to_number(second);
 
-    if let None = first_num {
+    if first_num.is_none() {
         return Err(Error::InvalidArgument {
             value: first.clone(),
             operation: "%".into(),
             reason: "Could not convert value to number.".into(),
         });
     }
-    if let None = second_num {
+    if second_num.is_none() {
         return Err(Error::InvalidArgument {
             value: second.clone(),
             operation: "%".into(),
@@ -643,7 +640,7 @@ pub fn to_negative(val: &Value) -> Result<f64, Error> {
 /// quite follow the spec exactly: we don't deal with infinity
 /// and NaN. That is okay, because this is only used in a context dealing
 /// with JSON values, which can't be Infinity or NaN.
-fn parse_float_string(val: &String) -> Option<f64> {
+fn parse_float_string(val: &str) -> Option<f64> {
     let (mut leading_numerics, _, _) = val.trim().chars().fold(
         (Vec::new(), false, false),
         |(mut acc, broke, saw_decimal), c| {
@@ -667,7 +664,7 @@ fn parse_float_string(val: &String) -> Option<f64> {
         },
     );
     // don't bother collecting into a string if we don't need to
-    if leading_numerics.len() == 0 {
+    if leading_numerics.is_empty() {
         return None;
     };
     if let Some('e') | Some('E') = leading_numerics.last() {
@@ -693,7 +690,7 @@ pub fn parse_float(val: &Value) -> Option<f64> {
     match val {
         Value::Number(num) => num.as_f64(),
         Value::String(string) => parse_float_string(string),
-        _ => parse_float(&Value::String(to_string(&val))),
+        _ => parse_float(&Value::String(to_string(val))),
     }
 }
 
@@ -908,7 +905,7 @@ mod abstract_operations {
     fn test_abstract_eq() {
         equal_values().iter().for_each(|(first, second)| {
             println!("{:?}-{:?}", &first, &second);
-            assert!(abstract_eq(&first, &second), true);
+            assert!(abstract_eq(first, second), "{}", true);
         })
     }
 
@@ -916,7 +913,7 @@ mod abstract_operations {
     fn test_abstract_ne() {
         ne_values().iter().for_each(|(first, second)| {
             println!("{:?}-{:?}", &first, &second);
-            assert_eq!(abstract_ne(&first, &second), true);
+            assert!(abstract_ne(first, second));
         })
     }
 
@@ -924,7 +921,7 @@ mod abstract_operations {
     fn test_abstract_lt() {
         lt_values().iter().for_each(|(first, second)| {
             println!("{:?}-{:?}", &first, &second);
-            assert_eq!(abstract_lt(&first, &second), true);
+            assert!(abstract_lt(first, second));
         })
     }
 
@@ -932,7 +929,7 @@ mod abstract_operations {
     fn test_abstract_gt() {
         gt_values().iter().for_each(|(first, second)| {
             println!("{:?}-{:?}", &first, &second);
-            assert_eq!(abstract_gt(&first, &second), true);
+            assert!(abstract_gt(first, second));
         })
     }
 
@@ -940,7 +937,7 @@ mod abstract_operations {
     fn test_eq_values_are_not_lt() {
         equal_values().iter().for_each(|(first, second)| {
             println!("{:?}-{:?}", &first, &second);
-            assert_eq!(abstract_lt(&first, &second), false);
+            assert!(!abstract_lt(first, second));
         })
     }
 
@@ -948,7 +945,7 @@ mod abstract_operations {
     fn test_eq_values_are_not_gt() {
         equal_values().iter().for_each(|(first, second)| {
             println!("{:?}-{:?}", &first, &second);
-            assert_eq!(abstract_gt(&first, &second), false);
+            assert!(!abstract_gt(first, second));
         })
     }
 
@@ -956,7 +953,7 @@ mod abstract_operations {
     fn test_eq_values_are_not_ne() {
         equal_values().iter().for_each(|(first, second)| {
             println!("{:?}-{:?}", &first, &second);
-            assert_eq!(abstract_ne(&first, &second), false);
+            assert!(!abstract_ne(first, second));
         })
     }
 
@@ -964,7 +961,7 @@ mod abstract_operations {
     fn test_lt_values_are_not_eq() {
         lt_values().iter().for_each(|(first, second)| {
             println!("{:?}-{:?}", &first, &second);
-            assert_eq!(abstract_eq(&first, &second), false);
+            assert!(!abstract_eq(first, second));
         })
     }
 
@@ -972,7 +969,7 @@ mod abstract_operations {
     fn test_lt_values_are_not_gt() {
         lt_values().iter().for_each(|(first, second)| {
             println!("{:?}-{:?}", &first, &second);
-            assert_eq!(abstract_gt(&first, &second), false);
+            assert!(!abstract_gt(first, second));
         })
     }
 
@@ -980,7 +977,7 @@ mod abstract_operations {
     fn test_lt_values_are_ne() {
         lt_values().iter().for_each(|(first, second)| {
             println!("{:?}-{:?}", &first, &second);
-            assert_eq!(abstract_ne(&first, &second), true);
+            assert!(abstract_ne(first, second));
         })
     }
 
@@ -988,7 +985,7 @@ mod abstract_operations {
     fn test_gt_values_are_not_eq() {
         gt_values().iter().for_each(|(first, second)| {
             println!("{:?}-{:?}", &first, &second);
-            assert_eq!(abstract_eq(&first, &second), false);
+            assert!(!abstract_eq(first, second));
         })
     }
 
@@ -996,7 +993,7 @@ mod abstract_operations {
     fn test_gt_values_are_not_lt() {
         gt_values().iter().for_each(|(first, second)| {
             println!("{:?}-{:?}", &first, &second);
-            assert_eq!(abstract_lt(&first, &second), false);
+            assert!(!abstract_lt(first, second));
         })
     }
 
@@ -1004,7 +1001,7 @@ mod abstract_operations {
     fn test_gt_values_are_ne() {
         gt_values().iter().for_each(|(first, second)| {
             println!("{:?}-{:?}", &first, &second);
-            assert_eq!(abstract_ne(&first, &second), true);
+            assert!(abstract_ne(first, second));
         })
     }
 
@@ -1012,9 +1009,9 @@ mod abstract_operations {
     fn test_incomparable() {
         not_gt_not_lt_not_eq().iter().for_each(|(first, second)| {
             println!("{:?}-{:?}", &first, &second);
-            assert_eq!(abstract_lt(&first, &second), false);
-            assert_eq!(abstract_gt(&first, &second), false);
-            assert_eq!(abstract_eq(&first, &second), false);
+            assert!(!abstract_lt(first, second));
+            assert!(!abstract_gt(first, second));
+            assert!(!abstract_eq(first, second));
         })
     }
 
@@ -1024,7 +1021,7 @@ mod abstract_operations {
     fn test_lt_values_are_lte() {
         lt_values().iter().for_each(|(first, second)| {
             println!("{:?}-{:?}", &first, &second);
-            assert_eq!(abstract_lte(&first, &second), true);
+            assert!(abstract_lte(first, second));
         })
     }
 
@@ -1032,7 +1029,7 @@ mod abstract_operations {
     fn test_eq_values_are_lte() {
         equal_values().iter().for_each(|(first, second)| {
             println!("{:?}-{:?}", &first, &second);
-            assert_eq!(abstract_lte(&first, &second), true);
+            assert!(abstract_lte(first, second));
         })
     }
 
@@ -1040,7 +1037,7 @@ mod abstract_operations {
     fn test_gt_values_are_not_lte() {
         gt_values().iter().for_each(|(first, second)| {
             println!("{:?}-{:?}", &first, &second);
-            assert_eq!(abstract_lte(&first, &second), false);
+            assert!(!abstract_lte(first, second));
         })
     }
 
@@ -1050,7 +1047,7 @@ mod abstract_operations {
     fn test_gt_values_are_gte() {
         gt_values().iter().for_each(|(first, second)| {
             println!("{:?}-{:?}", &first, &second);
-            assert_eq!(abstract_gte(&first, &second), true);
+            assert!(abstract_gte(first, second));
         })
     }
 
@@ -1058,7 +1055,7 @@ mod abstract_operations {
     fn test_eq_values_are_gte() {
         equal_values().iter().for_each(|(first, second)| {
             println!("{:?}-{:?}", &first, &second);
-            assert_eq!(abstract_gte(&first, &second), true);
+            assert!(abstract_gte(first, second));
         })
     }
 
@@ -1066,7 +1063,7 @@ mod abstract_operations {
     fn test_lt_values_are_not_gte() {
         lt_values().iter().for_each(|(first, second)| {
             println!("{:?}-{:?}", &first, &second);
-            assert_eq!(abstract_gte(&first, &second), false);
+            assert!(!abstract_gte(first, second));
         })
     }
 
@@ -1074,17 +1071,17 @@ mod abstract_operations {
     fn test_abstract_plus() {
         plus_cases().iter().for_each(|(first, second, exp)| {
             println!("{:?}-{:?}", &first, &second);
-            let result = abstract_plus(&first, &second);
+            let result = abstract_plus(first, second);
             match result {
                 Value::Number(ref i) => match exp {
                     Value::Number(j) => assert_eq!(i, j),
-                    _ => assert!(false),
+                    _ => panic!("Both must be Numbers"),
                 },
                 Value::String(ref i) => match exp {
                     Value::String(j) => assert_eq!(i, j),
-                    _ => assert!(false),
+                    _ => panic!("Both must be Strings"),
                 },
-                _ => assert!(false),
+                _ => panic!("Only support two numbers and two strings"),
             }
         })
     }
@@ -1112,7 +1109,7 @@ mod test_abstract_max {
     fn test_abstract_max() {
         max_cases().into_iter().for_each(|(items, exp)| {
             println!("Max: {:?}", items);
-            let res = abstract_max(&items.iter().collect());
+            let res = abstract_max(&items.iter().collect::<Vec<_>>());
             println!("Res: {:?}", res);
             match exp {
                 Ok(exp) => assert_eq!(res.unwrap(), exp),
@@ -1146,7 +1143,7 @@ mod test_abstract_min {
     fn test_abstract_min() {
         min_cases().into_iter().for_each(|(items, exp)| {
             println!("Min: {:?}", items);
-            let res = abstract_min(&items.iter().collect());
+            let res = abstract_min(&items.iter().collect::<Vec<_>>());
             println!("Res: {:?}", res);
             match exp {
                 Ok(exp) => assert_eq!(res.unwrap(), exp),
@@ -1229,11 +1226,11 @@ mod test_strict {
     fn test_strict_eq() {
         eq_values().iter().for_each(|(first, second)| {
             println!("{:?}-{:?}", &first, &second);
-            assert!(strict_eq(&first, &second));
+            assert!(strict_eq(first, second));
         });
         ne_values().iter().for_each(|(first, second)| {
             println!("{:?}-{:?}", &first, &second);
-            assert!(!strict_eq(&first, &second));
+            assert!(!strict_eq(first, second));
         });
     }
 
@@ -1247,11 +1244,11 @@ mod test_strict {
     fn test_strict_ne() {
         ne_values().iter().for_each(|(first, second)| {
             println!("{:?}-{:?}", &first, &second);
-            assert!(strict_ne(&first, &second));
+            assert!(strict_ne(first, second));
         });
         eq_values().iter().for_each(|(first, second)| {
             println!("{:?}-{:?}", &first, &second);
-            assert!(!strict_ne(&first, &second));
+            assert!(!strict_ne(first, second));
         });
     }
 

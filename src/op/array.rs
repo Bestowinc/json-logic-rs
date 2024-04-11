@@ -10,7 +10,7 @@ use crate::op::logic;
 use crate::value::{Evaluated, Parsed};
 
 /// Map an operation onto values
-pub fn map(data: &Value, args: &Vec<&Value>) -> Result<Value, Error> {
+pub fn map(data: &Value, args: &[&Value]) -> Result<Value, Error> {
     let (items, expression) = (args[0], args[1]);
 
     let _parsed = Parsed::from_value(items)?;
@@ -45,7 +45,7 @@ pub fn map(data: &Value, args: &Vec<&Value>) -> Result<Value, Error> {
 }
 
 /// Filter values by some predicate
-pub fn filter(data: &Value, args: &Vec<&Value>) -> Result<Value, Error> {
+pub fn filter(data: &Value, args: &[&Value]) -> Result<Value, Error> {
     let (items, expression) = (args[0], args[1]);
 
     let _parsed = Parsed::from_value(items)?;
@@ -53,9 +53,7 @@ pub fn filter(data: &Value, args: &Vec<&Value>) -> Result<Value, Error> {
 
     let values: Vec<Value> = match evaluated_items {
         Evaluated::New(Value::Array(vals)) => vals,
-        Evaluated::Raw(Value::Array(vals)) => {
-            vals.into_iter().map(|v| v.clone()).collect()
-        }
+        Evaluated::Raw(Value::Array(vals)) => vals.to_vec(),
         // null is treated as an empty array in the reference tests,
         // for whatever reason
         Evaluated::New(Value::Null) => vec![],
@@ -77,8 +75,8 @@ pub fn filter(data: &Value, args: &Vec<&Value>) -> Result<Value, Error> {
     let value_vec: Vec<Value> = Vec::with_capacity(values.len());
     values
         .into_iter()
-        .fold(Ok(value_vec), |acc, cur| {
-            let mut filtered = acc?;
+        .try_fold(value_vec, |acc, cur| {
+            let mut filtered = acc;
             let predicate = parsed_expression.evaluate(&cur)?;
 
             match logic::truthy_from_evaluated(&predicate) {
@@ -97,7 +95,7 @@ pub fn filter(data: &Value, args: &Vec<&Value>) -> Result<Value, Error> {
 /// Note this differs from the reference implementation of jsonlogic
 /// (but not the spec), in that it evaluates the initializer as a
 /// jsonlogic expression rather than a raw value.
-pub fn reduce(data: &Value, args: &Vec<&Value>) -> Result<Value, Error> {
+pub fn reduce(data: &Value, args: &[&Value]) -> Result<Value, Error> {
     let (items, expression, initializer) = (args[0], args[1], args[2]);
 
     let _parsed_items = Parsed::from_value(items)?;
@@ -108,7 +106,7 @@ pub fn reduce(data: &Value, args: &Vec<&Value>) -> Result<Value, Error> {
 
     let values: Vec<Value> = match evaluated_items {
         Evaluated::New(Value::Array(vals)) => vals,
-        Evaluated::Raw(Value::Array(vals)) => vals.iter().map(|v| v.clone()).collect(),
+        Evaluated::Raw(Value::Array(vals)) => vals.to_vec(),
         // null is treated as an empty array in the reference tests,
         // for whatever reason
         Evaluated::New(Value::Null) => vec![],
@@ -129,8 +127,8 @@ pub fn reduce(data: &Value, args: &Vec<&Value>) -> Result<Value, Error> {
 
     values
         .into_iter()
-        .fold(Ok(Value::from(evaluated_initializer)), |acc, cur| {
-            let accumulator = acc?;
+        .try_fold(Value::from(evaluated_initializer), |acc, cur| {
+            let accumulator = acc;
             let mut data = Map::with_capacity(2);
             data.insert("current".into(), cur);
             data.insert("accumulator".into(), accumulator);
@@ -146,7 +144,7 @@ pub fn reduce(data: &Value, args: &Vec<&Value>) -> Result<Value, Error> {
 /// The predicate does not need to return true or false explicitly. Its
 /// return is evaluated using the "truthy" definition specified in the
 /// jsonlogic spec.
-pub fn all(data: &Value, args: &Vec<&Value>) -> Result<Value, Error> {
+pub fn all(data: &Value, args: &[&Value]) -> Result<Value, Error> {
     let (first_arg, second_arg) = (args[0], args[1]);
 
     // The first argument must be an array of values or a string of chars
@@ -173,7 +171,6 @@ pub fn all(data: &Value, args: &Vec<&Value>) -> Result<Value, Error> {
         Value::String(string) => {
             _new_arr = string
                 .chars()
-                .into_iter()
                 .map(|c| Value::String(c.to_string()))
                 .collect();
             &_new_arr
@@ -196,7 +193,7 @@ pub fn all(data: &Value, args: &Vec<&Value>) -> Result<Value, Error> {
 
     // Special-case the empty array, since it for some reason is specified
     // to return false.
-    if items.len() == 0 {
+    if items.is_empty() {
         return Ok(Value::Bool(false));
     }
 
@@ -205,19 +202,17 @@ pub fn all(data: &Value, args: &Vec<&Value>) -> Result<Value, Error> {
     // returning 1 for each of the items and thus evaluating to true.
     let predicate = Parsed::from_value(second_arg)?;
 
-    let result = items.into_iter().fold(Ok(true), |acc, i| {
-        acc.and_then(|res| {
-            // "Short-circuit": return false if the previous eval was false
-            if !res {
-                return Ok(false);
-            };
-            let _parsed_item = Parsed::from_value(i)?;
-            // Evaluate each item as we go, in case we can short-circuit
-            let evaluated_item = _parsed_item.evaluate(data)?;
-            Ok(logic::truthy_from_evaluated(
-                &predicate.evaluate(&evaluated_item.into())?,
-            ))
-        })
+    let result = items.iter().try_fold(true, |acc, i| {
+        // "Short-circuit": return false if the previous eval was false
+        if !acc {
+            return Ok(false);
+        };
+        let _parsed_item = Parsed::from_value(i)?;
+        // Evaluate each item as we go, in case we can short-circuit
+        let evaluated_item = _parsed_item.evaluate(data)?;
+        Ok(logic::truthy_from_evaluated(
+            &predicate.evaluate(&evaluated_item.into())?,
+        ))
     })?;
 
     Ok(Value::Bool(result))
@@ -228,7 +223,7 @@ pub fn all(data: &Value, args: &Vec<&Value>) -> Result<Value, Error> {
 /// The predicate does not need to return true or false explicitly. Its
 /// return is evaluated using the "truthy" definition specified in the
 /// jsonlogic spec.
-pub fn some(data: &Value, args: &Vec<&Value>) -> Result<Value, Error> {
+pub fn some(data: &Value, args: &[&Value]) -> Result<Value, Error> {
     let (first_arg, second_arg) = (args[0], args[1]);
 
     // The first argument must be an array of values or a string of chars
@@ -255,7 +250,6 @@ pub fn some(data: &Value, args: &Vec<&Value>) -> Result<Value, Error> {
         Value::String(string) => {
             _new_arr = string
                 .chars()
-                .into_iter()
                 .map(|c| Value::String(c.to_string()))
                 .collect();
             &_new_arr
@@ -278,7 +272,7 @@ pub fn some(data: &Value, args: &Vec<&Value>) -> Result<Value, Error> {
 
     // Special-case the empty array, since it for some reason is specified
     // to return false.
-    if items.len() == 0 {
+    if items.is_empty() {
         return Ok(Value::Bool(false));
     }
 
@@ -287,19 +281,17 @@ pub fn some(data: &Value, args: &Vec<&Value>) -> Result<Value, Error> {
     // returning 1 for each of the items and thus evaluating to true.
     let predicate = Parsed::from_value(second_arg)?;
 
-    let result = items.into_iter().fold(Ok(false), |acc, i| {
-        acc.and_then(|res| {
-            // "Short-circuit": return false if the previous eval was false
-            if res {
-                return Ok(true);
-            };
-            let _parsed_item = Parsed::from_value(i)?;
-            // Evaluate each item as we go, in case we can short-circuit
-            let evaluated_item = _parsed_item.evaluate(data)?;
-            Ok(logic::truthy_from_evaluated(
-                &predicate.evaluate(&evaluated_item.into())?,
-            ))
-        })
+    let result = items.iter().try_fold(false, |acc, i| {
+        // "Short-circuit": return false if the previous eval was false
+        if acc {
+            return Ok(true);
+        };
+        let _parsed_item = Parsed::from_value(i)?;
+        // Evaluate each item as we go, in case we can short-circuit
+        let evaluated_item = _parsed_item.evaluate(data)?;
+        Ok(logic::truthy_from_evaluated(
+            &predicate.evaluate(&evaluated_item.into())?,
+        ))
     })?;
 
     Ok(Value::Bool(result))
@@ -310,7 +302,7 @@ pub fn some(data: &Value, args: &Vec<&Value>) -> Result<Value, Error> {
 /// The predicate does not need to return true or false explicitly. Its
 /// return is evaluated using the "truthy" definition specified in the
 /// jsonlogic spec.
-pub fn none(data: &Value, args: &Vec<&Value>) -> Result<Value, Error> {
+pub fn none(data: &Value, args: &[&Value]) -> Result<Value, Error> {
     some(data, args).and_then(|had_some| match had_some {
         Value::Bool(res) => Ok(Value::Bool(!res)),
         _ => Err(Error::UnexpectedError(
@@ -323,26 +315,23 @@ pub fn none(data: &Value, args: &Vec<&Value>) -> Result<Value, Error> {
 ///
 /// Values that are not arrays are (effectively) converted to arrays
 /// before flattening.
-pub fn merge(items: &Vec<&Value>) -> Result<Value, Error> {
+pub fn merge(items: &[&Value]) -> Result<Value, Error> {
     let rv_vec: Vec<Value> = Vec::new();
-    Ok(Value::Array(items.into_iter().fold(
-        rv_vec,
-        |mut acc, i| {
-            match i {
-                Value::Array(i_vals) => {
-                    i_vals.into_iter().for_each(|val| acc.push((*val).clone()));
-                }
-                _ => acc.push((**i).clone()),
-            };
-            acc
-        },
-    )))
+    Ok(Value::Array(items.iter().fold(rv_vec, |mut acc, i| {
+        match i {
+            Value::Array(i_vals) => {
+                i_vals.iter().for_each(|val| acc.push((*val).clone()));
+            }
+            _ => acc.push((**i).clone()),
+        };
+        acc
+    })))
 }
 
 /// Perform containment checks with "in"
 // TODO: make this a lazy operator, since we don't need to parse things
 // later on in the list if we find something that matches early.
-pub fn in_(items: &Vec<&Value>) -> Result<Value, Error> {
+pub fn in_(items: &[&Value]) -> Result<Value, Error> {
     let needle = items[0];
     let haystack = items[1];
 

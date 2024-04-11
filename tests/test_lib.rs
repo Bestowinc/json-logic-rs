@@ -4,11 +4,11 @@ use std::fs::File;
 use std::io::prelude::*;
 use std::path::Path;
 
-use reqwest;
-use serde_json;
+
+
 use serde_json::Value;
 
-use jsonlogic_rs;
+
 
 struct TestCase {
     logic: Value,
@@ -16,7 +16,7 @@ struct TestCase {
     result: Value,
 }
 
-const TEST_URL: &'static str = "http://jsonlogic.com/tests.json";
+const TEST_URL: &str = "http://jsonlogic.com/tests.json";
 
 fn load_file_json() -> Value {
     let mut file = File::open(Path::join(
@@ -57,7 +57,7 @@ fn check_test_file() {
         Ok(r) => r,
         Err(e) => {
             println!("Failed to get new version of test JSON: {:?}", e);
-            return ();
+            return ;
         }
     };
     let http_json: Value = serde_json::from_str(&resp).unwrap();
