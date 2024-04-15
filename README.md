@@ -26,7 +26,7 @@ languages. The table below describes current language support:
 | -------------------- | -------------------------------------------------------------------------- |
 | Rust                 | [Cargo](https://crates.io/crates/jsonlogic-rs)                             |
 | JavaScript (as WASM) | Node Package via [NPM](https://www.npmjs.com/package/@bestow/jsonlogic-rs) |
-| Python               | [PyPI](https://pypi.org/project/jsonlogic-rs/)                  |
+| Python               | [PyPI](https://pypi.org/project/jsonlogic-rs/)                             |
 
 ## Installation
 
@@ -58,7 +58,7 @@ Note that the package is distributed as a node package, so you'll need to use
 
 ### Python
 
-Supports Python 3.6+.
+Supports Python 3.7+.
 
 Wheels are distributed for many platforms, so you can often just run:
 
@@ -203,7 +203,7 @@ true
 
 You must have Rust installed and `cargo` available in your `PATH`.
 
-If you would like to build or test the Python distribution, Python 3.6 or
+If you would like to build or test the Python distribution, Python 3.7 or
 newer must be available in your `PATH`. The `venv` module must be part of the
 Python distribution (looking at you, Ubuntu).
 
