@@ -1,7 +1,8 @@
 from pathlib import Path
+from subprocess import PIPE, Popen
+
 from setuptools import setup
 from setuptools_rust import Binding, RustExtension
-from subprocess import Popen, PIPE
 
 PKG_ROOT = Path(__file__).parent
 SETUP_REQUIRES = ["setuptools-rust", "wheel", "setuptools"]
@@ -20,6 +21,7 @@ def generate_lockfile():
     if proc.returncode != 0:
         raise RuntimeError(f"Could not generate Cargo lockfile: {err}")
     return
+
 
 def get_version():
     generate_lockfile()
@@ -51,7 +53,7 @@ setup(
     classifiers=[
         # See https://pypi.python.org/pypi?%3Aaction=list_classifiers for all
         # available setup classifiers
-        'Development Status :: 5 - Production/Stable',
+        "Development Status :: 5 - Production/Stable",
         "Intended Audience :: Developers",
         "License :: OSI Approved :: MIT License",
         "Natural Language :: English",
@@ -65,6 +67,7 @@ setup(
         "Programming Language :: Python :: 3.9",
         "Programming Language :: Python :: 3.10",
         "Programming Language :: Python :: 3.11",
+        "Programming Language :: Python :: 3.12",
         "Programming Language :: Rust",
         # 'Programming Language :: Python :: Implementation :: PyPy',
     ],

@@ -12,8 +12,8 @@ jobs:
     name: "Test"
     strategy:
       matrix:
-        os: [ ubuntu-latest, macos-latest ]
-        python-version: [ "3.7", "3.8", "3.9", "3.10", "3.11" ]
+        os: [ubuntu-latest, macos-latest]
+        python-version: ["3.7", "3.8", "3.9", "3.10", "3.11", "3.12"]
     runs-on: "${{ matrix.os }}"
     steps:
       # Check out the code
@@ -116,7 +116,7 @@ jobs:
       - name: "Set up python"
         uses: "actions/setup-python@v4"
         with:
-          python-version: "3.11"
+          python-version: "3.12"
 
       - name: "Get Python Path"
         id: get-py-path
@@ -217,6 +217,7 @@ jobs:
           - cp39
           - cp310
           - cp311
+          - cp312
 
     steps:
       - uses: actions/checkout@v3
@@ -252,7 +253,7 @@ jobs:
 
   distribute:
     name: "Distribute Cargo, WASM, and Python Sdist Packages"
-    needs: [ "build", "build-wheels" ]
+    needs: ["build", "build-wheels"]
     runs-on: ubuntu-latest
     if: github.event_name == 'release' && github.event.action == 'published'
     steps:
@@ -263,7 +264,7 @@ jobs:
       - name: "Set up python"
         uses: "actions/setup-python@v4"
         with:
-          python-version: "3.11"
+          python-version: "3.12"
 
       # Generate the lockfile
       - name: "Generate Cargo Lockfile"
@@ -355,7 +356,7 @@ jobs:
 
   distribute-py-wheels:
     name: "Distribute Python Wheels"
-    needs: [ "distribute" ]
+    needs: ["distribute"]
     runs-on: ubuntu-latest
     # upload to PyPI on every tag starting with 'v'
     #    if: github.event_name == 'push' && startsWith(github.event.ref, 'refs/tags/v')
