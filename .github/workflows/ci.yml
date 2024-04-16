@@ -17,14 +17,14 @@ jobs:
     runs-on: "${{ matrix.os }}"
     steps:
       # Check out the code
-      - uses: "actions/checkout@v3"
+      - uses: "actions/checkout@v4"
 
       # We need node for some integration tests
-      - uses: "actions/setup-node@v3"
+      - uses: "actions/setup-node@v4"
 
       # Install python
       - name: "Set up python"
-        uses: "actions/setup-python@v4"
+        uses: "actions/setup-python@v5"
         with:
           python-version: "${{ matrix.python-version }}"
 
@@ -51,7 +51,7 @@ jobs:
       # Cache build dependencies
       - name: "Cache Build Fragments"
         id: "cache-build-fragments"
-        uses: "actions/cache@v3"
+        uses: "actions/cache@v4"
         with:
           path: |
             ~/.cargo/registry
@@ -68,7 +68,7 @@ jobs:
       # Cache `cargo install` built binaries
       - name: "Cache Built Binaries"
         id: "cache-binaries"
-        uses: "actions/cache@v3"
+        uses: "actions/cache@v4"
         with:
           path: "~/.cargo/bin"
           # In theory, this should rebuild binaries once a month
@@ -110,11 +110,11 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       # Check out the code
-      - uses: "actions/checkout@v3"
+      - uses: "actions/checkout@v4"
 
       # Install python
       - name: "Set up python"
-        uses: "actions/setup-python@v4"
+        uses: "actions/setup-python@v5"
         with:
           python-version: "3.12"
 
@@ -141,7 +141,7 @@ jobs:
       # Cache build dependencies
       - name: "Cache Build Fragments"
         id: "cache-build-fragments"
-        uses: "actions/cache@v3"
+        uses: "actions/cache@v4"
         with:
           path: |
             ~/.cargo/registry
@@ -154,7 +154,7 @@ jobs:
       # Cache `cargo install` built binaries
       - name: "Cache Built Binaries"
         id: "cache-binaries"
-        uses: "actions/cache@v3"
+        uses: "actions/cache@v4"
         with:
           path: "~/.cargo/bin"
           # In theory, this should rebuild binaries once a month
@@ -220,16 +220,16 @@ jobs:
           - cp312
 
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
 
       - name: Set up QEMU
         if: runner.os == 'Linux'
-        uses: docker/setup-qemu-action@v2
+        uses: docker/setup-qemu-action@v3
         with:
           platforms: all
 
       - name: Build wheels
-        uses: pypa/cibuildwheel@v2.14.1
+        uses: pypa/cibuildwheel@v2.17.0
         env:
           # configure cibuildwheel to build native archs ('auto'), and some
           # emulated ones
@@ -258,11 +258,11 @@ jobs:
     if: github.event_name == 'release' && github.event.action == 'published'
     steps:
       # Check out the code
-      - uses: "actions/checkout@v3"
+      - uses: "actions/checkout@v4"
 
       # Install python
       - name: "Set up python"
-        uses: "actions/setup-python@v4"
+        uses: "actions/setup-python@v5"
         with:
           python-version: "3.12"
 
