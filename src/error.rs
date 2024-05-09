@@ -1,7 +1,6 @@
 //! Error handling
 //!
 use serde_json::Value;
-use thiserror;
 
 use crate::op::NumParams;
 
@@ -30,6 +29,7 @@ pub enum Error {
     #[error("Invalid variable mapping - {0} is not an object.")]
     InvalidVarMap(Value),
 
+    #[allow(clippy::enum_variant_names)]
     #[error("Encountered an unexpected error. Please raise an issue on GitHub and include the following error message: {0}")]
     UnexpectedError(String),
 

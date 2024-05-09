@@ -12,7 +12,7 @@ use crate::NULL;
 /// However, it can lso work like:
 ///     [condition, true, condition2, true2, false2]
 ///     for an if/elseif/else type of operation
-pub fn if_(data: &Value, args: &Vec<&Value>) -> Result<Value, Error> {
+pub fn if_(data: &Value, args: &[&Value]) -> Result<Value, Error> {
     // Special case incorrect arguments. These are not defined in the
     // specification, but they are defined in the test cases.
     match args.len() {
@@ -25,26 +25,25 @@ pub fn if_(data: &Value, args: &Vec<&Value>) -> Result<Value, Error> {
         // from the tests.
         1 => {
             let parsed = Parsed::from_value(args[0])?;
-            let evaluated = parsed.evaluate(&data)?;
+            let evaluated = parsed.evaluate(data)?;
             return Ok(evaluated.into());
         }
         _ => {}
     }
 
-    args.into_iter()
+    args.iter()
         .enumerate()
         // Our accumulator is:
         //  - last conditional evaluation value,
         //  - whether that evaluation is truthy,
         //  - whether we know we should return without further evaluation
-        .fold(Ok((NULL, false, false)), |last_res, (i, val)| {
-            let (last_eval, was_truthy, should_return) = last_res?;
+        .try_fold((NULL, false, false), |last_res, (i, val)| {
+            let (last_eval, was_truthy, should_return) = last_res;
             // We hit a final value already
             if should_return {
                 Ok((last_eval, was_truthy, should_return))
-            }
-            // Potential false-value, initial evaluation, or else-if clause
-            else if i % 2 == 0 {
+            } else if i % 2 == 0 {
+                // Potential false-value, initial evaluation, or else-if clause
                 let parsed = Parsed::from_value(val)?;
                 let eval = parsed.evaluate(data)?;
                 let is_truthy = match eval {
@@ -74,32 +73,32 @@ pub fn if_(data: &Value, args: &Vec<&Value>) -> Result<Value, Error> {
 }
 
 /// Perform short-circuiting or evaluation
-pub fn or(data: &Value, args: &Vec<&Value>) -> Result<Value, Error> {
+pub fn or(data: &Value, args: &[&Value]) -> Result<Value, Error> {
     enum OrResult {
         Uninitialized,
         Truthy(Value),
         Current(Value),
     }
 
-    let eval =
-        args.into_iter()
-            .fold(Ok(OrResult::Uninitialized), |last_res, current| {
-                let last_eval = last_res?;
+    let eval = args
+        .iter()
+        .try_fold(OrResult::Uninitialized, |last_res, current| {
+            let last_eval = last_res;
 
-                // if we've found a truthy value, don't evaluate anything else
-                if let OrResult::Truthy(_) = last_eval {
-                    return Ok(last_eval);
-                }
+            // if we've found a truthy value, don't evaluate anything else
+            if let OrResult::Truthy(_) = last_eval {
+                return Ok(last_eval);
+            }
 
-                let parsed = Parsed::from_value(current)?;
-                let evaluated = parsed.evaluate(data)?;
+            let parsed = Parsed::from_value(current)?;
+            let evaluated = parsed.evaluate(data)?;
 
-                if truthy_from_evaluated(&evaluated) {
-                    return Ok(OrResult::Truthy(evaluated.into()));
-                }
+            if truthy_from_evaluated(&evaluated) {
+                return Ok(OrResult::Truthy(evaluated.into()));
+            }
 
-                Ok(OrResult::Current(evaluated.into()))
-            })?;
+            Ok(OrResult::Current(evaluated.into()))
+        })?;
 
     match eval {
         OrResult::Truthy(v) => Ok(v),
@@ -111,7 +110,7 @@ pub fn or(data: &Value, args: &Vec<&Value>) -> Result<Value, Error> {
 }
 
 /// Perform short-circuiting and evaluation
-pub fn and(data: &Value, args: &Vec<&Value>) -> Result<Value, Error> {
+pub fn and(data: &Value, args: &[&Value]) -> Result<Value, Error> {
     enum AndResult {
         Uninitialized,
         Falsey(Value),
@@ -119,9 +118,9 @@ pub fn and(data: &Value, args: &Vec<&Value>) -> Result<Value, Error> {
     }
 
     let eval =
-        args.into_iter()
-            .fold(Ok(AndResult::Uninitialized), |last_res, current| {
-                let last_eval = last_res?;
+        args.iter()
+            .try_fold(AndResult::Uninitialized, |last_res, current| {
+                let last_eval = last_res;
 
                 if let AndResult::Falsey(_) = last_eval {
                     return Ok(last_eval);
@@ -167,24 +166,9 @@ pub fn truthy(val: &Value) -> bool {
     match val {
         Value::Null => false,
         Value::Bool(v) => *v,
-        Value::Number(v) => v
-            .as_f64()
-            .map(|v_num| if v_num == 0.0 { false } else { true })
-            .unwrap_or(false),
-        Value::String(v) => {
-            if v == "" {
-                false
-            } else {
-                true
-            }
-        }
-        Value::Array(v) => {
-            if v.len() == 0 {
-                false
-            } else {
-                true
-            }
-        }
+        Value::Number(v) => v.as_f64().map(|v_num| v_num != 0.0).unwrap_or(false),
+        Value::String(v) => !v.is_empty(),
+        Value::Array(v) => !v.is_empty(),
         Value::Object(_) => true,
     }
 }
@@ -209,7 +193,7 @@ mod test_truthy {
 
         let falses = [json!(false), json!([]), json!(""), json!(0), json!(null)];
 
-        trues.iter().for_each(|v| assert!(truthy(&v)));
-        falses.iter().for_each(|v| assert!(!truthy(&v)));
+        trues.iter().for_each(|v| assert!(truthy(v)));
+        falses.iter().for_each(|v| assert!(!truthy(v)));
     }
 }
