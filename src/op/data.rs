@@ -227,6 +227,20 @@ fn get_key(data: &Value, key: KeyType) -> Option<Value> {
     }
 }
 
+fn split_path(path: &str) -> impl Iterator<Item = String> + '_ {
+    let mut index = 0;
+    return path
+        .split(move |c: char| {
+            if c == '.' && path.chars().nth(index - 1).unwrap() != '\\' {
+                index += 1;
+                return true;
+            }
+            index += 1;
+            return false;
+        })
+        .map(|part| part.replace("\\.", "."));
+}
+
 fn get_str_key<K: AsRef<str>>(data: &Value, key: K) -> Option<Value> {
     let k = key.as_ref();
     if k == "" {
@@ -235,9 +249,9 @@ fn get_str_key<K: AsRef<str>>(data: &Value, key: K) -> Option<Value> {
     match data {
         Value::Object(_) | Value::Array(_) | Value::String(_) => {
             // Exterior ref in case we need to make a new value in the match.
-            k.split(".").fold(Some(data.clone()), |acc, i| match acc? {
+            split_path(k).fold(Some(data.clone()), |acc, i| match acc? {
                 // If the current value is an object, try to get the value
-                Value::Object(map) => map.get(i).map(Value::clone),
+                Value::Object(map) => map.get(&i).map(Value::clone),
                 // If the current value is an array, we need an integer
                 // index. If integer conversion fails, return None.
                 Value::Array(arr) => i
