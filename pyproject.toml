@@ -3,4 +3,4 @@ requires = ["setuptools", "wheel", "setuptools-rust>=1.2.0"]
 
 [tool.black]
 line-length = 80
-target-version = ['py37']
+target-version = ['py38']
