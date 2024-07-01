@@ -13,7 +13,7 @@ jobs:
     strategy:
       matrix:
         os: [ubuntu-latest, macos-latest]
-        python-version: ["3.7", "3.8", "3.9", "3.10", "3.11", "3.12"]
+        python-version: ["3.8", "3.9", "3.10", "3.11", "3.12"]
     runs-on: "${{ matrix.os }}"
     steps:
       # Check out the code
@@ -212,7 +212,6 @@ jobs:
           - { os: ubuntu-latest, name: musllinux }
           - { os: macos-latest, name: macosx }
         py:
-          - cp37
           - cp38
           - cp39
           - cp310
