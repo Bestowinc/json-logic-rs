@@ -32,7 +32,7 @@ jobs:
         id: get-py-path
         shell: bash
         run: |
-          echo "::set-output name=path::$(which python)"
+          echo "path=$(which python)" >> $GITHUB_OUTPUT
 
       # Set the current month and year (used for cache key)
       - name: "Get Date"
@@ -41,7 +41,7 @@ jobs:
         # tbh I have yet to find the docs where this output format is
         # defined, but I copied this from the official cache action's README.
         run: |
-          echo "::set-output name=date::$(/bin/date -u '+%Y%m')"
+          echo "date=$(/bin/date -u '+%Y%m')" >> $GITHUB_OUTPUT
         shell: bash
 
       # Generate the lockfile
@@ -122,7 +122,7 @@ jobs:
         id: get-py-path
         shell: bash
         run: |
-          echo "::set-output name=path::$(which python)"
+          echo "path=$(which python)" >> $GITHUB_OUTPUT
 
       # Set the current month and year (used for cache key)
       - name: "Get Date"
@@ -131,7 +131,7 @@ jobs:
         # tbh I have yet to find the docs where this output format is
         # defined, but I copied this from the official cache action's README.
         run: |
-          echo "::set-output name=date::$(/bin/date -u '+%Y%m')"
+          echo "date=$(/bin/date -u '+%Y%m')" >> $GITHUB_OUTPUT
         shell: bash
 
       # Generate the lockfile
@@ -274,7 +274,7 @@ jobs:
         id: get-version
         shell: bash
         run: |
-          echo "::set-output name=version::$(cargo pkgid | tr '#' '\n' | tail -n 1 | tr ':' ' ' | awk '{print $2}')"
+          echo "version=$(cargo pkgid | tr '#' '\n' | tail -n 1 | tr ':' ' ' | awk '{print $2}')" >> $GITHUB_OUTPUT
 
       - name: "(DEBUG) log current version"
         shell: bash
@@ -285,13 +285,13 @@ jobs:
         id: cargo-version
         shell: bash
         run: |
-          echo "::set-output name=new::$(./scripts/newCargoVersion.sh)"
+          echo "new=$(./scripts/newCargoVersion.sh)" >> $GITHUB_OUTPUT
 
       - name: "Check if new NPM version"
         id: npm-version
         shell: bash
         run: |
-          echo "::set-output name=new::$(./scripts/newNpmVersion.sh)"
+          echo "new=$(./scripts/newNpmVersion.sh)" >> $GITHUB_OUTPUT
 
       # Note we don't check for a new python version b/c there are so
       # many python artifacts that it is impractical. Instead we just
