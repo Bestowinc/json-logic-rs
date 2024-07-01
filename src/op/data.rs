@@ -227,18 +227,30 @@ fn get_key(data: &Value, key: KeyType) -> Option<Value> {
     }
 }
 
-fn split_path(path: &str) -> impl Iterator<Item = String> + '_ {
-    let mut index = 0;
-    return path
-        .split(move |c: char| {
-            if c == '.' && path.chars().nth(index - 1).unwrap() != '\\' {
-                index += 1;
-                return true;
-            }
-            index += 1;
-            return false;
-        })
-        .map(|part| part.replace("\\.", "."));
+pub fn split_with_escape(input: &str, delimiter: char) -> Vec<String> {
+    let mut result = Vec::new();
+    let mut slice = String::new();
+    let mut escape = false;
+
+    for c in input.chars() {
+        if escape {
+            slice.push(c);
+            escape = false;
+        } else if c == '\\' {
+            escape = true;
+        } else if c == delimiter {
+            result.push(slice.clone());
+            slice.clear();
+        } else {
+            slice.push(c);
+        }
+    }
+
+    if !slice.is_empty() {
+        result.push(slice);
+    }
+
+    result
 }
 
 fn get_str_key<K: AsRef<str>>(data: &Value, key: K) -> Option<Value> {
@@ -249,30 +261,63 @@ fn get_str_key<K: AsRef<str>>(data: &Value, key: K) -> Option<Value> {
     match data {
         Value::Object(_) | Value::Array(_) | Value::String(_) => {
             // Exterior ref in case we need to make a new value in the match.
-            split_path(k).fold(Some(data.clone()), |acc, i| match acc? {
-                // If the current value is an object, try to get the value
-                Value::Object(map) => map.get(&i).map(Value::clone),
-                // If the current value is an array, we need an integer
-                // index. If integer conversion fails, return None.
-                Value::Array(arr) => i
-                    .parse::<i64>()
-                    .ok()
-                    .and_then(|i| get(&arr, i))
-                    .map(Value::clone),
-                // Same deal if it's a string.
-                Value::String(s) => {
-                    let s_chars: Vec<char> = s.chars().collect();
-                    i.parse::<i64>()
+            split_with_escape(k, '.')
+                .into_iter()
+                .fold(Some(data.clone()), |acc, i| match acc? {
+                    // If the current value is an object, try to get the value
+                    Value::Object(map) => map.get(&i).map(Value::clone),
+                    // If the current value is an array, we need an integer
+                    // index. If integer conversion fails, return None.
+                    Value::Array(arr) => i
+                        .parse::<i64>()
                         .ok()
-                        .and_then(|i| get(&s_chars, i))
-                        .map(|c| c.to_string())
-                        .map(Value::String)
-                }
-                // This handles cases where we've got an un-indexable
-                // type or similar.
-                _ => None,
-            })
+                        .and_then(|i| get(&arr, i))
+                        .map(Value::clone),
+                    // Same deal if it's a string.
+                    Value::String(s) => {
+                        let s_chars: Vec<char> = s.chars().collect();
+                        i.parse::<i64>()
+                            .ok()
+                            .and_then(|i| get(&s_chars, i))
+                            .map(|c| c.to_string())
+                            .map(Value::String)
+                    }
+                    // This handles cases where we've got an un-indexable
+                    // type or similar.
+                    _ => None,
+                })
         }
         _ => None,
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    // All the tests cases have been discussed here: https://github.com/Bestowinc/json-logic-rs/pull/37
+    fn cases() -> Vec<(&'static str, Vec<&'static str>)> {
+        vec![
+            ("", vec![]),
+            ("foo", vec!["foo"]),
+            ("foo.bar", vec!["foo", "bar"]),
+            (r#"foo\.bar"#, vec!["foo.bar"]),
+            (r#"foo\.bar.biz"#, vec!["foo.bar", "biz"]),
+            (r#"foo\\.bar"#, vec!["foo\\", "bar"]),
+            (r#"foo\\.bar\.biz"#, vec!["foo\\", "bar.biz"]),
+            (r#"foo\\\.bar"#, vec!["foo\\.bar"]),
+            (r#"foo\\\.bar.biz"#, vec!["foo\\.bar", "biz"]),
+            (r#"foo\\bar"#, vec!["foo\\bar"]),
+            (r#"foo\\bar.biz"#, vec!["foo\\bar", "biz"]),
+            (r#"foo\\bar\.biz"#, vec!["foo\\bar.biz"]),
+            (r#"foo\\bar\\.biz"#, vec!["foo\\bar\\", "biz"]),
+        ]
+    }
+
+    #[test]
+    fn test_split_with_escape() {
+        cases()
+            .into_iter()
+            .for_each(|(input, exp)| assert_eq!(split_with_escape(&input, '.'), exp));
     }
 }
