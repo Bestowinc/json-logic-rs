@@ -13,7 +13,7 @@ jobs:
     strategy:
       matrix:
         os: [ubuntu-latest, macos-latest]
-        python-version: ["3.8", "3.9", "3.10", "3.11", "3.12"]
+        python-version: ["3.9", "3.10", "3.11", "3.12", "3.13"]
     runs-on: "${{ matrix.os }}"
     steps:
       # Check out the code
@@ -212,11 +212,11 @@ jobs:
           - { os: ubuntu-latest, name: musllinux }
           - { os: macos-latest, name: macosx }
         py:
-          - cp38
           - cp39
           - cp310
           - cp311
           - cp312
+          - cp313
 
     steps:
       - uses: actions/checkout@v4
@@ -228,7 +228,7 @@ jobs:
           platforms: all
 
       - name: Build wheels
-        uses: pypa/cibuildwheel@v2.17.0
+        uses: pypa/cibuildwheel@v2.22.0
         env:
           # configure cibuildwheel to build native archs ('auto'), and some
           # emulated ones
