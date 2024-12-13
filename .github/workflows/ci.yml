@@ -249,7 +249,7 @@ jobs:
 
       - uses: actions/upload-artifact@v4
         with:
-          name: py-wheels
+          name: py-wheels-${{ matrix.runs-on }}
           path: ./wheelhouse/*.whl
 
   distribute:
@@ -366,8 +366,9 @@ jobs:
     steps:
       - uses: actions/download-artifact@v4
         with:
-          name: py-wheels
           path: dist
+          pattern: py-wheels-*
+          merge-multiple: true
 
       - uses: pypa/gh-action-pypi-publish@release/v1
         with:
