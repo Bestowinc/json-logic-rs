@@ -171,7 +171,7 @@ jobs:
       - name: "Check Rust target content"
         run: ls target/release
 
-      - uses: "actions/upload-artifact@v3"
+      - uses: actions/upload-artifact@v4
         name: "Upload Rust/C Libraries"
         with:
           path: target/release/libjsonlogic_rs.*
@@ -183,7 +183,7 @@ jobs:
           WINDOWS: "${{ contains(runner.os, 'windows') }}"
           PYTHON: ${{ steps.get-py-path.outputs.path }}
 
-      - uses: "actions/upload-artifact@v3"
+      - uses: actions/upload-artifact@v4
         name: "Upload Python sdist"
         with:
           path: dist/*.tar.gz
@@ -192,7 +192,7 @@ jobs:
       - name: "Build WASM Node Package"
         run: "make build-wasm"
 
-      - uses: "actions/upload-artifact@v3"
+      - uses: actions/upload-artifact@v4
         name: "Upload node package"
         with:
           path: js/
@@ -247,7 +247,7 @@ jobs:
           CIBW_BUILD: ${{ matrix.py }}-${{ matrix.platform.name }}_*
           CIBW_TEST_COMMAND: python {project}/tests/test_py.py
 
-      - uses: actions/upload-artifact@v3
+      - uses: actions/upload-artifact@v4
         with:
           name: py-wheels
           path: ./wheelhouse/*.whl
@@ -310,7 +310,7 @@ jobs:
         run: |
           echo "${{ steps.cargo-version.outputs.new }}" > tmp-new-cargo-ver
 
-      - uses: "actions/upload-artifact@v3"
+      - uses: actions/upload-artifact@v4
         with:
           path: "tmp-new-cargo-ver"
           name: "new-cargo"
@@ -323,7 +323,7 @@ jobs:
           CARGO_TOKEN: "${{ secrets.CARGO_TOKEN }}"
 
       - name: "Pull WASM Artifact"
-        uses: "actions/download-artifact@v1"
+        uses: actions/download-artifact@v4
         if: "${{ steps.npm-version.outputs.new == 'true' }}"
         with:
           name: wasm-pkg
@@ -340,7 +340,7 @@ jobs:
 
       - name: "Pull Python Sdist Artifact"
         if: "${{ steps.cargo-version.outputs.new == 'true' }}"
-        uses: "actions/download-artifact@v1"
+        uses: actions/download-artifact@v4
         with:
           name: py-sdist
           path: dist-py
@@ -364,7 +364,7 @@ jobs:
     # alternatively, to publish when a GitHub Release is created, use the following rule:
     if: github.event_name == 'release' && github.event.action == 'published'
     steps:
-      - uses: actions/download-artifact@v3
+      - uses: actions/download-artifact@v4
         with:
           name: py-wheels
           path: dist
